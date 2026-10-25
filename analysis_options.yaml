@@ -1,1 +1,8 @@
 include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  # O servidor e o pacote compartilhado têm dependências e análise próprias (ver CI).
+  exclude:
+    - server/**
+    - packages/**
+    - build/**
