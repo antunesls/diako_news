@@ -97,8 +97,8 @@ class _RecadoListState extends State<RecadoList> {
                   padding: const EdgeInsets.only(bottom: 88),
                   buildDefaultDragHandles: false,
                   itemCount: visiveis.length,
-                  onReorder: (de, para) {
-                    if (para > de) para--;
+                  // onReorderItem já entrega o índice final ajustado.
+                  onReorderItem: (de, para) {
                     final lista = [...visiveis];
                     lista.insert(para, lista.removeAt(de));
                     executar(context, () => repo.reordenar(lista));

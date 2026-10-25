@@ -369,7 +369,7 @@ class _MotivoFormState extends State<_MotivoForm> {
       ..motivo = _motivo.text.trim()
       ..tipo = _tipo
       ..publico = _publico
-      ..testemunho = _atendido ? _testemunho.text.trim() : m.testemunho;
+      ..testemunho = _atendido ? _testemunho.text.trim() : (original?.testemunho ?? '');
     setState(() => _salvando = true);
     final ok = await executar(context, () => original == null ? repo.criar(m) : repo.atualizar(m));
     if (!mounted) return;
