@@ -442,7 +442,8 @@ async function carregarStatus() {
     linha('Holyrics', estado.holyricsConectado ? 'Conectado' : 'Sem conexão', estado.holyricsConectado),
     linha('Cartazes no Holyrics', estado.cartazesNoHolyrics ? 'Sim' : 'Não configurado', estado.cartazesNoHolyrics),
     linha('Backup', estado.backupConfigurado ? (estado.ultimoBackup ? 'Último: ' + dataCurta(estado.ultimoBackup) : 'Ainda não feito') : 'Desativado', estado.backupConfigurado),
-    linha('Pedidos aguardando', String(estado.aguardandoAprovacao)));
+    linha('Pedidos aguardando', String(estado.aguardandoAprovacao)),
+    linha('Versão do servidor', estado.versao));
   $('link-oracao').textContent = estado.urlOracao;
   $('link-oracao').href = estado.urlOracao;
   const urlMural = estado.urlOracao.replace(/\/oracao$/, '/mural');

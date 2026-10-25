@@ -17,6 +17,7 @@ android/app/profile/
 android/app/release/
 *.jks
 *.keystore
+*.base64.txt
 key.properties
 
 # Sistema

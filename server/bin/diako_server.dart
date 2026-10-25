@@ -12,6 +12,9 @@ import 'package:diako_server/store.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf_io.dart' as io;
 
+/// Versão definida na compilação (dart compile exe -DVERSAO=1.2.0).
+const versao = String.fromEnvironment('VERSAO', defaultValue: 'dev');
+
 /// Uso: diako_server [caminho/do/config.json]
 /// Sem argumento, procura config.json ao lado do executável (ou na pasta atual com `dart run`).
 Future<void> main(List<String> args) async {
@@ -59,11 +62,12 @@ Future<void> main(List<String> args) async {
     urlOracao: urlOracao,
     cartazesNoHolyrics: config.pastaImagensHolyrics.isNotEmpty,
     historico: Historico(config.pastaDados),
+    versao: versao,
   );
 
   final http = await io.serve(servidor.handler, InternetAddress.anyIPv4, config.porta);
   stdout.writeln('''
-Diako News rodando.
+Diako News $versao rodando.
   Painel:              $base/painel
   Pedidos de oração:   $urlOracao
   Mural (TV):          $base/mural

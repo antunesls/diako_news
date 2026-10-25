@@ -32,12 +32,14 @@ class Servidor {
     required this.urlOracao,
     required this.cartazesNoHolyrics,
     required this.historico,
+    this.versao = 'dev',
     DateTime Function()? relogio,
     LimiteTaxa? limitePedidos,
   })  : _agora = relogio ?? DateTime.now,
         _limitePedidos = limitePedidos ?? LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
 
   final Historico historico;
+  final String versao;
   final Store store;
   final Auth auth;
   final HolyricsProxy holyrics;
@@ -136,6 +138,7 @@ class Servidor {
   Future<Response> _estado(Request _) async {
     final ultimo = await backup.ultimo();
     return _json({
+      'versao': versao,
       'versoes': store.versoes,
       'holyricsConectado': await holyrics.conectado(),
       'urlOracao': urlOracao,

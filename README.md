@@ -51,6 +51,23 @@ Para instalar sem cabo, envie o `app-release.apk` para o tablet (WhatsApp, Drive
 Abra **Configurações** (engrenagem), digite o endereço do servidor e a senha e toque em **Entrar**.
 Se aparecer `<b>` no telão em volta do título, desligue **Título em negrito**.
 
+## Publicar uma versão (GitHub Releases)
+O GitHub Actions faz tudo. A cada push roda o workflow **CI** (testes do servidor e do app, mais um APK de teste). Ao enviar uma tag, roda o workflow **Release**:
+```
+git tag v1.0.0
+git push origin v1.0.0
+```
+Em alguns minutos aparece em **Releases** uma versão com:
+- `DiakoServer-1.0.0.zip`: o servidor para o PC do Holyrics (instalar com `instalar.ps1`).
+- `DiakoNews-1.0.0.apk`: o app para baixar e instalar no tablet.
+
+**Assinatura do APK (fazer uma vez):** para que cada versão nova instale por cima da anterior, o APK precisa ser assinado sempre com a mesma chave.
+1. Rode `powershell -ExecutionPolicy Bypass -File .\tool\gerar_keystore.ps1` (precisa do Android Studio ou de um JDK).
+2. Cadastre os 4 secrets que ele mostra em **Settings > Secrets and variables > Actions**.
+3. Guarde o arquivo `.jks` e a senha em lugar seguro. Se perder, o app terá de ser desinstalado e instalado de novo.
+
+Sem os secrets, a release sai assinada com uma chave temporária. Funciona, mas cada atualização exige desinstalar o app antes.
+
 ## Estrutura do app
 ```
 lib/
