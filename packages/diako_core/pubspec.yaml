@@ -1,0 +1,10 @@
+name: diako_core
+description: Modelos e regras compartilhados entre o app Diako News e o servidor.
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ^3.5.0
+
+dev_dependencies:
+  test: ^1.25.0

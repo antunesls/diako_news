@@ -1,0 +1,39 @@
+name: diako_news
+description: Controle de recados e avisos da igreja projetados pelo Holyrics.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  diako_core:
+    path: packages/diako_core
+  http: ^1.2.2
+  image_picker: ^1.1.2
+  path_provider: ^2.1.4
+  shared_preferences: ^2.3.2
+  web_socket_channel: ^3.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo/
+
+# Gerar o ícone do app: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/logo/icone.png
+  adaptive_icon_background: "#121318"
+  adaptive_icon_foreground: assets/logo/icone_frente.png

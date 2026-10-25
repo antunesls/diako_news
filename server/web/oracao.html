@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pedido de oração — Igreja Diakonia Tulipas</title>
+<link rel="stylesheet" href="/estilo.css">
+<style>
+  main { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { text-align: center; margin-bottom: 20px; }
+  header img { width: min(320px, 85%); height: auto; }
+  h1 { font-size: 24px; text-align: center; }
+  .intro { text-align: center; color: var(--suave); margin: 0 0 24px; }
+  .contador { float: right; }
+  #enviar { width: 100%; min-height: 52px; font-size: 17px; }
+  #obrigado { text-align: center; }
+  #obrigado h2 { font-size: 22px; }
+</style>
+</head>
+<body>
+<main>
+  <header><img src="/logo.png" alt="Igreja Diakonia Tulipas"></header>
+
+  <section id="formulario">
+    <h1>Pedido de oração</h1>
+    <p class="intro">Conte para nós como podemos orar por você. O pastor recebe todos os pedidos.</p>
+
+    <form id="form" class="cartao" novalidate>
+      <div class="campo">
+        <label for="motivo">Motivo de oração</label>
+        <textarea id="motivo" name="motivo" maxlength="500" required placeholder="Ex: cirurgia na quinta-feira, emprego, família…"></textarea>
+        <span class="dica contador" id="contador">0/500</span>
+      </div>
+
+      <div class="campo">
+        <label for="para">Por quem orar <span class="dica">(opcional)</span></label>
+        <input type="text" id="para" name="para" maxlength="100" placeholder="Ex: minha mãe, Família Souza">
+      </div>
+
+      <fieldset class="campo" style="border:0;padding:0;margin:0 0 18px">
+        <legend style="font-weight:500;margin-bottom:8px">Assunto</legend>
+        <div class="chips">
+          <label><input type="radio" name="tipo" value="saude">Saúde</label>
+          <label><input type="radio" name="tipo" value="familia">Família</label>
+          <label><input type="radio" name="tipo" value="trabalho">Trabalho</label>
+          <label><input type="radio" name="tipo" value="gratidao">Gratidão</label>
+          <label><input type="radio" name="tipo" value="outro" checked>Outro</label>
+        </div>
+      </fieldset>
+
+      <div class="campo">
+        <label for="enviadoPor">Seu nome <span class="dica">(opcional, só o pastor vê)</span></label>
+        <input type="text" id="enviadoPor" name="enviadoPor" maxlength="80" autocomplete="name">
+      </div>
+
+      <div class="campo">
+        <label class="marcar">
+          <input type="checkbox" id="publico" name="publico">
+          <span>Pode ser lido no telão durante o culto<br><span class="dica">Se não marcar, o pedido fica só com o pastor.</span></span>
+        </label>
+      </div>
+
+      <!-- Campo armadilha contra robôs: pessoas não veem nem preenchem. -->
+      <div class="escondido" aria-hidden="true">
+        <label for="website">Não preencha</label>
+        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <p id="erro" class="erro" role="alert" hidden></p>
+      <button type="submit" class="botao" id="enviar">Enviar pedido</button>
+    </form>
+  </section>
+
+  <section id="obrigado" class="cartao" hidden>
+    <h2>Recebemos seu pedido 🙏</h2>
+    <p>Estaremos orando por você.</p>
+    <button type="button" class="botao secundario" id="outro">Enviar outro pedido</button>
+  </section>
+</main>
+<script>
+  const form = document.getElementById('form');
+  const motivo = document.getElementById('motivo');
+  const contador = document.getElementById('contador');
+  const erro = document.getElementById('erro');
+  const enviar = document.getElementById('enviar');
+
+  motivo.addEventListener('input', () => { contador.textContent = motivo.value.length + '/500'; });
+
+  function mostrarErro(msg) {
+    erro.textContent = msg;
+    erro.hidden = !msg;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    mostrarErro('');
+    if (!motivo.value.trim()) {
+      mostrarErro('Escreva o motivo de oração.');
+      motivo.focus();
+      return;
+    }
+    const dados = {
+      motivo: motivo.value,
+      para: form.para.value,
+      tipo: form.tipo.value,
+      enviadoPor: form.enviadoPor.value,
+      publico: form.publico.checked,
+      website: form.website.value,
+    };
+    enviar.disabled = true;
+    enviar.textContent = 'Enviando…';
+    try {
+      const r = await fetch('/api/public/pedidos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dados),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.erro || 'Não foi possível enviar. Tente novamente.');
+      }
+      form.reset();
+      contador.textContent = '0/500';
+      document.getElementById('formulario').hidden = true;
+      document.getElementById('obrigado').hidden = false;
+    } catch (err) {
+      mostrarErro(err.message === 'Failed to fetch' ? 'Sem conexão com o servidor da igreja. Verifique se está no Wi-Fi da igreja.' : err.message);
+    } finally {
+      enviar.disabled = false;
+      enviar.textContent = 'Enviar pedido';
+    }
+  });
+
+  document.getElementById('outro').addEventListener('click', () => {
+    document.getElementById('obrigado').hidden = true;
+    document.getElementById('formulario').hidden = false;
+    motivo.focus();
+  });
+</script>
+</body>
+</html>

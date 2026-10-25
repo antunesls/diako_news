@@ -1,0 +1,23 @@
+name: diako_server
+description: Servidor do Diako News que roda no PC do Holyrics.
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  archive: ^4.5.2
+  diako_core:
+    path: ../packages/diako_core
+  http: ^1.6.0
+  image: ^4.12.0
+  path: ^1.9.1
+  qr: ^4.0.0
+  shelf: ^1.4.3
+  shelf_router: ^1.1.5
+  shelf_static: ^1.2.0
+  shelf_web_socket: ^3.0.0
+  web_socket_channel: ^3.0.3
+dev_dependencies:
+  test: ^1.33.0

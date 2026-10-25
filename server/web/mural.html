@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mural — Igreja Diakonia Tulipas</title>
+<style>
+  :root { --fundo: #0b1026; --texto: #ffffff; --suave: rgba(255,255,255,.72); --cor: #5c6bc0; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--texto); overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; cursor: none; }
+  body.mouse { cursor: default; }
+  header { position: fixed; inset: 0 0 auto 0; height: 11vh; display: flex; align-items: center; justify-content: space-between; padding: 0 4vw; z-index: 2; }
+  header img { height: 6.5vh; width: auto; }
+  #relogio { font-size: 4.2vh; font-weight: 300; color: var(--suave); font-variant-numeric: tabular-nums; }
+  main { position: fixed; inset: 11vh 0 7vh 0; }
+  .slide { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 2vh 8vw; text-align: center; opacity: 0; transition: opacity .9s ease; }
+  .slide.ativo { opacity: 1; }
+  .faixa { width: 12vw; height: .8vh; border-radius: .4vh; background: var(--cor); margin-bottom: 4vh; }
+  h1 { margin: 0 0 3.5vh; font-size: 8vh; line-height: 1.1; font-weight: 700; max-width: 85vw; }
+  .texto { font-size: 5vh; line-height: 1.35; color: var(--suave); white-space: pre-line; max-width: 80vw; }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2.4vh; max-width: 80vw; }
+  li { font-size: 4.4vh; line-height: 1.3; white-space: pre-line; }
+  li .sub { display: block; font-size: 3.4vh; color: var(--suave); font-style: italic; }
+  .slide.imagem { padding: 0 4vw 2vh; }
+  .slide.imagem img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 1vh; box-shadow: 0 2vh 6vh rgba(0,0,0,.5); }
+  .slide.qr img { height: 46vh; width: 46vh; object-fit: cover; object-position: center; border-radius: 1.5vh; background: #fff; }
+  .slide.qr .texto { margin-top: 3vh; }
+  footer { position: fixed; inset: auto 0 0 0; height: 7vh; display: flex; align-items: center; justify-content: center; gap: 1vh; }
+  .ponto { width: 1.1vh; height: 1.1vh; border-radius: 50%; background: rgba(255,255,255,.25); transition: background .4s; }
+  .ponto.ativo { background: #fff; }
+  #vazio { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 4vh; color: var(--suave); }
+  #aviso { position: fixed; right: 2vw; bottom: 1.5vh; font-size: 1.8vh; color: var(--suave); }
+</style>
+</head>
+<body>
+<header>
+  <img src="/logo-claro.png" alt="Igreja Diakonia Tulipas">
+  <div id="relogio" aria-live="off"></div>
+</header>
+<main id="palco" aria-live="polite"></main>
+<footer id="pontos"></footer>
+<div id="vazio" hidden>Nenhum aviso no momento.</div>
+<div id="aviso" hidden>Sem conexão com o servidor — mostrando a última versão</div>
+<script>
+  'use strict';
+  // Parâmetros opcionais na URL: ?segundos=12
+  const params = new URLSearchParams(location.search);
+  const SEGUNDOS = Math.max(4, Number(params.get('segundos')) || 12);
+  const palco = document.getElementById('palco');
+  const pontos = document.getElementById('pontos');
+  let slides = [];
+  let assinatura = '';
+  let atual = -1;
+  let timer;
+
+  function el(tag, props = {}, ...filhos) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === 'class') e.className = v; else if (k === 'style') e.style.cssText = v; else e.setAttribute(k, v);
+    }
+    for (const f of filhos.flat()) if (f !== null && f !== undefined) e.append(f);
+    return e;
+  }
+
+  function criarSlide(s) {
+    const cor = s.cor ? `--cor:${s.cor}` : '';
+    switch (s.tipo) {
+      case 'imagem':
+        return el('section', { class: 'slide imagem' }, el('img', { src: s.imagem, alt: s.titulo }));
+      case 'qr':
+        return el('section', { class: 'slide qr' },
+          el('h1', {}, s.titulo),
+          el('img', { src: s.imagem, alt: 'QR code para pedidos de oração' }),
+          el('div', { class: 'texto' }, s.texto || ''));
+      case 'lista':
+        return el('section', { class: 'slide', style: cor },
+          el('div', { class: 'faixa' }),
+          el('h1', {}, s.titulo),
+          el('ul', {}, (s.itens || []).map((i) => {
+            const [linha, ...resto] = i.split('\n');
+            return el('li', {}, linha, resto.length ? el('span', { class: 'sub' }, resto.join(' ')) : null);
+          })));
+      default:
+        return el('section', { class: 'slide', style: cor },
+          el('div', { class: 'faixa' }),
+          el('h1', {}, s.titulo),
+          s.texto ? el('div', { class: 'texto' }, s.texto) : null);
+    }
+  }
+
+  function montar() {
+    palco.replaceChildren(...slides.map(criarSlide));
+    pontos.replaceChildren(...slides.map(() => el('span', { class: 'ponto' })));
+    document.getElementById('vazio').hidden = slides.length > 0;
+    atual = -1;
+    proximo();
+  }
+
+  function proximo() {
+    clearTimeout(timer);
+    if (!slides.length) return;
+    atual = (atual + 1) % slides.length;
+    [...palco.children].forEach((s, i) => s.classList.toggle('ativo', i === atual));
+    [...pontos.children].forEach((p, i) => p.classList.toggle('ativo', i === atual));
+    // Cartazes ficam um pouco mais.
+    const extra = slides[atual].tipo === 'imagem' ? 1.5 : 1;
+    timer = setTimeout(proximo, SEGUNDOS * 1000 * extra);
+  }
+
+  async function carregar() {
+    try {
+      const r = await fetch('/api/public/mural', { cache: 'no-store' });
+      if (!r.ok) throw new Error();
+      const j = await r.json();
+      document.getElementById('aviso').hidden = true;
+      const nova = JSON.stringify(j.slides);
+      // Só remonta quando o conteúdo mudou, para não reiniciar a sequência à toa.
+      if (nova !== assinatura) {
+        assinatura = nova;
+        slides = j.slides;
+        montar();
+      }
+    } catch {
+      document.getElementById('aviso').hidden = false;
+    }
+  }
+
+  function relogio() {
+    const d = new Date();
+    document.getElementById('relogio').textContent =
+      d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) + ' · ' +
+      d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Clique ou tecla: tela cheia. O cursor só aparece quando o mouse se mexe.
+  document.addEventListener('click', () => document.documentElement.requestFullscreen?.().catch(() => {}));
+  document.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') proximo(); });
+  let ocultar;
+  document.addEventListener('mousemove', () => {
+    document.body.classList.add('mouse');
+    clearTimeout(ocultar);
+    ocultar = setTimeout(() => document.body.classList.remove('mouse'), 2500);
+  });
+
+  relogio();
+  setInterval(relogio, 15000);
+  carregar();
+  setInterval(carregar, 60000);
+</script>
+</body>
+</html>

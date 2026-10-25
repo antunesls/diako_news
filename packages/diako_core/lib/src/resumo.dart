@@ -1,0 +1,55 @@
+import 'aniversariantes.dart';
+import 'membro.dart';
+import 'motivo.dart';
+import 'recado.dart';
+
+String _dm(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+/// Texto do resumo da semana no formato do WhatsApp (*negrito*), só com informações públicas.
+String montarResumoSemanal({
+  required List<Recado> recados,
+  required List<Motivo> motivos,
+  required List<Membro> membros,
+  required DateTime agora,
+  String igreja = 'Igreja Diakonia Tulipas',
+  String? urlPedidos,
+}) {
+  final semana = diasDaSemana(agora);
+  final b = StringBuffer('*$igreja — Avisos da semana*\n_${_dm(semana.first)} a ${_dm(semana.last)}_\n');
+
+  void secao(String titulo, List<String> linhas) {
+    if (linhas.isEmpty) return;
+    b
+      ..writeln()
+      ..writeln(titulo);
+    for (final l in linhas) {
+      b.writeln('• $l');
+    }
+  }
+
+  final validos = ordenarParaExibicao(recados.where((r) => !r.auto && !r.expirado(agora)));
+  secao('📢 *Recados*', [
+    for (final r in validos)
+      r.texto.trim().isEmpty
+          ? '*${r.titulo.trim()}*'
+          : '*${r.titulo.trim()}* — ${r.texto.trim().split(RegExp(r'\s*\n\s*')).join(' · ')}',
+  ]);
+
+  secao('🎂 *Aniversariantes da semana*', [
+    for (final a in aniversariantesDaSemana(membros, agora)) '${a.membro.nome} (${_dm(a.data)})',
+  ]);
+
+  secao('🙏 *Motivos de oração*', [for (final m in motivos.where((m) => m.projetavel)) m.linha]);
+
+  secao('🙌 *Orações respondidas*', [
+    for (final m in oracoesRespondidas(motivos, agora, dias: 7))
+      m.testemunho.trim().isEmpty ? m.linha : '${m.linha} — ${m.testemunho.trim()}',
+  ]);
+
+  if (urlPedidos != null && urlPedidos.isNotEmpty) {
+    b
+      ..writeln()
+      ..writeln('Pedidos de oração (no Wi-Fi da igreja): $urlPedidos');
+  }
+  return b.toString().trimRight();
+}

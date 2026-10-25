@@ -1,0 +1,13 @@
+{
+  "porta": 8080,
+  "senhaAdmin": "troque-esta-senha",
+  "holyrics": {
+    "host": "127.0.0.1",
+    "porta": 8091,
+    "token": ""
+  },
+  "pastaImagensHolyrics": "",
+  "pastaBackup": "G:\\Meu Drive\\Igreja\\Backup Diako News",
+  "horaBackup": "03:00",
+  "urlPublica": ""
+}

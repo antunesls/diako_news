@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel — Diako News</title>
+<link rel="stylesheet" href="/estilo.css">
+<style>
+  .topo {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+    padding: 12px 20px; background: var(--superficie); border-bottom: 1px solid #e3e1ea;
+  }
+  .topo img { height: 40px; width: auto; }
+  .topo .espaco { flex: 1; }
+  nav.abas { display: flex; flex-wrap: wrap; gap: 4px; padding: 12px 20px 0; max-width: 1100px; margin: 0 auto; }
+  nav.abas button {
+    min-height: 44px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent;
+    background: none; font-weight: 600; color: var(--suave); cursor: pointer;
+  }
+  nav.abas button[aria-selected=true] { color: var(--primaria); border-bottom-color: var(--primaria); }
+  .badge { display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 4px; border-radius: 11px; background: var(--perigo); color: #fff; font-size: 13px; line-height: 22px; text-align: center; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  .barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .barra .espaco { flex: 1; }
+  .lista { display: flex; flex-direction: column; gap: 8px; }
+  .item { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; background: var(--superficie); border: 1px solid #e3e1ea; border-radius: var(--raio); }
+  .item .faixa { width: 6px; align-self: stretch; border-radius: 3px; }
+  .item .conteudo { flex: 1 1 260px; min-width: 0; }
+  .item .titulo { font-weight: 600; }
+  .item .sub { color: var(--suave); font-size: 14px; white-space: pre-line; }
+  .item .acoes { display: flex; flex-wrap: wrap; gap: 6px; }
+  .etiqueta { display: inline-block; padding: 0 8px; border-radius: 10px; background: #ecebf1; font-size: 12px; font-weight: 600; color: var(--suave); margin-left: 6px; }
+  .vazio { color: var(--suave); text-align: center; padding: 32px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .cartaz { background: var(--superficie); border: 1px solid #e3e1ea; border-radius: var(--raio); overflow: hidden; }
+  .cartaz img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #222; display: block; }
+  .cartaz div { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .cartaz code { font-size: 13px; word-break: break-all; }
+  .duas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .status-linha { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; }
+  .ponto { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 6px; }
+  dialog { border: 0; border-radius: 16px; padding: 24px; width: min(560px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  .dialogo-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  #login { max-width: 380px; margin: 10vh auto 0; padding: 0 16px; text-align: center; }
+  #login img { width: 260px; max-width: 80%; margin-bottom: 24px; }
+  #login form { text-align: left; }
+  .qr { width: 100%; max-width: 320px; border: 1px solid #e3e1ea; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<section id="login" hidden>
+  <img src="/logo.png" alt="Igreja Diakonia Tulipas">
+  <form id="form-login" class="cartao">
+    <h1 style="font-size:20px">Painel Diako News</h1>
+    <div class="campo">
+      <label for="senha">Senha</label>
+      <input type="password" id="senha" autocomplete="current-password" required>
+    </div>
+    <p id="erro-login" class="erro" role="alert" hidden></p>
+    <button class="botao" style="width:100%">Entrar</button>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header class="topo">
+    <img src="/logo.png" alt="Igreja Diakonia Tulipas">
+    <span class="espaco"></span>
+    <span id="conexao" class="dica"></span>
+    <button class="botao secundario pequeno" id="sair">Sair</button>
+  </header>
+  <nav class="abas" role="tablist" aria-label="Seções">
+    <button role="tab" data-aba="motivos" aria-selected="true">Motivos de oração<span id="badge" class="badge" hidden></span></button>
+    <button role="tab" data-aba="recados" aria-selected="false">Recados</button>
+    <button role="tab" data-aba="cartazes" aria-selected="false">Cartazes</button>
+    <button role="tab" data-aba="membros" aria-selected="false">Aniversariantes</button>
+    <button role="tab" data-aba="resumo" aria-selected="false">Resumo da semana</button>
+    <button role="tab" data-aba="historico" aria-selected="false">Histórico</button>
+    <button role="tab" data-aba="status" aria-selected="false">Status</button>
+  </nav>
+  <main>
+    <section data-painel="motivos">
+      <div class="barra">
+        <div class="chips" role="radiogroup" aria-label="Filtro">
+          <label><input type="radio" name="filtro-motivo" value="aguardando" checked>Aguardando aprovação</label>
+          <label><input type="radio" name="filtro-motivo" value="pendente">Na lista de oração</label>
+          <label><input type="radio" name="filtro-motivo" value="atendido">Atendidos</label>
+        </div>
+        <span class="espaco"></span>
+        <button class="botao secundario" id="projetar-respondidas" hidden>Projetar orações respondidas</button>
+        <button class="botao" id="novo-motivo">Novo motivo</button>
+      </div>
+      <p id="resultado-motivos" role="status"></p>
+      <div class="lista" id="lista-motivos"></div>
+    </section>
+
+    <section data-painel="resumo" hidden>
+      <div class="duas">
+        <div class="cartao">
+          <h2 style="font-size:18px">Resumo da semana para o WhatsApp</h2>
+          <p class="dica">Recados válidos, aniversariantes, motivos de oração públicos e orações respondidas nos últimos 7 dias. Pedidos particulares nunca entram. Revise e edite antes de enviar.</p>
+          <div class="campo">
+            <label for="texto-resumo" class="escondido">Texto do resumo</label>
+            <textarea id="texto-resumo" style="min-height:360px;font-family:inherit"></textarea>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button class="botao" id="copiar-resumo">Copiar</button>
+            <a class="botao secundario" id="whatsapp-resumo" href="#" target="_blank" rel="noopener">Abrir no WhatsApp</a>
+            <button class="botao secundario" id="atualizar-resumo">Gerar de novo</button>
+          </div>
+          <p id="resultado-resumo" role="status"></p>
+        </div>
+        <div class="cartao">
+          <h2 style="font-size:18px">Como fica no WhatsApp</h2>
+          <div id="previa-resumo" style="white-space:pre-wrap;background:#e7ffdb;border-radius:12px;padding:14px 16px;line-height:1.45"></div>
+        </div>
+      </div>
+    </section>
+
+    <section data-painel="historico" hidden>
+      <div class="barra">
+        <span class="dica">O que foi projetado pelo tablet e pelo painel (os mais recentes primeiro).</span>
+      </div>
+      <div class="lista" id="lista-historico"></div>
+    </section>
+
+    <section data-painel="recados" hidden>
+      <div class="barra">
+        <span class="dica">Os recados aparecem no tablet na mesma ordem. Fixos ficam sempre no topo.</span>
+        <span class="espaco"></span>
+        <button class="botao" id="novo-recado">Novo recado</button>
+      </div>
+      <div class="lista" id="lista-recados"></div>
+    </section>
+
+    <section data-painel="cartazes" hidden>
+      <div class="barra">
+        <span class="dica">Imagens JPG ou PNG até 10 MB. Ficam disponíveis no Holyrics e no tablet.</span>
+        <span class="espaco"></span>
+        <label class="botao" for="arquivo-cartaz" style="margin:0">Enviar imagens</label>
+        <input type="file" id="arquivo-cartaz" accept="image/jpeg,image/png" multiple class="escondido">
+      </div>
+      <p id="aviso-cartazes" class="dica" hidden></p>
+      <div class="grade" id="lista-cartazes"></div>
+    </section>
+
+    <section data-painel="membros" hidden>
+      <div class="duas">
+        <div>
+          <div class="barra">
+            <h2 style="font-size:18px;margin:0">Membros</h2>
+            <span class="espaco"></span>
+            <button class="botao" id="novo-membro">Novo membro</button>
+          </div>
+          <div class="lista" id="lista-membros"></div>
+        </div>
+        <div class="cartao">
+          <h2 style="font-size:18px">Importar lista</h2>
+          <p class="dica">Uma pessoa por linha: <code>Nome;dd/mm</code>. Dá para colar direto de uma planilha.</p>
+          <div class="campo">
+            <label for="csv" class="escondido">Lista de membros</label>
+            <textarea id="csv" placeholder="Ana Souza;12/03&#10;Bruno Lima;05/11"></textarea>
+          </div>
+          <button class="botao secundario" id="importar">Importar</button>
+          <p id="resultado-importacao" role="status"></p>
+        </div>
+      </div>
+    </section>
+
+    <section data-painel="status" hidden>
+      <div class="duas">
+        <div class="cartao">
+          <h2 style="font-size:18px">Situação</h2>
+          <div id="status-linhas"></div>
+          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="botao secundario" id="backup-agora">Fazer backup agora</button>
+            <button class="botao secundario" id="projetar-qr">Projetar QR no telão</button>
+          </div>
+          <p id="resultado-status" role="status"></p>
+        </div>
+        <div class="cartao" style="text-align:center">
+          <h2 style="font-size:18px">QR code dos pedidos de oração</h2>
+          <img class="qr" src="/qr-oracao.png" alt="QR code para a página de pedidos de oração">
+          <p><a id="link-oracao" href="/oracao" target="_blank"></a></p>
+          <p class="dica">Funciona para quem está no Wi-Fi da igreja.</p>
+        </div>
+        <div class="cartao">
+          <h2 style="font-size:18px">Mural da recepção</h2>
+          <p>Abra este endereço no navegador da TV (ou de um computador ligado a ela) e toque na tela para ficar em tela cheia:</p>
+          <p><a id="link-mural" href="/mural" target="_blank"></a></p>
+          <p class="dica">Mostra recados, cartazes, aniversariantes, motivos de oração públicos, orações respondidas e o QR de pedidos. Atualiza sozinho a cada minuto. Para mudar o tempo de cada tela, acrescente <code>?segundos=15</code> no endereço.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="dlg-motivo">
+  <form method="dialog" id="form-motivo">
+    <h2 style="font-size:20px" id="titulo-motivo">Motivo de oração</h2>
+    <div class="campo"><label for="m-para">Por quem orar <span class="dica">(opcional)</span></label><input type="text" id="m-para" maxlength="100"></div>
+    <div class="campo"><label for="m-motivo">Motivo</label><textarea id="m-motivo" maxlength="500"></textarea></div>
+    <div class="campo"><label for="m-tipo">Assunto</label>
+      <select id="m-tipo"><option value="saude">Saúde</option><option value="familia">Família</option><option value="trabalho">Trabalho</option><option value="gratidao">Gratidão</option><option value="outro">Outro</option></select>
+    </div>
+    <div class="campo"><label class="marcar"><input type="checkbox" id="m-publico"><span>Pode ser lido no telão</span></label></div>
+    <div class="campo" id="campo-testemunho"><label for="m-testemunho">Testemunho <span class="dica">(como a oração foi respondida — aparece nas orações respondidas)</span></label><textarea id="m-testemunho" maxlength="300" style="min-height:70px"></textarea></div>
+    <p class="erro" id="erro-motivo" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-recado">
+  <form method="dialog" id="form-recado">
+    <h2 style="font-size:20px" id="titulo-recado">Recado</h2>
+    <div class="campo"><label for="r-titulo">Título</label><input type="text" id="r-titulo" maxlength="120"></div>
+    <div class="campo"><label for="r-texto">Texto</label><textarea id="r-texto" maxlength="1000"></textarea></div>
+    <div class="campo"><label for="r-categoria">Categoria</label>
+      <select id="r-categoria"><option value="aviso">Aviso</option><option value="evento">Evento</option><option value="aniversario">Aniversário</option></select>
+    </div>
+    <div class="campo"><label for="r-validade">Mostrar até <span class="dica">(opcional)</span></label><input type="date" id="r-validade"></div>
+    <div class="campo"><label for="r-imagem">Cartaz <span class="dica">(opcional — projeta a imagem em vez do texto)</span></label><select id="r-imagem"></select></div>
+    <div class="campo"><label class="marcar"><input type="checkbox" id="r-fixo"><span>Fixo no topo da lista</span></label></div>
+    <p class="erro" id="erro-recado" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-membro">
+  <form method="dialog" id="form-membro">
+    <h2 style="font-size:20px" id="titulo-membro">Membro</h2>
+    <div class="campo"><label for="b-nome">Nome</label><input type="text" id="b-nome" maxlength="100"></div>
+    <div class="duas" style="grid-template-columns:1fr 1fr">
+      <div class="campo"><label for="b-dia">Dia</label><input type="number" id="b-dia" min="1" max="31"></div>
+      <div class="campo"><label for="b-mes">Mês</label><input type="number" id="b-mes" min="1" max="12"></div>
+    </div>
+    <div class="campo"><label class="marcar"><input type="checkbox" id="b-ativo" checked><span>Ativo (entra nos aniversariantes)</span></label></div>
+    <p class="erro" id="erro-membro" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/painel.js"></script>
+</body>
+</html>
