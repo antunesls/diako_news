@@ -14,7 +14,7 @@ jobs:
     name: Servidor (Windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
       - name: Versão
         id: versao
@@ -36,8 +36,8 @@ jobs:
     name: App Android
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -53,7 +53,8 @@ jobs:
       - run: flutter pub get
       - name: Ícone do app
         run: dart run flutter_launcher_icons
-      - run: flutter test
+      - name: Testes
+        run: bash tool/ci/executar.sh "flutter test" flutter test
       - name: Assinatura
         run: bash tool/ci/assinar_android.sh
         env:
@@ -63,7 +64,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       - name: Compilar APK
         run: |
-          flutter build apk --release \
+          bash tool/ci/executar.sh "APK release" flutter build apk --release \
             --build-name ${{ steps.versao.outputs.valor }} \
             --build-number ${{ github.run_number }}
           mv build/app/outputs/flutter-apk/app-release.apk "DiakoNews-${{ steps.versao.outputs.valor }}.apk"
