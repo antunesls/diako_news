@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_scope.dart';
+import 'data/agenda_repo.dart';
+import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
 import 'data/settings.dart';
@@ -31,9 +33,13 @@ Future<void> main() async {
   Future<File> arquivo(String nome) async => File('${(await getApplicationDocumentsDirectory()).path}/$nome');
   final repo = RecadoRepo(api: api, cache: () => arquivo('cache_recados.json'));
   final motivos = MotivoRepo(api: api, cache: () => arquivo('cache_motivos.json'));
+  final agenda = AgendaRepo(api: api, cache: () => arquivo('cache_agenda.json'));
+  final mensagens = MensagemRepo(api: api, cache: () => arquivo('cache_mensagens.json'));
   // Sem await: a tela abre na hora com o cache e atualiza quando o servidor responder.
   unawaited(repo.carregar());
   unawaited(motivos.carregar());
+  unawaited(agenda.carregar());
+  unawaited(mensagens.carregar());
 
   final client = HolyricsClient(api);
   final status = StatusController(client)..iniciar();
@@ -43,10 +49,14 @@ Future<void> main() async {
     aoMudar: (tipo) {
       if (tipo == 'recados' || tipo == 'membros') repo.sincronizar();
       if (tipo == 'motivos') motivos.sincronizar();
+      if (tipo == 'agenda') agenda.sincronizar();
+      if (tipo == 'mensagens') mensagens.sincronizar();
     },
     aoReconectar: () {
       repo.sincronizar();
       motivos.sincronizar();
+      agenda.sincronizar();
+      mensagens.sincronizar();
     },
   );
   if (settings.configurado) tempoReal.iniciar();
@@ -54,6 +64,8 @@ Future<void> main() async {
   runApp(AppScope(
     repo: repo,
     motivos: motivos,
+    agenda: agenda,
+    mensagens: mensagens,
     settings: settings,
     api: api,
     client: client,

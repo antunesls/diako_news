@@ -55,13 +55,48 @@ function mostrarAba(nome) {
 
 const carregar = {
   motivos: carregarMotivos,
+  mensagens: carregarMensagens,
   recados: carregarRecados,
+  agenda: carregarAgenda,
   cartazes: carregarCartazes,
   membros: carregarMembros,
   resumo: carregarResumo,
   historico: carregarHistorico,
   status: carregarStatus,
 };
+
+// ---------- Caixa de mensagens (privada) ----------
+
+let mensagensRecebidas = [];
+const nomesMensagem = { duvida: 'Dúvida', sugestao: 'Sugestão', critica: 'Crítica' };
+async function carregarMensagens() {
+  mensagensRecebidas = await api('GET', '/api/mensagens');
+  const novas = mensagensRecebidas.filter(m => m.status === 'nova').length;
+  $('badge-mensagens').textContent = novas;
+  $('badge-mensagens').hidden = !novas;
+  const filtro = $('filtro-mensagens').value;
+  const lista = filtro === 'todas' ? mensagensRecebidas : mensagensRecebidas.filter(m => m.status === filtro);
+  const cartoes = lista.map(m => el('article', { class: 'item' },
+    el('div', { class: 'conteudo' },
+      el('div', { class: 'titulo' }, nomesMensagem[m.tipo] || m.tipo, ' · ', dataCurta(m.criadoEm)),
+      el('div', { style: 'white-space:pre-wrap;overflow-wrap:anywhere' }, m.texto),
+      el('div', { class: 'sub' }, m.nome ? 'Nome: ' + m.nome : 'Anônima', m.contato ? ' · Contato: ' + m.contato : ''),
+      el('div', { class: 'sub' }, 'Aviso por e-mail: ' + (m.avisoEmail === 'enviado' ? 'enviado' : m.avisoEmail === 'falhou' ? 'falhou' : 'pendente / SMTP não configurado'))),
+    el('div', { class: 'acoes' },
+      m.status !== 'nova' ? botao('Nova', () => mudarMensagem(m, 'nova'), 'pequeno') : null,
+      m.status !== 'emAnalise' ? botao('Em análise', () => mudarMensagem(m, 'emAnalise'), 'pequeno') : null,
+      m.status !== 'resolvida' ? botao('Resolvida', () => mudarMensagem(m, 'resolvida'), 'pequeno') : null,
+      m.avisoEmail !== 'enviado' ? botao('Tentar e-mail', async () => {
+        try { await api('POST', '/api/mensagens/' + m.id + '/avisar'); await carregarMensagens(); }
+        catch (e) { mensagem($('resultado-mensagens'), e.message, false); }
+      }, 'pequeno') : null)));
+  $('lista-mensagens').replaceChildren(...(cartoes.length ? cartoes : [el('p', { class: 'vazio' }, 'Nenhuma mensagem neste filtro.')]));
+}
+async function mudarMensagem(m, status) {
+  try { await api('PUT', '/api/mensagens/' + m.id, { status }); await carregarMensagens(); }
+  catch (e) { mensagem($('resultado-mensagens'), e.message, false); }
+}
+$('filtro-mensagens').addEventListener('change', carregarMensagens);
 
 // ---------- Motivos ----------
 
@@ -252,8 +287,10 @@ async function mover(lista, i, delta) {
   await carregarRecados();
 }
 
+/** [r] com id edita; sem id (modelo, ex: vindo da agenda) ou null cria um novo. */
 function editarRecado(r) {
-  $('titulo-recado').textContent = r ? 'Editar recado' : 'Novo recado';
+  const novo = !r || !r.id;
+  $('titulo-recado').textContent = novo ? 'Novo recado' : 'Editar recado';
   $('r-titulo').value = r ? r.titulo : '';
   $('r-texto').value = r ? r.texto : '';
   $('r-categoria').value = r ? r.categoria : 'aviso';
@@ -272,8 +309,8 @@ function editarRecado(r) {
       imagemHolyrics: $('r-imagem').value || null,
       fixo: $('r-fixo').checked,
     };
-    if (r) await api('PUT', '/api/recados/' + r.id, dados);
-    else await api('POST', '/api/recados', dados);
+    if (novo) await api('POST', '/api/recados', dados);
+    else await api('PUT', '/api/recados/' + r.id, dados);
     await carregarRecados();
   });
 }
@@ -282,6 +319,49 @@ $('novo-recado').addEventListener('click', async () => {
   cartazes = await api('GET', '/api/cartazes');
   editarRecado(null);
 });
+
+// ---------- Agenda (Google, só leitura) ----------
+
+async function carregarAgenda() {
+  const r = await api('GET', '/api/agenda?dias=30');
+  const estado = $('estado-agenda-painel');
+  if (!r.configurada) {
+    estado.replaceChildren('Agenda do Google não configurada. ', el('a', { href: '/admin#agenda' }, 'Configurar em Administração'), '.');
+    $('lista-agenda').replaceChildren();
+    return;
+  }
+  estado.textContent = r.erro
+    ? 'Problema ao atualizar a agenda: ' + r.erro + ' (mostrando a última cópia).'
+    : 'Eventos do Google Agenda nos próximos 30 dias' + (r.atualizado ? ' · atualizada ' + dataCurta(r.atualizado) : '') +
+      '. Para criar ou mudar um evento, use o Google Agenda.';
+  const itens = [];
+  let diaAtual = '';
+  for (const e of r.eventos) {
+    if (e.dia !== diaAtual) {
+      diaAtual = e.dia;
+      itens.push(el('h3', { style: 'font-size:15px;margin:16px 0 4px;color:var(--suave)' }, e.dia));
+    }
+    itens.push(el('div', { class: 'item' },
+      el('div', { class: 'faixa', style: 'background:#5C6BC0' }),
+      el('div', { class: 'conteudo' },
+        el('div', { class: 'titulo' }, e.titulo, el('span', { class: 'etiqueta' }, e.horario)),
+        e.local ? el('div', { class: 'sub' }, e.local) : null,
+        e.descricao ? el('div', { class: 'sub' }, e.descricao) : null),
+      el('div', { class: 'acoes' }, botao('Criar recado', () => criarRecadoDoEvento(e)))));
+  }
+  $('lista-agenda').replaceChildren(...(itens.length ? itens : [el('p', { class: 'vazio' }, 'Nenhum evento nos próximos 30 dias.')]));
+}
+
+async function criarRecadoDoEvento(e) {
+  cartazes = await api('GET', '/api/cartazes');
+  editarRecado({
+    titulo: e.titulo,
+    texto: e.textoRecado,
+    categoria: 'evento',
+    validoAte: e.inicio.slice(0, 10),
+    fixo: false,
+  });
+}
 
 // ---------- Cartazes ----------
 
@@ -381,6 +461,8 @@ async function carregarStatus() {
     linha('Versão do servidor', estado.versao));
   $('link-oracao').textContent = estado.urlOracao;
   $('link-oracao').href = estado.urlOracao;
+  $('link-mensagens').textContent = estado.urlMensagens;
+  $('link-mensagens').href = estado.urlMensagens;
   const urlMural = estado.urlOracao.replace(/\/oracao$/, '/mural') +
     (estado.chaveMural ? '?chave=' + encodeURIComponent(estado.chaveMural) : '');
   $('link-mural').textContent = urlMural;
@@ -402,6 +484,10 @@ $('projetar-qr').addEventListener('click', async () => {
   const r = await api('POST', '/api/holyrics/ShowImage', { file: estado.qrHolyrics });
   mensagem($('resultado-status'), r.status === 'ok' ? 'QR code no telão.' : r.error, r.status === 'ok');
 });
+$('projetar-qr-mensagens').addEventListener('click', async () => {
+  const r = await api('POST', '/api/holyrics/ShowImage', { file: estado.qrMensagensHolyrics });
+  mensagem($('resultado-status'), r.status === 'ok' ? 'QR de mensagens no telão.' : r.error, r.status === 'ok');
+});
 
 // ---------- Tempo real ----------
 
@@ -413,6 +499,7 @@ function conectarTempoReal() {
   ws.onmessage = (e) => {
     const { tipo } = JSON.parse(e.data);
     if (tipo === 'motivos') carregarMotivos();
+    else if (tipo === 'mensagens') carregarMensagens();
     else if (tipo === abaAtual || (tipo === 'membros' && abaAtual === 'recados')) carregar[abaAtual]();
   };
   ws.onclose = () => {
@@ -428,6 +515,7 @@ function iniciar() {
   $('app').hidden = false;
   mostrarAba(abaAtual);
   if (abaAtual !== 'motivos') carregarMotivos();
+  if (abaAtual !== 'mensagens') carregarMensagens();
   conectarTempoReal();
 }
 

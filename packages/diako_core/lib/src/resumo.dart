@@ -1,3 +1,4 @@
+import 'agenda.dart';
 import 'aniversariantes.dart';
 import 'membro.dart';
 import 'motivo.dart';
@@ -13,6 +14,7 @@ String montarResumoSemanal({
   required DateTime agora,
   String igreja = 'Igreja Diakonia Tulipas',
   String? urlPedidos,
+  List<Evento> eventos = const [],
 }) {
   final semana = diasDaSemana(agora);
   final b = StringBuffer('*$igreja — Avisos da semana*\n_${_dm(semana.first)} a ${_dm(semana.last)}_\n');
@@ -26,6 +28,15 @@ String montarResumoSemanal({
       b.writeln('• $l');
     }
   }
+
+  // Agenda: de hoje até o sábado.
+  final hoje = DateTime(agora.year, agora.month, agora.day);
+  final fimSemana = semana.last.add(const Duration(days: 1));
+  secao('📅 *Agenda da semana*', [
+    for (final e in eventos)
+      if (e.fim.isAfter(hoje) && e.inicio.isBefore(fimSemana))
+        '*${e.titulo}* — ${diaCurto(e.inicio)} ${e.diaInteiro ? '(${horario(e).toLowerCase()})' : horario(e)}${e.local.isEmpty ? '' : ' · ${e.local}'}',
+  ]);
 
   final validos = ordenarParaExibicao(recados.where((r) => !r.auto && !r.expirado(agora)));
   secao('📢 *Recados*', [

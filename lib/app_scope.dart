@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'data/agenda_repo.dart';
+import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
 import 'data/settings.dart';
@@ -14,6 +16,8 @@ class AppScope extends InheritedWidget {
     super.key,
     required this.repo,
     required this.motivos,
+    required this.agenda,
+    required this.mensagens,
     required this.settings,
     required this.api,
     required this.client,
@@ -24,6 +28,8 @@ class AppScope extends InheritedWidget {
 
   final RecadoRepo repo;
   final MotivoRepo motivos;
+  final AgendaRepo agenda;
+  final MensagemRepo mensagens;
   final AppSettings settings;
   final ServerApi api;
   final HolyricsClient client;
@@ -33,7 +39,7 @@ class AppScope extends InheritedWidget {
   static AppScope of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppScope>()!;
 
   /// Busca tudo de novo no servidor (após login ou reconexão).
-  Future<void> sincronizarTudo() => Future.wait([repo.sincronizar(), motivos.sincronizar(), status.atualizar()]);
+  Future<void> sincronizarTudo() => Future.wait([repo.sincronizar(), motivos.sincronizar(), agenda.sincronizar(), mensagens.sincronizar(), status.atualizar()]);
 
   @override
   bool updateShouldNotify(AppScope oldWidget) => false;

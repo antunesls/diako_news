@@ -73,6 +73,7 @@ Em `https://…/admin` (mesma senha do painel) você:
 - **troca a senha** gerada na instalação (recomendado no primeiro acesso);
 - configura o nome da igreja, os textos do formulário de pedidos, o endereço público, a chave do mural e os padrões de projeção;
 - vê e copia a **chave do agente**, ou gera uma nova (o agente é desconectado até você atualizar o `agente.json`);
+- liga a **Agenda do Google** colando o "Endereço secreto no formato iCal" (veja o [LEIA-ME do servidor](../server/LEIA-ME.md#agenda-do-google));
 - desconecta todos os aparelhos, se um tablet for perdido.
 
 ## Backup e restauração

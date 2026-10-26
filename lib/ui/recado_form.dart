@@ -7,9 +7,13 @@ import '../data/cores.dart';
 import '../sync/server_api.dart';
 
 class RecadoForm extends StatefulWidget {
-  const RecadoForm({super.key, this.recado});
+  const RecadoForm({super.key, this.recado, this.modelo});
 
+  /// Recado a editar; null cria um novo.
   final Recado? recado;
+
+  /// Valores iniciais de um recado novo (ex: criado a partir de um evento da agenda).
+  final Recado? modelo;
 
   @override
   State<RecadoForm> createState() => _RecadoFormState();
@@ -29,7 +33,7 @@ class _RecadoFormState extends State<RecadoForm> {
   @override
   void initState() {
     super.initState();
-    final r = widget.recado;
+    final r = widget.recado ?? widget.modelo;
     _titulo = TextEditingController(text: r?.titulo);
     _texto = TextEditingController(text: r?.texto);
     _imagem = r?.imagemHolyrics;

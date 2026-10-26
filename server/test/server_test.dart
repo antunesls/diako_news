@@ -379,7 +379,8 @@ void main() {
       expect(texto, isNot(contains('Segredo')));
       expect(texto, isNot(contains('Zé')));
       final slides = (jsonDecode(texto) as Map)['slides'] as List;
-      expect(slides.map((s) => s['tipo']), ['imagem', 'texto', 'lista', 'qr']);
+      expect(slides.map((s) => s['tipo']), ['imagem', 'texto', 'lista', 'qr', 'qr']);
+      expect(slides.last['imagem'], '/qr-mensagens.png');
       expect(slides[0]['imagem'], '/cartazes/retiro.png');
       expect(slides[2]['itens'], ['Bia — Saúde']);
       expect((await req('GET', '/mural', autenticado: false)).statusCode, 404); // mural.html não existe no teste

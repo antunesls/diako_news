@@ -99,6 +99,34 @@ function preencher() {
   $('chave-agente').textContent = chaveAgenteVisivel ? (cfg.chaveAgente || '') : '••••••••••••';
   $('mostrar-chave-agente').textContent = chaveAgenteVisivel ? 'Ocultar' : 'Mostrar';
 
+  // Agenda
+  const ag = cfg.agenda || {};
+  $('agendaUrl').value = '';
+  $('agendaUrl').placeholder = cfg.agendaConfigurada
+    ? '•••••••• (definido — cole um novo endereço para trocar)'
+    : 'https://calendar.google.com/calendar/ical/…/basic.ics';
+  if (document.activeElement !== $('agendaDiasMural')) $('agendaDiasMural').value = cfg.agendaDiasMural ?? 7;
+  $('agendaMostrarDescricao').checked = cfg.agendaMostrarDescricao !== false;
+  for (const id of ['smtpHost', 'smtpPorta', 'smtpUsuario', 'smtpRemetente', 'smtpDestinatario']) {
+    if (document.activeElement !== $(id)) $(id).value = cfg[id] ?? '';
+  }
+  $('smtpSsl').checked = cfg.smtpSsl === true;
+  $('smtpSenha').value = '';
+  $('smtpSenha').placeholder = cfg.smtpSenhaDefinida ? '•••••••• (deixe vazio para manter)' : 'Senha de aplicativo (se exigida)';
+  $('atualizar-agenda').disabled = !cfg.agendaConfigurada;
+  $('remover-agenda').disabled = !cfg.agendaConfigurada;
+  const estado = $('estado-agenda');
+  if (!cfg.agendaConfigurada) {
+    estado.textContent = 'Agenda desligada.';
+    estado.className = 'dica';
+  } else if (ag.erro) {
+    mensagem(estado, 'Problema na última atualização: ' + ag.erro +
+      (ag.atualizado ? ' (mostrando a cópia de ' + dataCurta(ag.atualizado) + ')' : ''), false);
+  } else {
+    mensagem(estado, 'Conectada. ' + (ag.proximos30dias ?? 0) + ' evento(s) nos próximos 30 dias' +
+      (ag.atualizado ? ' · atualizada ' + dataCurta(ag.atualizado) : '') + '.');
+  }
+
   // Backup e sessões
   $('pasta-backup').textContent = 'Pasta dos backups no servidor: ' + cfg.pastaBackup;
   $('qtd-sessoes').textContent = cfg.sessoes === 1 ? '1 aparelho conectado (este).' : cfg.sessoes + ' aparelhos conectados (incluindo este).';
@@ -117,6 +145,17 @@ $('form-igreja').addEventListener('submit', (e) => {
     pedidoIntro: valor('pedidoIntro'),
     pedidoObrigado: valor('pedidoObrigado'),
   }, $('res-igreja'));
+});
+
+$('form-email').addEventListener('submit', (e) => {
+  e.preventDefault();
+  salvar({ smtpHost: valor('smtpHost'), smtpPorta: numero('smtpPorta'), smtpUsuario: valor('smtpUsuario'),
+    smtpSenha: $('smtpSenha').value, smtpRemetente: valor('smtpRemetente'),
+    smtpDestinatario: valor('smtpDestinatario'), smtpSsl: $('smtpSsl').checked }, $('res-email'));
+});
+$('testar-email').addEventListener('click', async () => {
+  try { await api('POST', '/api/admin/testar-email'); mensagem($('res-email'), 'E-mail de teste enviado.'); }
+  catch (e) { mensagem($('res-email'), e.message, false); }
 });
 
 $('form-projecao').addEventListener('submit', (e) => {
@@ -145,6 +184,50 @@ async function testarHolyrics(saida) {
 }
 $('testar-holyrics').addEventListener('click', () => testarHolyrics($('res-holyrics')));
 $('testar-holyrics-agente').addEventListener('click', () => testarHolyrics($('res-agente')));
+
+// ---------- Agenda ----------
+
+$('form-agenda').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const campos = { agendaDiasMural: numero('agendaDiasMural'), agendaMostrarDescricao: $('agendaMostrarDescricao').checked };
+  if (valor('agendaUrl')) campos.agendaUrl = valor('agendaUrl');
+  $('teste-agenda').replaceChildren();
+  salvar(campos, $('res-agenda'));
+});
+
+$('testar-agenda').addEventListener('click', async () => {
+  const saida = $('res-agenda');
+  const url = valor('agendaUrl');
+  if (!url) {
+    mensagem(saida, 'Cole o endereço para testar.', false);
+    return;
+  }
+  mensagem(saida, 'Testando…');
+  try {
+    const r = await api('POST', '/api/admin/agenda/testar', { url });
+    mensagem(saida, `Funcionou: ${r.eventos} evento(s) nos próximos 60 dias. Clique em Salvar para usar.`);
+    $('teste-agenda').replaceChildren(...r.proximos.map((t) => el('li', {}, t)));
+  } catch (err) {
+    mensagem(saida, err.message, false);
+    $('teste-agenda').replaceChildren();
+  }
+});
+
+$('atualizar-agenda').addEventListener('click', async () => {
+  try {
+    mensagem($('res-agenda'), 'Atualizando…');
+    const r = await api('POST', '/api/admin/agenda/atualizar');
+    await carregar();
+    mensagem($('res-agenda'), r.erro ? r.erro : `Atualizada: ${r.eventos.length} evento(s) nos próximos 30 dias.`, !r.erro);
+  } catch (err) {
+    mensagem($('res-agenda'), err.message, false);
+  }
+});
+
+$('remover-agenda').addEventListener('click', async () => {
+  if (!await confirmar('Desligar a agenda?', 'Os eventos deixam de aparecer na TV, no tablet e no resumo. A agenda no Google não é alterada.', 'Desligar')) return;
+  await salvar({ agendaUrl: '' }, $('res-agenda'));
+});
 
 // ---------- Chaves ----------
 

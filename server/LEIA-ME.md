@@ -6,6 +6,7 @@ O tablet, o painel da secretaria e o formulário de pedidos de oração conversa
 | Endereço | Para quem | Precisa de senha? |
 |---|---|---|
 | `http://IP:8080/oracao` | Membros (pelo QR code) enviam pedidos de oração | Não |
+| `http://IP:8080/mensagens` | Membros (por outro QR) enviam dúvidas, sugestões e críticas | Não |
 | `http://IP:8080/painel` | Secretaria/pastor: recados, aprovar pedidos, cartazes, aniversariantes, resumo da semana, histórico | Sim |
 | `http://IP:8080/admin` | Administração: nome e textos, mural, Holyrics, projeção, backup/restauração, senha | Sim |
 | `http://IP:8080/mural` | TV da recepção: avisos passando sozinhos | Não |
@@ -47,16 +48,34 @@ Para atualizar, rode o `instalar.ps1` da versão nova. Ele não mexe em `config.
 ## Uso
 - **Pedidos de oração:** quem envia escolhe se o pedido pode ir para o telão. Tudo chega como *Aguardando aprovação* no tablet e no painel. Só o que for aprovado **e** marcado como público entra na projeção.
 - **QR code:** o servidor gera `Diako/qr-oracao.png` na pasta de imagens do Holyrics. Use **Projetar QR no telão** no painel (aba Status) ou no tablet.
+- **Caixa de mensagens:** o servidor gera `Diako/qr-mensagens.png`. Na aba *Status* do painel, baixe o QR para imprimir ou projete no Holyrics. O mural também mostra esse QR. Mensagens recebidas aparecem somente no painel e no tablet, com estados *Nova*, *Em análise* e *Resolvida*. Nome e contato são opcionais e a resposta é feita manualmente pela equipe.
+- **Avisos por e-mail:** em `/admin` › *Avisos por e-mail*, informe host SMTP, porta, SSL direto (porta 465) ou STARTTLS (porta 587), usuário, senha de aplicativo se exigida, remetente e destinatário. Salve e use *Enviar e-mail de teste*. O e-mail avisa apenas o tipo da mensagem e o link do painel; não inclui texto nem contato. Uma falha de SMTP não perde a mensagem: consulte o estado na caixa de entrada e use *Tentar e-mail* após corrigir a configuração. A senha SMTP não é mostrada no painel nem incluída em backups.
 - **Cartazes:** envie pelo painel (aba Cartazes) ou pelo tablet. Eles vão para a subpasta `Diako` das imagens do Holyrics e podem ser ligados a um recado.
 - **Aniversariantes:** cadastre os membros (ou cole a lista `Nome;dd/mm`). O recado *Aniversariantes da semana* (domingo a sábado) aparece sozinho, fixo no topo.
 - **Administração (`/admin`):** troque o nome da igreja, os textos do formulário de pedidos, o endereço público (o QR é refeito na hora), a chave do mural, os dados do Holyrics, os padrões de projeção, a agenda de backup e a senha. Também dá para desconectar todos os aparelhos.
-- **Backup:** todo dia no horário configurado (padrão 03:00), um `.zip` com dados, histórico, cartazes e configurações (sem senha, token nem chaves) vai para a `pastaBackup` (ou `data\backups` se ela estiver vazia). A quantidade guardada é configurável. Em `/admin` dá para baixar um backup na hora, ver a lista, baixar ou excluir qualquer um.
+- **Backup:** todo dia no horário configurado (padrão 03:00), um `.zip` com dados (inclusive mensagens privadas), histórico, cartazes e configurações (sem senhas, tokens nem chaves) vai para a `pastaBackup` (ou `data\backups` se ela estiver vazia). Guarde esses arquivos com cuidado. A quantidade guardada é configurável. Em `/admin` dá para baixar um backup na hora, ver a lista, baixar ou excluir qualquer um.
 - **Restauração:** em `/admin`, restaure um backup da lista ou envie um `.zip` (até de outro servidor). Antes de restaurar, o servidor grava um backup de segurança do estado atual. Arquivos inválidos são recusados sem mudar nada. As configurações só são restauradas se você marcar a opção.
 - **Senha:** a do `config.json` vale até ser trocada em `/admin`. Depois disso, a nova fica guardada só como hash em `data\configuracoes.json`.
 - **Orações respondidas (testemunhos):** ao marcar um motivo como *atendido*, o servidor guarda a data. Edite o motivo para escrever o testemunho. Em *Atendidos* (painel ou tablet), **Projetar orações respondidas** mostra as públicas dos últimos 30 dias.
 - **Mural da recepção:** abra `http://IP:8080/mural` no navegador da TV e toque na tela para ficar em tela cheia. Ele passa pelos recados válidos, cartazes, aniversariantes, motivos de oração públicos, orações respondidas e o QR de pedidos, e se atualiza sozinho a cada minuto. Para mudar o tempo de cada tela, use `?segundos=15`. Pedidos particulares e o nome de quem enviou nunca aparecem.
 - **Resumo da semana:** a aba *Resumo da semana* do painel monta o texto para o grupo do WhatsApp. Revise, depois use **Copiar** ou **Abrir no WhatsApp**. O envio é feito por você: o sistema não manda mensagens sozinho.
 - **Histórico:** a aba *Histórico* mostra o que foi projetado (texto, imagem, contagem, mensagem para o palco) e quando.
+
+## Agenda do Google
+Os eventos continuam sendo criados no **Google Agenda**. O Diako News só lê e mostra:
+- na **TV** (mural), com um slide **Hoje** e os **Próximos eventos** (7 dias por padrão, com descrição se quiser);
+- no **tablet**, na aba **Agenda**, onde o pastor projeta um evento no telão ou o transforma em recado;
+- no **painel**, na aba *Agenda*, com o botão **Criar recado**;
+- no **resumo da semana** para o WhatsApp.
+
+Para ligar:
+1. No Google Agenda (no computador), abra **Configurações e compartilhamento** da agenda da igreja.
+2. Em **Integrar agenda**, copie o **Endereço secreto no formato iCal**.
+3. Em `/admin` › *Agenda (Google)*, cole o endereço, clique em **Testar** e depois em **Salvar**.
+
+O servidor busca a agenda a cada 15 minutos (use **Atualizar agora** para não esperar). O próprio Google pode levar alguns minutos para publicar as mudanças. Sem internet, a última cópia continua aparecendo.
+
+Trate o endereço secreto como uma senha: ele dá acesso a todos os eventos. Ele não aparece no painel nem vai para os backups. Se vazar, use **Redefinir** no Google e cole o novo endereço.
 
 ## Problemas comuns
 | Sintoma | O que verificar |

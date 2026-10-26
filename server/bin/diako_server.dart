@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:diako_server/agenda.dart';
 import 'package:diako_server/agente_hub.dart';
 import 'package:diako_server/app.dart';
 import 'package:diako_server/auth.dart';
@@ -41,6 +42,7 @@ Future<void> main(List<String> args) async {
 
   final base = cfg.urlBase;
   await gravarQr(config.pastaCartazes, cfg.urlOracao);
+  await gravarQrMensagens(config.pastaCartazes, cfg.urlMensagens);
 
   final backup = Backup(
     pastaDados: config.pastaDados,
@@ -55,9 +57,15 @@ Future<void> main(List<String> args) async {
   final agente = modoAgente ? HolyricsViaAgente() : null;
   final online = modoAgente || config.confiarProxy;
 
+  // Agenda do Google: baixa a cada 15 min e avisa o painel/app quando muda.
+  final agenda = AgendaGoogle(pastaDados: config.pastaDados, url: () => cfg.agendaUrl, aoMudar: () => store.avisar('agenda'));
+  await agenda.carregar();
+  agenda.iniciar();
+
   final servidor = Servidor(
     store: store,
     auth: auth,
+    agenda: agenda,
     holyrics: agente ?? HolyricsDireto(host: cfg.holyricsHost, porta: cfg.holyricsPorta, token: cfg.holyricsToken),
     cartazes: Cartazes(config.pastaCartazes),
     backup: backup,
@@ -78,6 +86,7 @@ Future<void> main(List<String> args) async {
       aplicarConfiguracoes: (dados) async {
         await cfg.restaurarPublicas(dados);
         await gravarQr(config.pastaCartazes, cfg.urlOracao);
+        await gravarQrMensagens(config.pastaCartazes, cfg.urlMensagens);
         store.avisar('cartazes');
       },
     ),
@@ -89,6 +98,7 @@ Future<void> main(List<String> args) async {
 Diako News $versao rodando em ${config.endereco}:${config.porta}.
   Painel:              $base/painel
   Pedidos de oração:   ${cfg.urlOracao}
+  Caixa de mensagens:  ${cfg.urlMensagens}
   Mural (TV):          $mural
   No tablet, use o endereço: $base
   Holyrics:            ${modoAgente ? 'pelo agente no PC da igreja (aguardando conexão)' : 'direto em ${cfg.holyricsHost}:${cfg.holyricsPorta}'}
@@ -102,6 +112,7 @@ Diako News $versao rodando em ${config.endereco}:${config.porta}.
 
   Future<void> encerrar() async {
     backup.parar();
+    agenda.parar();
     await http.close();
     await store.fechar();
     exit(0);

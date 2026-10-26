@@ -21,7 +21,9 @@ No painel também ficam o **resumo da semana para o WhatsApp** e o **histórico*
 - **Projetar** um recado com um toque, ou a **Sequência** dos selecionados passando sozinha.
 - **Cartazes:** escolha uma imagem já enviada ou **envie uma foto do tablet**. Ela vai direto para o Holyrics.
 - **Motivos de oração:** pedidos enviados pelo site chegam em **Aguardando**, com um aviso na hora. O pastor aprova ou recusa. Pedidos particulares (cadeado) nunca vão para o telão. **Projetar motivos** mostra vários por slide, e há um botão para **projetar o QR** do formulário de pedidos.
+- **Caixa de mensagens:** um QR separado leva a `/mensagens`, onde qualquer pessoa envia dúvida, sugestão ou crítica, anonimamente ou com contato opcional. Painel e tablet mostram as mensagens privadas como **Nova**, **Em análise** e **Resolvida**. Na administração, configure o SMTP para receber um aviso por e-mail (sem o conteúdo da mensagem). O QR também pode ser projetado e aparece no mural.
 - **Orações respondidas:** atendidos mostram a data e o testemunho (editável). Um botão projeta as respondidas dos últimos 30 dias.
+- **Agenda (Google Agenda):** aba com os próximos eventos por dia. O pastor projeta um evento no telão ou o transforma em recado. O próximo evento aparece também no topo da aba Recados. A TV mostra "Hoje" e os próximos eventos, e o resumo semanal inclui a agenda. A configuração fica em `/admin` (veja o [LEIA-ME do servidor](server/LEIA-ME.md#agenda-do-google)).
 - **Barra de controle:** anterior, parar, próximo, tela vazia (F9) e tela preta (F10). Mostra o que está no ar.
 - Contagem regressiva no telão e no palco, além de mensagem no painel de comunicação.
 - **Sincronização ao vivo** com o servidor. Sem conexão, o app mostra a última cópia salva e bloqueia a edição.

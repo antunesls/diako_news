@@ -164,7 +164,27 @@ void main() {
       await req('PUT', '/api/admin/configuracoes', json: {'urlPublica': 'https://diako.exemplo.org/'});
       final estado = await corpo(await req('GET', '/api/estado')) as Map;
       expect(estado['urlOracao'], 'https://diako.exemplo.org/oracao');
+      expect(estado['urlMensagens'], 'https://diako.exemplo.org/mensagens');
       expect(File(p.join(pastaCartazes, arquivoQr)).readAsBytesSync(), isNot(equals(antes)));
+      expect(File(p.join(pastaCartazes, arquivoQrMensagens)).existsSync(), isTrue);
+    });
+
+    test('SMTP valida dados e mantém senha fora do painel e backup', () async {
+      expect((await req('PUT', '/api/admin/configuracoes', json: {'smtpDestinatario': 'inválido'})).statusCode, 400);
+      final resposta = await req('PUT', '/api/admin/configuracoes', json: {
+        'smtpHost': 'smtp.example.org', 'smtpPorta': 587, 'smtpUsuario': 'equipe',
+        'smtpSenha': 'senha-de-aplicativo', 'smtpRemetente': 'caixa@example.org',
+        'smtpDestinatario': 'equipe@example.org', 'smtpSsl': false,
+      });
+      final config = await corpo(resposta) as Map;
+      expect(config['smtpConfigurado'], true);
+      expect(config['smtpSenhaDefinida'], true);
+      expect(config.containsKey('smtpSenha'), false);
+      await req('PUT', '/api/admin/configuracoes', json: {'smtpSenha': ''});
+      expect(cfg.smtpSenha, 'senha-de-aplicativo');
+      final zip = await Backup(pastaDados: store.pasta, configuracoes: cfg.publicas).gerarZip();
+      expect(utf8.decode(ZipDecoder().decodeBytes(zip).findFile('configuracoes.json')!.content),
+          isNot(contains('senha-de-aplicativo')));
     });
 
     test('chave do mural: gerar nova e desativar', () async {

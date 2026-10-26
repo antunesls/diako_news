@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:diako_core/diako_core.dart';
 import 'package:http/http.dart' as http;
 
 /// Erro com mensagem pronta para mostrar ao usuário.
@@ -93,6 +94,17 @@ class ServerApi {
 
   Future<Map<String, dynamic>> estado() async => Map<String, dynamic>.from(await _req('GET', '/api/estado') as Map);
 
+  /// Próximos eventos do Google Agenda (lidos pelo servidor).
+  Future<AgendaServidor> agenda({int dias = 30}) async {
+    final j = Map<String, dynamic>.from(await _req('GET', '/api/agenda?dias=$dias') as Map);
+    return AgendaServidor(
+      configurada: j['configurada'] == true,
+      erro: j['erro'] as String?,
+      atualizado: DateTime.tryParse(j['atualizado'] as String? ?? ''),
+      eventos: [for (final e in (j['eventos'] as List? ?? const [])) Evento.fromJson(Map<String, dynamic>.from(e as Map))],
+    );
+  }
+
   Future<List<Cartaz>> cartazes() async {
     final j = await _req('GET', '/api/cartazes') as List;
     return [
@@ -157,4 +169,15 @@ class ServerApi {
     }
     return corpo;
   }
+}
+
+/// Resposta de GET /api/agenda.
+class AgendaServidor {
+  AgendaServidor({required this.configurada, required this.eventos, this.erro, this.atualizado});
+  final bool configurada;
+  final List<Evento> eventos;
+
+  /// Problema na última atualização do servidor com o Google (os eventos são da última cópia boa).
+  final String? erro;
+  final DateTime? atualizado;
 }

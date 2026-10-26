@@ -73,7 +73,9 @@
   </header>
   <nav class="abas" role="tablist" aria-label="Seções">
     <button role="tab" data-aba="motivos" aria-selected="true">Motivos de oração<span id="badge" class="badge" hidden></span></button>
+    <button role="tab" data-aba="mensagens" aria-selected="false">Mensagens<span id="badge-mensagens" class="badge" hidden></span></button>
     <button role="tab" data-aba="recados" aria-selected="false">Recados</button>
+    <button role="tab" data-aba="agenda" aria-selected="false">Agenda</button>
     <button role="tab" data-aba="cartazes" aria-selected="false">Cartazes</button>
     <button role="tab" data-aba="membros" aria-selected="false">Aniversariantes</button>
     <button role="tab" data-aba="resumo" aria-selected="false">Resumo da semana</button>
@@ -94,6 +96,20 @@
       </div>
       <p id="resultado-motivos" role="status"></p>
       <div class="lista" id="lista-motivos"></div>
+    </section>
+
+    <section data-painel="mensagens" hidden>
+      <div class="barra"><label for="filtro-mensagens">Mostrar</label>
+        <select id="filtro-mensagens"><option value="nova">Novas</option><option value="emAnalise">Em análise</option><option value="resolvida">Resolvidas</option><option value="todas">Todas</option></select></div>
+      <p id="resultado-mensagens" role="status"></p>
+      <div class="lista" id="lista-mensagens"></div>
+    </section>
+
+    <section data-painel="agenda" hidden>
+      <div class="barra">
+        <span class="dica" id="estado-agenda-painel">Eventos do Google Agenda nos próximos 30 dias. Para criar ou mudar um evento, use o Google Agenda.</span>
+      </div>
+      <div class="lista" id="lista-agenda"></div>
     </section>
 
     <section data-painel="resumo" hidden>
@@ -177,6 +193,7 @@
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
             <button class="botao secundario" id="backup-agora">Fazer backup agora</button>
             <button class="botao secundario" id="projetar-qr">Projetar QR no telão</button>
+            <button class="botao secundario" id="projetar-qr-mensagens">Projetar QR de mensagens</button>
           </div>
           <p id="resultado-status" role="status"></p>
         </div>
@@ -186,11 +203,17 @@
           <p><a id="link-oracao" href="/oracao" target="_blank"></a></p>
           <p class="dica" id="dica-acesso">Funciona para quem acessa este endereço.</p>
         </div>
+        <div class="cartao" style="text-align:center">
+          <h2 style="font-size:18px">QR code da caixa de mensagens</h2>
+          <a href="/qr-mensagens.png" download="qr-mensagens.png"><img class="qr" src="/qr-mensagens.png" alt="QR code para dúvidas, sugestões e críticas"></a>
+          <p><a id="link-mensagens" href="/mensagens" target="_blank"></a></p>
+          <p class="dica">Clique na imagem para baixar e imprimir.</p>
+        </div>
         <div class="cartao">
           <h2 style="font-size:18px">Mural da recepção</h2>
           <p>Abra este endereço no navegador da TV (ou de um computador ligado a ela) e toque na tela para ficar em tela cheia:</p>
           <p><a id="link-mural" href="/mural" target="_blank"></a></p>
-          <p class="dica">Mostra recados, cartazes, aniversariantes, motivos de oração públicos, orações respondidas e o QR de pedidos. Atualiza sozinho a cada minuto. Para mudar o tempo de cada tela, acrescente <code>?segundos=15</code> no endereço.</p>
+          <p class="dica">Mostra recados, cartazes, aniversariantes, motivos de oração públicos, orações respondidas e os QRs de pedidos e mensagens. Nenhum conteúdo da caixa de mensagens aparece no mural.</p>
         </div>
       </div>
     </section>

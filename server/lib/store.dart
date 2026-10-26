@@ -19,7 +19,7 @@ class Store {
   // Serializa as gravações para não intercalar escritas do mesmo arquivo.
   Future<void> _fila = Future.value();
 
-  static const colecoes = ['recados', 'motivos', 'membros'];
+  static const colecoes = ['recados', 'motivos', 'membros', 'mensagens'];
 
   Stream<String> get mudancas => _mudancas.stream;
   Map<String, int> get versoes => Map.unmodifiable(_versoes);

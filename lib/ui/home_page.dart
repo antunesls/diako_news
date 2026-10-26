@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import '../holyrics/status_controller.dart';
+import 'agenda_panel.dart';
+import 'mensagem_panel.dart';
 import 'control_bar.dart';
 import 'oracao_panel.dart';
 import 'preview_panel.dart';
@@ -18,10 +20,12 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+enum _Secao { recados, oracao, agenda, mensagens }
+
 class _HomePageState extends State<HomePage> {
   final Set<String> _selecionados = {};
   String? _focadoId;
-  bool _modoOracao = false;
+  _Secao _secao = _Secao.recados;
   Set<String>? _aguardandoConhecidos;
   late AppScope _scope;
 
@@ -51,7 +55,7 @@ class _HomePageState extends State<HomePage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(novos == 1 ? 'Novo pedido de oração aguardando aprovação' : '$novos novos pedidos de oração'),
       duration: const Duration(seconds: 6),
-      action: SnackBarAction(label: 'Ver', onPressed: () => setState(() => _modoOracao = true)),
+      action: SnackBarAction(label: 'Ver', onPressed: () => setState(() => _secao = _Secao.oracao)),
     ));
   }
 
@@ -67,6 +71,26 @@ class _HomePageState extends State<HomePage> {
     if (salvo != null) setState(() => _focadoId = salvo.id);
   }
 
+  /// Abre o formulário de recado já preenchido com um evento da agenda.
+  Future<void> _recadoDoEvento(Evento e) async {
+    final modelo = Recado(
+      id: '',
+      titulo: e.titulo,
+      texto: textoRecadoDoEvento(e),
+      categoria: Categoria.evento,
+      validoAte: DateTime(e.inicio.year, e.inicio.month, e.inicio.day),
+    );
+    final salvo = await Navigator.of(context).push<Recado>(
+      MaterialPageRoute(builder: (_) => RecadoForm(modelo: modelo), fullscreenDialog: true),
+    );
+    if (salvo != null && mounted) {
+      setState(() {
+        _focadoId = salvo.id;
+        _secao = _Secao.recados;
+      });
+    }
+  }
+
   Future<void> _abrirConfiguracoes() async {
     if (!await confirmarPin(context, _scope.settings.pin)) return;
     if (!mounted) return;
@@ -78,7 +102,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scope = _scope;
     return ListenableBuilder(
-      listenable: Listenable.merge([scope.repo, scope.motivos]),
+      listenable: Listenable.merge([scope.repo, scope.motivos, scope.agenda, scope.mensagens]),
       builder: (context, _) {
         final todos = scope.repo.todos;
         // Remove seleções de recados que foram excluídos.
@@ -95,12 +119,12 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Image.asset('assets/logo/logo_claro.png', height: 44, semanticLabel: 'Igreja Diakonia Tulipas'),
                 const SizedBox(width: 24),
-                SegmentedButton<bool>(
+                SegmentedButton<_Secao>(
                   showSelectedIcon: false,
                   segments: [
-                    const ButtonSegment(value: false, icon: Icon(Icons.campaign_outlined), label: Text('Recados')),
+                    const ButtonSegment(value: _Secao.recados, icon: Icon(Icons.campaign_outlined), label: Text('Recados')),
                     ButtonSegment(
-                      value: true,
+                      value: _Secao.oracao,
                       icon: Badge(
                         isLabelVisible: aguardando > 0,
                         label: Text('$aguardando'),
@@ -108,9 +132,14 @@ class _HomePageState extends State<HomePage> {
                       ),
                       label: const Text('Motivos de oração'),
                     ),
+                    const ButtonSegment(value: _Secao.agenda, icon: Icon(Icons.event_outlined), label: Text('Agenda')),
+                    ButtonSegment(value: _Secao.mensagens,
+                      icon: Badge(isLabelVisible: scope.mensagens.novas > 0,
+                        label: Text('${scope.mensagens.novas}'), child: const Icon(Icons.mail_outline)),
+                      label: const Text('Mensagens')),
                   ],
-                  selected: {_modoOracao},
-                  onSelectionChanged: (s) => setState(() => _modoOracao = s.first),
+                  selected: {_secao},
+                  onSelectionChanged: (s) => setState(() => _secao = s.first),
                 ),
               ],
             ),
@@ -133,11 +162,15 @@ class _HomePageState extends State<HomePage> {
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (!online) _AvisoOffline(erro: scope.repo.erro ?? scope.motivos.erro, onConfigurar: _abrirConfiguracoes),
+              if (!online) _AvisoOffline(erro: scope.repo.erro ?? scope.motivos.erro ?? scope.mensagens.erro, onConfigurar: _abrirConfiguracoes),
+              if (_secao == _Secao.recados && scope.agenda.proximo != null)
+                _ProximoEvento(evento: scope.agenda.proximo!, onTap: () => setState(() => _secao = _Secao.agenda)),
               Expanded(
-                child: _modoOracao
-                    ? const OracaoPanel()
-                    : Row(
+                child: switch (_secao) {
+                  _Secao.oracao => const OracaoPanel(),
+                  _Secao.agenda => AgendaPanel(onVirarRecado: _recadoDoEvento),
+                  _Secao.mensagens => const MensagemPanel(),
+                  _Secao.recados => Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
@@ -160,20 +193,63 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ],
                       ),
+                },
               ),
             ],
           ),
-          floatingActionButton: online
+          // A agenda é editada no Google: sem botão de criar.
+          floatingActionButton: online && _secao != _Secao.agenda && _secao != _Secao.mensagens
               ? FloatingActionButton.extended(
-                  onPressed: () => _modoOracao ? editarMotivo(context, null) : _editar(null),
+                  onPressed: () => _secao == _Secao.oracao ? editarMotivo(context, null) : _editar(null),
                   icon: const Icon(Icons.add),
-                  label: Text(_modoOracao ? 'Novo motivo' : 'Novo recado'),
+                  label: Text(_secao == _Secao.oracao ? 'Novo motivo' : 'Novo recado'),
                 )
               : null,
           floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
           bottomNavigationBar: const ControlBar(),
         );
       },
+    );
+  }
+}
+
+/// Faixa discreta com o próximo evento da agenda (toque abre a aba Agenda).
+class _ProximoEvento extends StatelessWidget {
+  const _ProximoEvento({required this.evento, required this.onTap});
+
+  final Evento evento;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final esquema = Theme.of(context).colorScheme;
+    final agora = DateTime.now();
+    final hoje = evento.inicio.year == agora.year && evento.inicio.month == agora.month && evento.inicio.day == agora.day;
+    return Material(
+      color: esquema.surfaceContainerHigh,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.event_outlined, size: 20, color: esquema.primary),
+              const SizedBox(width: 12),
+              Text('Próximo: ', style: TextStyle(color: esquema.outline)),
+              Flexible(
+                child: Text(
+                  '${evento.titulo} · ${hoje ? 'hoje' : diaCurto(evento.inicio)} ${horario(evento)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right, color: esquema.outline),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

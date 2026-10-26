@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:diako_core/diako_core.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -11,6 +12,7 @@ import 'package:shelf_static/shelf_static.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'agenda.dart';
 import 'agente_hub.dart';
 import 'auth.dart';
 import 'backup.dart';
@@ -19,6 +21,7 @@ import 'config.dart';
 import 'configuracoes.dart';
 import 'historico.dart';
 import 'holyrics.dart';
+import 'email_mensagens.dart';
 import 'qr_oracao.dart';
 import 'store.dart';
 
@@ -41,6 +44,9 @@ class Servidor {
     this.confiarProxy = false,
     this.cfg,
     this.restauracao,
+    this.agenda,
+    this.clienteAgenda,
+    this.enviarAvisoMensagem,
     this.senhaMinima = 6,
     DateTime Function()? relogio,
     LimiteTaxa? limitePedidos,
@@ -48,7 +54,7 @@ class Servidor {
         _chaveAgenteFixa = chaveAgente,
         _chaveMuralFixa = chaveMural,
         _agora = relogio ?? DateTime.now,
-        _limitePedidos = limitePedidos ?? LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10)) {
+         _limitePedidos = limitePedidos ?? LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10)) {
     // No modo agente, cada mudança nos cartazes é copiada para o PC da igreja.
     if (agente != null) {
       store.mudancas.where((t) => t == 'cartazes').listen((_) => agente!.pedirSincronizacao());
@@ -72,6 +78,13 @@ class Servidor {
   final Configuracoes? cfg;
   final Restauracao? restauracao;
 
+  /// Agenda do Google (endereço iCal); null desativa.
+  final AgendaGoogle? agenda;
+
+  /// Cliente HTTP do teste de endereço da agenda (substituível nos testes).
+  final http.Client? clienteAgenda;
+  final Future<void> Function(Mensagem mensagem, String urlPainel)? enviarAvisoMensagem;
+
   /// Tamanho mínimo da senha ao trocar pelo painel (10 quando o servidor está na internet).
   final int senhaMinima;
 
@@ -88,6 +101,7 @@ class Servidor {
   final bool cartazesNoHolyrics;
   final DateTime Function() _agora;
   final LimiteTaxa _limitePedidos;
+  final LimiteTaxa _limiteMensagens = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
 
   /// Caminho do QR para o ShowImage do Holyrics.
   static const qrHolyrics = '${Config.subpastaHolyrics}/$arquivoQr';
@@ -96,6 +110,7 @@ class Servidor {
     final r = Router()
       ..get('/', (Request _) => Response.found('/painel'))
       ..get('/oracao', (Request _) => _pagina('oracao.html'))
+      ..get('/mensagens', (Request _) => _pagina('mensagens.html'))
       ..get('/painel', (Request _) => _pagina('painel.html'))
       ..get('/mural', (Request req) => _chaveMuralOk(req) ? _pagina('mural.html') : _semChaveMural())
       ..get('/api/public/mural', (Request req) => _chaveMuralOk(req) ? _mural(req) : _semChaveMural())
@@ -104,11 +119,16 @@ class Servidor {
       ..get('/agente/cartazes', _agenteListarCartazes)
       ..get('/agente/cartazes/<nome>', _agenteBaixarCartaz)
       ..get('/qr-oracao.png', (Request _) => _arquivo(File(p.join(cartazes.pasta, arquivoQr))))
+      ..get('/qr-mensagens.png', (Request _) => _arquivo(File(p.join(cartazes.pasta, arquivoQrMensagens))))
       ..get('/cartazes/<nome>', (Request _, String nome) => _arquivo(cartazes.arquivo(nome)))
       ..post('/api/login', _login)
       ..post('/api/logout', _logout)
       ..post('/api/public/pedidos', _novoPedido)
+      ..post('/api/public/mensagens', _novaMensagem)
       ..get('/api/estado', _estado)
+      ..get('/api/mensagens', _listarMensagens)
+      ..put('/api/mensagens/<id>', _atualizarMensagem)
+      ..post('/api/mensagens/<id>/avisar', _reenviarAviso)
       // Recados
       ..get('/api/recados', _listarRecados)
       ..post('/api/recados', _criarRecado)
@@ -152,6 +172,10 @@ class Servidor {
       ..post('/api/admin/senha', _adminSenha)
       ..post('/api/admin/sessoes/encerrar', _adminEncerrarSessoes)
       ..post('/api/admin/testar-holyrics', _adminTestarHolyrics)
+      ..post('/api/admin/testar-email', _adminTestarEmail)
+      ..get('/api/agenda', _agenda)
+      ..post('/api/admin/agenda/atualizar', _adminAgendaAtualizar)
+      ..post('/api/admin/agenda/testar', _adminAgendaTestar)
       ..get('/ws', webSocketHandler(_conectarWs));
 
     final estaticos = createStaticHandler(pastaWeb);
@@ -217,6 +241,9 @@ class Servidor {
       'holyricsConectado': await holyrics.conectado(),
       'urlOracao': urlOracao,
       'qrHolyrics': qrHolyrics,
+      'urlMensagens': cfg?.urlMensagens ?? urlOracao.replaceFirst(RegExp(r'/oracao$'), '/mensagens'),
+      'qrMensagensHolyrics': '${Config.subpastaHolyrics}/$arquivoQrMensagens',
+      'mensagensNovas': store.listar('mensagens').where((m) => m['status'] == 'nova').length,
       'cartazesNoHolyrics': agente != null ? agente!.agenteConectado : cartazesNoHolyrics,
       'modo': agente != null ? 'agente' : 'local',
       'agenteConectado': agente?.agenteConectado,
@@ -227,6 +254,7 @@ class Servidor {
       'ultimoBackup': ultimo?.toIso8601String(),
       'aguardandoAprovacao':
           store.listar('motivos').where((m) => m['status'] == StatusMotivo.aguardando.name).length,
+      'agenda': agenda?.estado(),
     });
   }
 
@@ -372,6 +400,70 @@ class Servidor {
     return null;
   }
 
+  // ---------- Caixa de mensagens ----------
+
+  Response _listarMensagens(Request _) {
+    final lista = store.listar('mensagens').toList()
+      ..sort((a, b) => (b['criadoEm'] as String).compareTo(a['criadoEm'] as String));
+    return _json(lista);
+  }
+
+  Future<Response> _novaMensagem(Request req) async {
+    final corpo = await _corpo(req);
+    if ((corpo['website'] as String? ?? '').isNotEmpty) return _json({'ok': true});
+    String texto(String chave) => (corpo[chave] as String? ?? '').trim();
+    final tipo = texto('tipo');
+    final conteudo = texto('texto');
+    final nome = texto('nome');
+    final contato = texto('contato');
+    if (!Mensagem.tipos.contains(tipo) || conteudo.isEmpty || conteudo.length > 2000 || nome.length > 80 || contato.length > 120) {
+      return _erro(400, 'Confira o tipo, a mensagem (até 2000 caracteres), o nome e o contato.');
+    }
+    if (!_limiteMensagens.permitir(_ip(req))) return _erro(429, 'Muitas mensagens. Tente novamente em alguns minutos.');
+    final m = Mensagem(id: novoId(), tipo: tipo, texto: conteudo, nome: nome, contato: contato,
+      criadoEm: _agora(), avisoEmail: 'pendente');
+    await store.salvar('mensagens', m.toJson());
+    await _avisarMensagem(m);
+    return _json({'ok': true}, status: 201);
+  }
+
+  Future<void> _avisarMensagem(Mensagem m) async {
+    final enviar = enviarAvisoMensagem ?? (cfg?.smtpConfigurado == true
+      ? (Mensagem mensagem, String url) => enviarEmailMensagem(cfg!, mensagem, url)
+      : null);
+    if (enviar == null) return;
+    var resultado = 'enviado';
+    try {
+      await enviar(m, '${cfg?.urlBase ?? urlOracao.replaceFirst(RegExp(r'/oracao$'), '')}/painel')
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      stderr.writeln('Falha ao enviar aviso de mensagem ${m.id}: ${e.runtimeType}');
+      resultado = 'falhou';
+    }
+    final atual = store.buscar('mensagens', m.id);
+    if (atual != null) await store.salvar('mensagens', {...atual, 'avisoEmail': resultado});
+  }
+
+  Future<Response> _reenviarAviso(Request _, String id) async {
+    final atual = store.buscar('mensagens', id);
+    if (atual == null) return _erro(404, 'Mensagem não encontrada.');
+    if (enviarAvisoMensagem == null && cfg?.smtpConfigurado != true) return _erro(400, 'Configure o SMTP primeiro.');
+    await _avisarMensagem(Mensagem.fromJson(atual));
+    return _json(store.buscar('mensagens', id));
+  }
+
+  Future<Response> _atualizarMensagem(Request req, String id) async {
+    final atual = store.buscar('mensagens', id);
+    if (atual == null) return _erro(404, 'Mensagem não encontrada.');
+    final corpo = await _corpo(req);
+    if (corpo.length != 1 || !corpo.containsKey('status') || !Mensagem.statusValidos.contains(corpo['status'])) {
+      return _erro(400, 'Informe apenas um status válido.');
+    }
+    final novo = {...atual, 'status': corpo['status']};
+    await store.salvar('mensagens', novo);
+    return _json(novo);
+  }
+
   // ---------- Membros ----------
 
   Future<Response> _criarMembro(Request req) async {
@@ -508,8 +600,61 @@ class Servidor {
           agora: _agora(),
           igreja: nomeIgreja,
           urlPedidos: urlOracao,
+          eventos: _eventosDaSemana(),
         ),
       });
+
+  /// Eventos de hoje até o fim da próxima semana (o resumo filtra até sábado).
+  List<Evento> _eventosDaSemana() {
+    final a = agenda;
+    if (a == null) return const [];
+    final hoje = DateTime(_agora().year, _agora().month, _agora().day);
+    return a.eventos(de: hoje, ate: hoje.add(const Duration(days: 8)));
+  }
+
+  // ---------- Agenda (Google) ----------
+
+  /// GET /api/agenda?dias=30 — próximos eventos e o estado da sincronização.
+  Response _agenda(Request req) {
+    final a = agenda;
+    final dias = (int.tryParse(req.url.queryParameters['dias'] ?? '') ?? 30).clamp(1, 120);
+    return _json({
+      ...?a?.estado(),
+      'configurada': a?.configurada ?? false,
+      'eventos': [
+        for (final e in a?.proximos(dias: dias) ?? const <Evento>[])
+          {
+            ...e.toJson(),
+            // Textos prontos para o painel web.
+            'dia': diaPorExtenso(e.inicio),
+            'horario': horario(e),
+            'textoRecado': textoRecadoDoEvento(e),
+          },
+      ],
+    });
+  }
+
+  Future<Response> _adminAgendaAtualizar(Request req) async {
+    final a = agenda;
+    if (a == null || !a.configurada) return _erro(400, 'Informe o endereço da agenda primeiro.');
+    await a.atualizarAgora();
+    return _agenda(req);
+  }
+
+  /// Corpo: {"url": "..."} — testa sem salvar.
+  Future<Response> _adminAgendaTestar(Request req) async {
+    final url = ((await _corpo(req))['url'] as String? ?? '').trim();
+    if (!enderecoAgendaValido(url)) return _erro(400, 'Endereço inválido. Cole o "Endereço secreto no formato iCal".');
+    try {
+      final eventos = await AgendaGoogle.testar(url, cliente: clienteAgenda, agora: _agora());
+      return _json({
+        'eventos': eventos.length,
+        'proximos': [for (final e in eventos.take(5)) '${diaCurto(e.inicio)} ${horario(e)} — ${e.titulo}'],
+      });
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
 
   /// Slides do mural da recepção: só dados públicos (sem quem enviou, sem pedidos particulares).
   Response _mural(Request _) {
@@ -524,9 +669,20 @@ class Servidor {
         return cartazes.arquivo(nome)?.existsSync() == true ? '/cartazes/${Uri.encodeComponent(nome)}' : null;
       },
       urlQr: '/qr-oracao.png',
+      urlQrMensagens: '/qr-mensagens.png',
       motivosPorSlide: cfg?.motivosPorSlide ?? 5,
+      eventos: _eventosDoMural(),
+      diasEventos: cfg?.agendaDiasMural ?? 7,
+      mostrarDescricao: cfg?.agendaMostrarDescricao ?? true,
     );
     return _json({'atualizado': _agora().toIso8601String(), 'slides': [for (final s in slides) s.toJson()]});
+  }
+
+  List<Evento> _eventosDoMural() {
+    final a = agenda;
+    if (a == null) return const [];
+    final hoje = DateTime(_agora().year, _agora().month, _agora().day);
+    return a.eventos(de: hoje, ate: hoje.add(Duration(days: (cfg?.agendaDiasMural ?? 7) + 1)));
   }
 
   /// Textos públicos do site (formulário de pedidos).
@@ -620,6 +776,7 @@ class Servidor {
       'pastaBackup': backup.pastaDestino,
       'sessoes': auth.quantidade,
       'senhaMinima': senhaMinima,
+      'agenda': agenda?.estado(),
     });
   }
 
@@ -629,17 +786,21 @@ class Servidor {
     if (c == null) return _erro(501, 'Configurações indisponíveis.');
     final corpo = await _corpo(req);
     final urlAntes = c.urlOracao;
+    final agendaAntes = c.agendaUrl;
     try {
       await c.atualizar(corpo);
     } on FormatException catch (e) {
       return _erro(400, e.message);
     }
+    // Agenda trocada ou removida: busca na hora (e descarta a cópia antiga).
+    if (c.agendaUrl != agendaAntes) await agenda?.atualizarAgora();
     // Holyrics direto: aplica a nova conexão sem reiniciar.
     final h = holyrics;
     if (h is HolyricsDireto) h.atualizar(host: c.holyricsHost, porta: c.holyricsPorta, token: c.holyricsToken);
     // Endereço público mudou: refaz o QR (e o agente o copia para o PC da igreja).
     if (c.urlOracao != urlAntes) {
       await gravarQr(cartazes.pasta, c.urlOracao);
+      await gravarQrMensagens(cartazes.pasta, c.urlMensagens);
       store.avisar('cartazes');
     }
     return _adminConfiguracoes(req);
@@ -690,6 +851,17 @@ class Servidor {
     return Response.ok(r.corpo, headers: jsonHeaders);
   }
 
+  Future<Response> _adminTestarEmail(Request _) async {
+    if (cfg?.smtpConfigurado != true) return _erro(400, 'Configure o SMTP primeiro.');
+    try {
+      await enviarEmailTeste(cfg!).timeout(const Duration(seconds: 10));
+      return _json({'ok': true});
+    } catch (e) {
+      stderr.writeln('Falha no teste de SMTP: ${e.runtimeType}');
+      return _erro(502, 'Não foi possível enviar. Confira os dados do SMTP e a conexão do servidor.');
+    }
+  }
+
   void _conectarWs(WebSocketChannel canal, String? _) {
     final sub = store.mudancas.listen((tipo) {
       canal.sink.add(jsonEncode({'tipo': tipo, 'versoes': store.versoes}));
@@ -729,7 +901,7 @@ class Servidor {
     if (!_chaveAgenteOk(req)) return _agenteNegado;
     nome = Uri.decodeComponent(nome);
     // O QR não é um "cartaz" para o painel, mas o agente precisa dele.
-    final f = nome == arquivoQr ? File(p.join(cartazes.pasta, arquivoQr)) : cartazes.arquivo(nome);
+    final f = nome == arquivoQr || nome == arquivoQrMensagens ? File(p.join(cartazes.pasta, nome)) : cartazes.arquivo(nome);
     return _arquivo(f);
   }
 

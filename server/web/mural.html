@@ -28,6 +28,20 @@
   .slide.imagem img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 1vh; box-shadow: 0 2vh 6vh rgba(0,0,0,.5); }
   .slide.qr img { height: 46vh; width: 46vh; object-fit: cover; object-position: center; border-radius: 1.5vh; background: #fff; }
   .slide.qr .texto { margin-top: 3vh; }
+  /* Agenda: lista com a coluna de data/hora à esquerda. */
+  .eventos { display: flex; flex-direction: column; gap: 2.2vh; width: min(88vw, 150vh); text-align: left; }
+  .evento { display: grid; grid-template-columns: 30vh 1fr; gap: 3vh; align-items: baseline; padding-bottom: 2vh; border-bottom: .2vh solid rgba(255,255,255,.12); }
+  .evento:last-child { border-bottom: 0; }
+  .evento .quando { font-size: 3.4vh; font-weight: 600; color: var(--cor); filter: brightness(1.6); }
+  .evento .titulo { font-size: 4.2vh; font-weight: 700; line-height: 1.2; }
+  .evento .local { font-size: 3vh; color: var(--suave); margin-top: .6vh; }
+  .evento .descricao { font-size: 2.6vh; color: var(--suave); margin-top: .6vh; line-height: 1.35; }
+  /* Hoje: menos itens, letras maiores. */
+  .slide.hoje h1 { font-size: 10vh; }
+  .slide.hoje .evento { grid-template-columns: 34vh 1fr; }
+  .slide.hoje .evento .quando { font-size: 5vh; }
+  .slide.hoje .evento .titulo { font-size: 5.6vh; }
+  .slide.hoje .evento .local { font-size: 3.6vh; }
   footer { position: fixed; inset: auto 0 0 0; height: 7vh; display: flex; align-items: center; justify-content: center; gap: 1vh; }
   .ponto { width: 1.1vh; height: 1.1vh; border-radius: 50%; background: rgba(255,255,255,.25); transition: background .4s; }
   .ponto.ativo { background: #fff; }
@@ -76,7 +90,7 @@
       case 'qr':
         return el('section', { class: 'slide qr' },
           el('h1', {}, s.titulo),
-          el('img', { src: s.imagem, alt: 'QR code para pedidos de oração' }),
+          el('img', { src: s.imagem, alt: 'QR code: ' + s.titulo }),
           el('div', { class: 'texto' }, s.texto || ''));
       case 'lista':
         return el('section', { class: 'slide', style: cor },
@@ -86,6 +100,17 @@
             const [linha, ...resto] = i.split('\n');
             return el('li', {}, linha, resto.length ? el('span', { class: 'sub' }, resto.join(' ')) : null);
           })));
+      case 'hoje':
+      case 'agenda':
+        return el('section', { class: 'slide ' + s.tipo, style: cor },
+          el('div', { class: 'faixa' }),
+          el('h1', {}, s.titulo),
+          el('div', { class: 'eventos' }, (s.eventos || []).map((e) => el('div', { class: 'evento' },
+            el('div', { class: 'quando' }, e.quando),
+            el('div', {},
+              el('div', { class: 'titulo' }, e.titulo),
+              e.local ? el('div', { class: 'local' }, e.local) : null,
+              e.descricao ? el('div', { class: 'descricao' }, e.descricao) : null)))));
       default:
         return el('section', { class: 'slide', style: cor },
           el('div', { class: 'faixa' }),

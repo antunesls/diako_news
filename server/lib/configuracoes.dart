@@ -25,7 +25,7 @@ class Configuracoes {
   static const nomeIgrejaPadrao = 'Igreja Diakonia Tulipas';
 
   /// Campos que nunca saem do servidor nem vão para o backup.
-  static const _segredos = {'senhaHash', 'senhaSal', 'chaveAgente', 'holyricsToken'};
+  static const _segredos = {'senhaHash', 'senhaSal', 'chaveAgente', 'holyricsToken', 'agendaUrl', 'smtpSenha'};
 
   static Future<Configuracoes> carregar(Config config, {required String urlDetectada}) async {
     final arquivo = File(p.join(config.pastaDados, 'configuracoes.json'));
@@ -46,6 +46,16 @@ class Configuracoes {
       'temaPadrao': '',
       'horaBackup': config.horaBackup,
       'backupsManter': 30,
+      'agendaUrl': '',
+      'agendaMostrarDescricao': true,
+      'agendaDiasMural': 7,
+      'smtpHost': '',
+      'smtpPorta': 587,
+      'smtpSsl': false,
+      'smtpUsuario': '',
+      'smtpSenha': '',
+      'smtpRemetente': '',
+      'smtpDestinatario': '',
     };
     if (await arquivo.exists()) {
       var texto = await arquivo.readAsString();
@@ -64,6 +74,7 @@ class Configuracoes {
   /// Endereço base do site: o público configurado ou o detectado na rede.
   String get urlBase => urlPublica.isNotEmpty ? urlPublica : urlDetectada;
   String get urlOracao => '$urlBase/oracao';
+  String get urlMensagens => '$urlBase/mensagens';
   String get pedidoTitulo => _s('pedidoTitulo');
   String get pedidoIntro => _s('pedidoIntro');
   String get pedidoObrigado => _s('pedidoObrigado');
@@ -79,11 +90,29 @@ class Configuracoes {
   String get horaBackup => _s('horaBackup').isEmpty ? '03:00' : _s('horaBackup');
   int get backupsManter => _i('backupsManter', 30);
 
+  /// Endereço secreto iCal do Google Agenda ('' = sem agenda).
+  String get agendaUrl => _s('agendaUrl');
+  bool get agendaMostrarDescricao => _valores['agendaMostrarDescricao'] as bool? ?? true;
+  int get agendaDiasMural => _i('agendaDiasMural', 7);
+
+  String get smtpHost => _s('smtpHost');
+  int get smtpPorta => _i('smtpPorta', 587);
+  bool get smtpSsl => _valores['smtpSsl'] as bool? ?? false;
+  String get smtpUsuario => _s('smtpUsuario');
+  String get smtpSenha => _s('smtpSenha');
+  String get smtpRemetente => _s('smtpRemetente');
+  String get smtpDestinatario => _s('smtpDestinatario');
+  bool get smtpConfigurado => smtpHost.isNotEmpty && smtpRemetente.isNotEmpty && smtpDestinatario.isNotEmpty &&
+      (smtpUsuario.isEmpty || smtpSenha.isNotEmpty);
+
   /// Configurações sem segredos (para o painel e para o backup).
   Map<String, dynamic> publicas() => {
         for (final e in _valores.entries)
           if (!_segredos.contains(e.key)) e.key: e.value,
         'holyricsTokenDefinido': holyricsToken.isNotEmpty,
+        'agendaConfigurada': agendaUrl.isNotEmpty,
+        'smtpSenhaDefinida': smtpSenha.isNotEmpty,
+        'smtpConfigurado': smtpConfigurado,
       };
 
   /// Aplica alterações vindas do painel, validando cada campo. Lança [FormatException].
@@ -139,6 +168,33 @@ class Configuracoes {
           final v = texto(k, 5, vazio: false);
           if (!RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(v)) throw const FormatException('Horário inválido (use HH:MM).');
           novos[k] = v;
+        case 'agendaUrl':
+          final v = texto(k, 1000);
+          if (v.isNotEmpty && !enderecoAgendaValido(v)) {
+            throw const FormatException('Endereço da agenda inválido. Cole o "Endereço secreto no formato iCal" do Google Agenda.');
+          }
+          novos[k] = v;
+        case 'agendaMostrarDescricao':
+          if (mudancas[k] is! bool) throw const FormatException('"agendaMostrarDescricao" deve ser verdadeiro ou falso.');
+          novos[k] = mudancas[k];
+        case 'agendaDiasMural':
+          novos[k] = inteiro(k, 1, 30);
+        case 'smtpHost' || 'smtpUsuario':
+          novos[k] = texto(k, 200);
+        case 'smtpPorta':
+          novos[k] = inteiro(k, 1, 65535);
+        case 'smtpSsl':
+          if (mudancas[k] is! bool) throw const FormatException('"smtpSsl" deve ser verdadeiro ou falso.');
+          novos[k] = mudancas[k];
+        case 'smtpRemetente' || 'smtpDestinatario':
+          final v = texto(k, 200);
+          if (v.isNotEmpty && !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v)) {
+            throw FormatException('E-mail inválido em "$k".');
+          }
+          novos[k] = v;
+        case 'smtpSenha':
+          final v = texto(k, 300);
+          if (v.isNotEmpty) novos[k] = v;
         default:
           throw FormatException('Campo desconhecido: $k');
       }
@@ -152,7 +208,8 @@ class Configuracoes {
     final permitidos = {
       'nomeIgreja', 'urlPublica', 'pedidoTitulo', 'pedidoIntro', 'pedidoObrigado', 'chaveMural',
       'holyricsHost', 'holyricsPorta', 'motivosPorSlide', 'segundosPorSlide', 'diasRespondidas',
-      'temaPadrao', 'horaBackup', 'backupsManter',
+      'temaPadrao', 'horaBackup', 'backupsManter', 'agendaMostrarDescricao', 'agendaDiasMural',
+      'smtpHost', 'smtpPorta', 'smtpSsl', 'smtpUsuario', 'smtpRemetente', 'smtpDestinatario',
     };
     for (final e in dados.entries) {
       if (permitidos.contains(e.key)) _valores[e.key] = e.value;
@@ -213,3 +270,11 @@ class Configuracoes {
 }
 
 final _rng = Random.secure();
+
+/// Aceita https (Google Agenda ou qualquer .ics) e http só em localhost (testes).
+bool enderecoAgendaValido(String v) {
+  final u = Uri.tryParse(v);
+  if (u == null || u.host.isEmpty) return false;
+  if (u.scheme == 'https') return true;
+  return u.scheme == 'http' && (u.host == 'localhost' || u.host == '127.0.0.1');
+}

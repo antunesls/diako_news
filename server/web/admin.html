@@ -62,6 +62,8 @@
       <a href="#igreja">Igreja e site</a>
       <a href="#mural">Mural</a>
       <a href="#holyrics">Holyrics</a>
+      <a href="#agenda">Agenda (Google)</a>
+      <a href="#email">Avisos por e-mail</a>
       <a href="#projecao">Projeção</a>
       <a href="#backup">Backup e restauração</a>
       <a href="#seguranca">Senha e aparelhos</a>
@@ -126,6 +128,40 @@
         </div>
       </section>
 
+      <section class="cartao" id="agenda">
+        <h2>Agenda (Google)</h2>
+        <p class="dica">Os eventos continuam sendo criados no Google Agenda. Aqui o Diako News só lê e mostra: na TV (hoje e próximos dias), no tablet do pastor e no resumo da semana. Atualiza a cada 15 minutos.</p>
+        <details style="margin-bottom:16px">
+          <summary style="cursor:pointer;font-weight:600">Onde encontro o endereço da agenda?</summary>
+          <ol style="line-height:1.7">
+            <li>No computador, abra o <strong>Google Agenda</strong> com a conta que gerencia a agenda da igreja.</li>
+            <li>Na lista à esquerda, passe o mouse sobre a agenda, clique nos <strong>três pontinhos › Configurações e compartilhamento</strong>.</li>
+            <li>Desça até <strong>Integrar agenda</strong> e copie o <strong>Endereço secreto no formato iCal</strong> (termina em <code>.ics</code>).</li>
+            <li>Cole abaixo, clique em <strong>Testar</strong> e depois em <strong>Salvar</strong>.</li>
+          </ol>
+          <p class="dica">Trate esse endereço como uma senha: quem o tiver vê todos os eventos. Se vazar, use <em>Redefinir</em> no Google e cole o novo aqui.</p>
+        </details>
+        <p id="estado-agenda" role="status"></p>
+        <form id="form-agenda">
+          <div class="campo">
+            <label for="agendaUrl">Endereço secreto no formato iCal</label>
+            <input type="password" id="agendaUrl" maxlength="1000" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="grade2">
+            <div class="campo"><label for="agendaDiasMural">Próximos dias mostrados na TV</label><input type="number" id="agendaDiasMural" min="1" max="30" required></div>
+            <div class="campo" style="align-self:end"><label class="marcar"><input type="checkbox" id="agendaMostrarDescricao"><span>Mostrar a descrição dos eventos na TV</span></label></div>
+          </div>
+          <div class="acoes">
+            <button class="botao">Salvar</button>
+            <button class="botao secundario" type="button" id="testar-agenda">Testar endereço</button>
+            <button class="botao secundario" type="button" id="atualizar-agenda">Atualizar agora</button>
+            <button class="botao perigo" type="button" id="remover-agenda">Desligar agenda</button>
+            <span id="res-agenda" role="status"></span>
+          </div>
+        </form>
+        <ul id="teste-agenda" class="dica" style="margin-top:12px"></ul>
+      </section>
+
       <section class="cartao" id="projecao">
         <h2>Projeção padrão</h2>
         <p class="dica">Usada pelo painel e pelo mural. O tablet tem os próprios ajustes em Configurações.</p>
@@ -140,9 +176,26 @@
         </form>
       </section>
 
+      <section class="cartao" id="email">
+        <h2>Avisos da caixa de mensagens por e-mail</h2>
+        <p class="dica">O aviso não inclui o texto nem os dados de quem escreveu. As mensagens permanecem no painel e no tablet mesmo quando o e-mail falha. Use uma senha de aplicativo do provedor, se necessário.</p>
+        <form id="form-email">
+          <div class="grade2">
+            <div class="campo"><label for="smtpHost">Servidor SMTP</label><input id="smtpHost" maxlength="200" placeholder="smtp.exemplo.com"></div>
+            <div class="campo"><label for="smtpPorta">Porta</label><input id="smtpPorta" type="number" min="1" max="65535" required></div>
+            <div class="campo"><label for="smtpUsuario">Usuário SMTP</label><input id="smtpUsuario" maxlength="200" autocomplete="off"></div>
+            <div class="campo"><label for="smtpSenha">Senha SMTP</label><input id="smtpSenha" type="password" maxlength="300" autocomplete="new-password" placeholder="Deixe vazio para manter a senha atual"></div>
+            <div class="campo"><label for="smtpRemetente">Remetente</label><input id="smtpRemetente" type="email" maxlength="200"></div>
+            <div class="campo"><label for="smtpDestinatario">Destinatário dos avisos</label><input id="smtpDestinatario" type="email" maxlength="200"></div>
+          </div>
+          <div class="campo"><label class="marcar"><input type="checkbox" id="smtpSsl"><span>SSL direto (normalmente porta 465). Desmarcado usa STARTTLS (normalmente porta 587).</span></label></div>
+          <div class="acoes"><button class="botao">Salvar</button><button type="button" class="botao secundario" id="testar-email">Enviar e-mail de teste</button><span id="res-email" role="status"></span></div>
+        </form>
+      </section>
+
       <section class="cartao" id="backup">
         <h2>Backup e restauração</h2>
-        <p class="dica">O backup inclui recados, motivos, aniversariantes, histórico, cartazes e configurações (sem senha, token nem chave do agente).</p>
+        <p class="dica">O backup inclui recados, motivos, mensagens privadas, aniversariantes, histórico, cartazes e configurações (sem senhas, tokens nem chave do agente). Guarde o arquivo com cuidado.</p>
         <form id="form-backup">
           <div class="grade2">
             <div class="campo"><label for="horaBackup">Backup automático todo dia às</label><input type="time" id="horaBackup" required></div>
