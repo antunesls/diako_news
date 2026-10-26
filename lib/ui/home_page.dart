@@ -12,6 +12,7 @@ import 'recado_form.dart';
 import 'recado_list.dart';
 import 'settings_page.dart';
 import 'tools_sheet.dart';
+import 'visitantes_panel.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,13 +21,14 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-enum _Secao { recados, oracao, agenda, mensagens }
+enum _Secao { recados, oracao, visitantes, agenda, mensagens }
 
 class _HomePageState extends State<HomePage> {
   final Set<String> _selecionados = {};
   String? _focadoId;
   _Secao _secao = _Secao.recados;
   Set<String>? _aguardandoConhecidos;
+  Set<String>? _visitasConhecidas;
   late AppScope _scope;
 
   @override
@@ -35,12 +37,34 @@ class _HomePageState extends State<HomePage> {
     _scope = AppScope.of(context);
     _scope.motivos.removeListener(_avisarPedidosNovos);
     _scope.motivos.addListener(_avisarPedidosNovos);
+    _scope.visitas.removeListener(_avisarVisitantesNovos);
+    _scope.visitas.addListener(_avisarVisitantesNovos);
   }
 
   @override
   void dispose() {
     _scope.motivos.removeListener(_avisarPedidosNovos);
+    _scope.visitas.removeListener(_avisarVisitantesNovos);
     super.dispose();
+  }
+
+  /// Avisa quando a recepção (ou o QR) cadastra um visitante novo hoje.
+  void _avisarVisitantesNovos() {
+    if (!_scope.conta.pode('visitantes')) return;
+    final hoje = _scope.visitas.hoje;
+    final atuais = {for (final v in hoje) v.id};
+    final conhecidas = _visitasConhecidas;
+    _visitasConhecidas = atuais;
+    if (conhecidas == null || !mounted) return;
+    final novas = hoje.where((v) => !conhecidas.contains(v.id)).toList();
+    if (novas.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(novas.length == 1
+          ? 'Visitante chegou: ${novas.first.nome}${novas.first.mencionar ? ' (pode citar)' : ''}'
+          : '${novas.length} visitantes chegaram: ${novas.map((v) => v.nome).join(', ')}'),
+      duration: const Duration(seconds: 6),
+      action: SnackBarAction(label: 'Ver', onPressed: () => setState(() => _secao = _Secao.visitantes)),
+    ));
   }
 
   /// Mostra um aviso quando chega pedido de oração novo pelo site.
@@ -102,13 +126,14 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scope = _scope;
     return ListenableBuilder(
-      listenable: Listenable.merge([scope.repo, scope.motivos, scope.agenda, scope.mensagens, scope.conta]),
+      listenable: Listenable.merge([scope.repo, scope.motivos, scope.agenda, scope.mensagens, scope.visitas, scope.conta]),
       builder: (context, _) {
         final conta = scope.conta;
         // Seções que o perfil vê; se a atual saiu (perfil trocado), volta para Recados.
         final permitidas = {
           _Secao.recados,
           if (conta.pode('motivosVer')) _Secao.oracao,
+          if (conta.pode('visitantes')) _Secao.visitantes,
           if (conta.pode('agendaVer')) _Secao.agenda,
           if (conta.pode('mensagens')) _Secao.mensagens,
         };
@@ -119,6 +144,7 @@ class _HomePageState extends State<HomePage> {
         final focado = todos.where((r) => r.id == _focadoId).firstOrNull;
         final selecionados = ordenarParaExibicao(todos.where((r) => _selecionados.contains(r.id)));
         final aguardando = scope.motivos.aguardando.length;
+        final paraCitar = scope.visitas.pendentes.length;
         // Perfis sem acesso aos pedidos não sincronizam os motivos: não conta como "sem conexão".
         final online = scope.repo.online && (!conta.pode('motivosVer') || scope.motivos.online);
 
@@ -143,6 +169,16 @@ class _HomePageState extends State<HomePage> {
                       ),
                       label: const Text('Motivos de oração'),
                     ),
+                    if (permitidas.contains(_Secao.visitantes))
+                      ButtonSegment(
+                        value: _Secao.visitantes,
+                        icon: Badge(
+                          isLabelVisible: paraCitar > 0,
+                          label: Text('$paraCitar'),
+                          child: const Icon(Icons.waving_hand_outlined),
+                        ),
+                        label: const Text('Visitantes'),
+                      ),
                     if (permitidas.contains(_Secao.agenda))
                       const ButtonSegment(value: _Secao.agenda, icon: Icon(Icons.event_outlined), label: Text('Agenda')),
                     if (permitidas.contains(_Secao.mensagens))
@@ -182,6 +218,7 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: switch (_secao) {
                   _Secao.oracao => const OracaoPanel(),
+                  _Secao.visitantes => const VisitantesPanel(),
                   _Secao.agenda => AgendaPanel(onVirarRecado: _recadoDoEvento),
                   _Secao.mensagens => const MensagemPanel(),
                   _Secao.recados => Row(

@@ -6,6 +6,7 @@ import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
 import 'data/settings.dart';
+import 'data/visita_repo.dart';
 import 'holyrics/holyrics_client.dart';
 import 'holyrics/status_controller.dart';
 import 'sync/server_api.dart';
@@ -19,6 +20,7 @@ class AppScope extends InheritedWidget {
     required this.motivos,
     required this.agenda,
     required this.mensagens,
+    required this.visitas,
     required this.conta,
     required this.settings,
     required this.api,
@@ -32,6 +34,7 @@ class AppScope extends InheritedWidget {
   final MotivoRepo motivos;
   final AgendaRepo agenda;
   final MensagemRepo mensagens;
+  final VisitaRepo visitas;
 
   /// Perfil de quem está logado (o que mostrar e permitir).
   final ContaRepo conta;
@@ -51,6 +54,7 @@ class AppScope extends InheritedWidget {
       if (conta.pode('motivosVer')) motivos.sincronizar(),
       if (conta.pode('agendaVer')) agenda.sincronizar(),
       if (conta.pode('mensagens')) mensagens.sincronizar(),
+      if (conta.pode('visitantes')) visitas.sincronizar(),
       status.atualizar(),
     ]);
   }

@@ -98,6 +98,14 @@ class ServerApi {
 
   Future<Map<String, dynamic>> estado() async => Map<String, dynamic>.from(await _req('GET', '/api/estado') as Map);
 
+  Future<Map<String, dynamic>> marcarVisitaMencionada(String id, {bool desfazer = false}) async =>
+      Map<String, dynamic>.from(await _req('POST', '/api/visitas/${Uri.encodeComponent(id)}/mencionada',
+          json: {if (desfazer) 'desfazer': true}) as Map);
+
+  /// Retorna o JSON do Holyrics ({"status": "ok"} quando projetou).
+  Future<Map<String, dynamic>> projetarBoasVindas({List<String>? ids}) async =>
+      Map<String, dynamic>.from(await _req('POST', '/api/projetar/boas-vindas', json: {if (ids != null) 'ids': ids}) as Map);
+
   /// Próximos eventos do Google Agenda (lidos pelo servidor).
   Future<AgendaServidor> agenda({int dias = 30}) async {
     final j = Map<String, dynamic>.from(await _req('GET', '/api/agenda?dias=$dias') as Map);

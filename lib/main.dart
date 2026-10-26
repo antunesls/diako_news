@@ -14,6 +14,7 @@ import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
 import 'data/settings.dart';
+import 'data/visita_repo.dart';
 import 'holyrics/holyrics_client.dart';
 import 'holyrics/status_controller.dart';
 import 'sync/server_api.dart';
@@ -36,6 +37,7 @@ Future<void> main() async {
   final motivos = MotivoRepo(api: api, cache: () => arquivo('cache_motivos.json'));
   final agenda = AgendaRepo(api: api, cache: () => arquivo('cache_agenda.json'));
   final mensagens = MensagemRepo(api: api, cache: () => arquivo('cache_mensagens.json'));
+  final visitas = VisitaRepo(api: api, cache: () => arquivo('cache_visitas.json'));
   final conta = ContaRepo(api: api, cache: () => arquivo('cache_conta.json'));
   // O perfil primeiro (cache), para só buscar o que ele pode ver.
   await conta.carregar();
@@ -45,6 +47,7 @@ Future<void> main() async {
   if (conta.pode('motivosVer')) unawaited(motivos.carregar());
   if (conta.pode('agendaVer')) unawaited(agenda.carregar());
   if (conta.pode('mensagens')) unawaited(mensagens.carregar());
+  if (conta.pode('visitantes')) unawaited(visitas.carregar());
 
   final client = HolyricsClient(api);
   final status = StatusController(client)..iniciar();
@@ -56,6 +59,7 @@ Future<void> main() async {
       if (tipo == 'motivos' && conta.pode('motivosVer')) motivos.sincronizar();
       if (tipo == 'agenda' && conta.pode('agendaVer')) agenda.sincronizar();
       if (tipo == 'mensagens' && conta.pode('mensagens')) mensagens.sincronizar();
+      if (tipo == 'visitas' && conta.pode('visitantes')) visitas.sincronizar();
     },
     aoReconectar: () async {
       await conta.sincronizar();
@@ -63,6 +67,7 @@ Future<void> main() async {
       if (conta.pode('motivosVer')) motivos.sincronizar();
       if (conta.pode('agendaVer')) agenda.sincronizar();
       if (conta.pode('mensagens')) mensagens.sincronizar();
+      if (conta.pode('visitantes')) visitas.sincronizar();
     },
   );
   if (settings.configurado) tempoReal.iniciar();
@@ -72,6 +77,7 @@ Future<void> main() async {
     motivos: motivos,
     agenda: agenda,
     mensagens: mensagens,
+    visitas: visitas,
     conta: conta,
     settings: settings,
     api: api,
