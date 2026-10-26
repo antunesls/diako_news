@@ -23,11 +23,13 @@ void main() {
     };
     final api = ServerApi(
       () => const ServidorConfig(base: 'http://srv:8080', sessao: 's'),
+      // Respostas em UTF-8, como o servidor manda ("Qual horário?" tem acento;
+      // http.Response(String) sem charset codificaria em Latin-1).
       httpClient: MockClient((r) async {
-        if (r.method == 'GET') return http.Response(jsonEncode([item]), 200);
+        if (r.method == 'GET') return http.Response.bytes(utf8.encode(jsonEncode([item])), 200);
         expect(r.url.path, '/api/mensagens/a');
         expect(jsonDecode(r.body), {'status': 'emAnalise'});
-        return http.Response(jsonEncode({...item, 'status': 'emAnalise'}), 200);
+        return http.Response.bytes(utf8.encode(jsonEncode({...item, 'status': 'emAnalise'})), 200);
       }),
     );
     final repo = MensagemRepo(
