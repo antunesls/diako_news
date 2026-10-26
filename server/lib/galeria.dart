@@ -52,9 +52,13 @@ class Galeria {
   }
 }
 
-/// Deixa a foto de pé (orientação do celular), reduz para no máximo [Galeria.larguraMaxima] px e
+/// Deixa a foto de pé (orientação do celular), reduz para no máximo [larguraMaxima] px e
 /// regrava em JPEG sem os metadados EXIF (que podem trazer a localização GPS de onde foi tirada).
-({Uint8List foto, Uint8List miniatura, int largura, int altura}) processarFoto(Uint8List bytes) {
+({Uint8List foto, Uint8List miniatura, int largura, int altura}) processarFoto(
+  Uint8List bytes, {
+  int larguraMaxima = Galeria.larguraMaxima,
+  int larguraMiniatura = Galeria.larguraMiniatura,
+}) {
   final decoder = img.findDecoderForData(bytes);
   final info = decoder?.startDecode(bytes);
   if (decoder == null || info == null) throw const FormatException('Não foi possível ler a imagem.');
@@ -70,10 +74,10 @@ class Galeria {
     img.fill(fundo, color: img.ColorRgb8(255, 255, 255));
     foto = img.compositeImage(fundo, foto);
   }
-  if (foto.width > Galeria.larguraMaxima) {
-    foto = img.copyResize(foto, width: Galeria.larguraMaxima, interpolation: img.Interpolation.average);
+  if (foto.width > larguraMaxima) {
+    foto = img.copyResize(foto, width: larguraMaxima, interpolation: img.Interpolation.average);
   }
-  final miniatura = img.copyResize(foto, width: Galeria.larguraMiniatura, interpolation: img.Interpolation.average);
+  final miniatura = img.copyResize(foto, width: larguraMiniatura, interpolation: img.Interpolation.average);
   foto.exif = img.ExifData();
   miniatura.exif = img.ExifData();
   return (

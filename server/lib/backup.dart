@@ -8,6 +8,7 @@ import 'package:diako_core/diako_core.dart';
 import 'package:path/path.dart' as p;
 
 import 'cartazes.dart';
+import 'fotos_membros.dart';
 import 'galeria.dart';
 import 'qr_oracao.dart';
 import 'store.dart';
@@ -80,6 +81,15 @@ class Backup {
       await for (final e in dirGaleria.list()) {
         final nome = p.basename(e.path);
         if (e is File && Galeria.nomeValido(nome)) arquivo.add(ArchiveFile.bytes('galeria/$nome', await e.readAsBytes()));
+      }
+    }
+    final dirFotosMembros = Directory(FotosMembros(pastaDados).pasta);
+    if (await dirFotosMembros.exists()) {
+      await for (final e in dirFotosMembros.list()) {
+        final nome = p.basename(e.path);
+        if (e is File && FotosMembros.nomeValido(nome)) {
+          arquivo.add(ArchiveFile.bytes('fotos-membros/$nome', await e.readAsBytes()));
+        }
       }
     }
     arquivo.add(ArchiveFile.string('configuracoes.json', const JsonEncoder.withIndent('  ').convert(_configuracoes())));
@@ -173,6 +183,7 @@ class ResumoRestauracao {
   final colecoes = <String, int>{};
   int cartazes = 0;
   int fotosGaleria = 0;
+  int fotosMembros = 0;
   bool historico = false;
   bool configuracoes = false;
   String? backupSeguranca;
@@ -181,6 +192,7 @@ class ResumoRestauracao {
         'colecoes': colecoes,
         'cartazes': cartazes,
         'fotosGaleria': fotosGaleria,
+        'fotosMembros': fotosMembros,
         'historico': historico,
         'configuracoes': configuracoes,
         'backupSeguranca': backupSeguranca,
@@ -233,6 +245,10 @@ class Restauracao {
               Motivo.fromJson(doc);
             case 'membros':
               Membro.fromJson(doc);
+              final foto = (doc['foto'] as String?)?.trim();
+              if (foto != null && foto.isNotEmpty && !FotosMembros.nomeValido(foto)) {
+                throw const FormatException('Foto de membro inválida.');
+              }
             case 'mensagens':
               final mensagem = Mensagem.fromJson(doc);
               if (!Mensagem.tipos.contains(mensagem.tipo) || !Mensagem.statusValidos.contains(mensagem.status)) {
@@ -268,6 +284,14 @@ class Restauracao {
       temPastaGaleria = true;
       final nome = f.name.substring('galeria/'.length);
       if (Galeria.nomeValido(nome)) fotos[nome] = f.content;
+    }
+    final fotosDosMembros = <String, List<int>>{};
+    var temPastaFotosMembros = false;
+    for (final f in arquivo.files) {
+      if (!f.isFile || !f.name.startsWith('fotos-membros/')) continue;
+      temPastaFotosMembros = true;
+      final nome = f.name.substring('fotos-membros/'.length);
+      if (FotosMembros.nomeValido(nome)) fotosDosMembros[nome] = f.content;
     }
     final historico = arquivo.findFile('data/historico.jsonl');
     Map<String, dynamic>? cfg;
@@ -320,6 +344,18 @@ class Restauracao {
       }
       resumo.fotosGaleria = fotos.keys.where((k) => !k.endsWith('-m.jpg')).length;
       store.avisar('galeria');
+    }
+    // Idem para as fotos do cadastro de membros (backups de antes mantêm as atuais).
+    if (temPastaFotosMembros) {
+      final dir = Directory(FotosMembros(pastaDados).pasta);
+      await dir.create(recursive: true);
+      await for (final e in dir.list()) {
+        if (e is File && FotosMembros.nomeValido(p.basename(e.path))) await e.delete();
+      }
+      for (final f in fotosDosMembros.entries) {
+        await File(p.join(dir.path, f.key)).writeAsBytes(f.value, flush: true);
+      }
+      resumo.fotosMembros = fotosDosMembros.keys.where((k) => !k.endsWith('-m.jpg')).length;
     }
     if (cfg != null && aplicarConfiguracoes != null) {
       await aplicarConfiguracoes!(cfg);

@@ -90,6 +90,45 @@
   .foto .topo-foto { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--suave); }
   .foto .acoes { display: flex; flex-wrap: wrap; gap: 6px; }
   .grade-evento { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 12px; }
+  /* Membros */
+  .grade-membros { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  .membro-card { display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; background: var(--superficie); border: 1px solid var(--linha); border-radius: var(--raio); }
+  .membro-card .foto, .avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--neutro); flex-shrink: 0; border: 0; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--suave); font-size: 18px; }
+  .membro-card .conteudo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .membro-card .titulo { font-weight: 600; cursor: pointer; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; }
+  .membro-card .titulo:hover { color: var(--primaria); }
+  .membro-card .sub { color: var(--suave); font-size: 13.5px; overflow-wrap: anywhere; }
+  .membro-card .acoes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  dialog.dialogo-largo { width: min(880px, calc(100vw - 32px)); height: min(780px, calc(100vh - 64px)); padding: 0; }
+  dialog.dialogo-largo form { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 22px 24px; overflow: hidden; }
+  dialog.dialogo-largo h2 { padding-right: 24px; }
+  .dialogo-rolagem { flex: 1; min-height: 0; overflow: auto; padding-right: 8px; }
+  dialog.dialogo-largo h3 { font-family: var(--fonte); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--primaria); margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--linha); }
+  .grade-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0 16px; }
+  .linha-foto { display: flex; gap: 16px; align-items: center; }
+  .linha-foto img, .linha-foto .avatar { width: 84px; height: 84px; cursor: default; border-radius: 50%; object-fit: cover; }
+  .membro-card .foto, .ficha-topo .avatar { position: relative; overflow: hidden; }
+  .membro-card .foto img, .ficha-topo .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+  .ficha-topo { display: flex; gap: 18px; align-items: center; margin-bottom: 8px; }
+  .ficha-topo .avatar, .ficha-topo img { width: 96px; height: 96px; cursor: default; }
+  .ficha-topo h2 { margin: 0; }
+  .ficha-secao { margin: 18px 0 4px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--primaria); padding-bottom: 6px; border-bottom: 1px solid var(--linha); }
+  .ficha-par { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--linha); }
+  .ficha-par:last-child { border-bottom: 0; }
+  .ficha-par .rotulo { width: 180px; flex-shrink: 0; color: var(--suave); font-size: 14px; }
+  .ficha-par .valor { flex: 1; white-space: pre-line; overflow-wrap: anywhere; }
+  .ficha-par .valor .link { padding: 0; }
+  #impressao-membros { display: none; }
+  @media print {
+    body { background: #fff; }
+    body > *:not(#impressao-membros) { display: none !important; }
+    #impressao-membros { display: block !important; font-size: 12px; }
+    #impressao-membros h1 { font-size: 20px; margin: 0 0 2px; }
+    #impressao-membros p { margin: 0 0 12px; color: #555; }
+    #impressao-membros table { width: 100%; border-collapse: collapse; }
+    #impressao-membros th, #impressao-membros td { border: 1px solid #999; padding: 4px 6px; text-align: left; }
+    #impressao-membros th { background: #eee; }
+  }
 </style>
 </head>
 <body>
@@ -130,7 +169,7 @@
     <button role="tab" data-permissao="agendaVer" data-aba="agenda" aria-selected="false">Agenda</button>
     <button role="tab" data-permissao="cartazes" data-aba="cartazes" aria-selected="false">Cartazes</button>
     <button role="tab" data-permissao="galeria" data-aba="galeria" aria-selected="false">Galeria</button>
-    <button role="tab" data-permissao="membros" data-aba="membros" aria-selected="false">Aniversariantes</button>
+    <button role="tab" data-permissao="membros" data-aba="membros" aria-selected="false">Membros</button>
     <button role="tab" data-permissao="resumo" data-aba="resumo" aria-selected="false">Resumo da semana</button>
     <button role="tab" data-aba="historico" aria-selected="false">Histórico</button>
     <button role="tab" data-aba="status" aria-selected="false">Status</button>
@@ -249,26 +288,30 @@
     </section>
 
     <section data-painel="membros" hidden>
-      <div class="duas">
-        <div>
-          <div class="barra">
-            <h2 style="font-size:18px;margin:0">Membros</h2>
-            <span class="espaco"></span>
-            <button class="botao" id="novo-membro">Novo membro</button>
-          </div>
-          <div class="lista" id="lista-membros"></div>
-        </div>
-        <div class="cartao">
-          <h2 style="font-size:18px">Importar lista</h2>
-          <p class="dica">Uma pessoa por linha: <code>Nome;dd/mm</code>. Dá para colar direto de uma planilha.</p>
-          <div class="campo">
-            <label for="csv" class="escondido">Lista de membros</label>
-            <textarea id="csv" placeholder="Ana Souza;12/03&#10;Bruno Lima;05/11"></textarea>
-          </div>
-          <button class="botao secundario" id="importar">Importar</button>
-          <p id="resultado-importacao" role="status"></p>
-        </div>
+      <div class="indicadores" id="indicadores-membros"></div>
+      <div class="barra">
+        <input type="search" id="busca-membro" placeholder="Buscar por nome, telefone ou e-mail" style="max-width:300px" aria-label="Buscar membro">
+        <select id="filtro-status-membro" aria-label="Filtrar por status">
+          <option value="">Todos os status</option>
+          <option value="ativos">Ativos</option>
+          <option value="visitante">Visitantes</option>
+          <option value="congregado">Congregados</option>
+          <option value="membro">Membros</option>
+          <option value="inativo">Inativos</option>
+          <option value="transferido">Transferidos</option>
+        </select>
+        <select id="filtro-ministerio-membro" aria-label="Filtrar por ministério">
+          <option value="">Todos os ministérios</option>
+        </select>
+        <label class="marcar" style="margin:0"><input type="checkbox" id="filtro-aniversariantes"><span class="dica">Aniversariantes do mês</span></label>
+        <span class="espaco"></span>
+        <button class="botao secundario pequeno" id="abrir-importar-membros" type="button">Importar</button>
+        <button class="botao secundario pequeno" id="exportar-membros" type="button">Exportar CSV</button>
+        <button class="botao secundario pequeno" id="imprimir-membros" type="button">Imprimir</button>
+        <button class="botao" id="novo-membro" type="button">Novo membro</button>
       </div>
+      <p id="resultado-membros" role="status"></p>
+      <div class="grade-membros" id="lista-membros"></div>
     </section>
 
     <section data-painel="status" hidden>
@@ -382,15 +425,103 @@
   </form>
 </dialog>
 
-<dialog id="dlg-membro">
+<dialog id="dlg-membro" class="dialogo-largo">
   <form method="dialog" id="form-membro">
     <h2 style="font-size:20px" id="titulo-membro">Membro</h2>
-    <div class="campo"><label for="b-nome">Nome</label><input type="text" id="b-nome" maxlength="100"></div>
-    <div class="duas" style="grid-template-columns:1fr 1fr">
-      <div class="campo"><label for="b-dia">Dia</label><input type="number" id="b-dia" min="1" max="31"></div>
-      <div class="campo"><label for="b-mes">Mês</label><input type="number" id="b-mes" min="1" max="12"></div>
+    <div class="dialogo-rolagem">
+      <div class="campo linha-foto">
+        <img id="b-foto-atual" class="foto" alt="Foto do membro" hidden>
+        <div id="b-foto-iniciais" class="avatar"></div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+          <label class="botao secundario pequeno" for="b-arquivo-foto" style="margin:0">Escolher foto</label>
+          <input type="file" id="b-arquivo-foto" accept="image/jpeg,image/png" class="escondido">
+          <button type="button" class="botao secundario pequeno" id="b-remover-foto" hidden>Remover foto</button>
+          <span class="dica">JPG ou PNG até 15 MB.</span>
+        </div>
+      </div>
+
+      <h3>Dados pessoais</h3>
+      <div class="campo"><label for="b-nome">Nome</label><input type="text" id="b-nome" maxlength="100" required></div>
+      <div class="grade-campos">
+        <div class="campo"><label for="b-dia">Dia do aniversário</label><input type="number" id="b-dia" min="1" max="31" required></div>
+        <div class="campo"><label for="b-mes">Mês</label><input type="number" id="b-mes" min="1" max="12" required></div>
+        <div class="campo"><label for="b-ano">Ano <span class="dica">(opcional)</span></label><input type="number" id="b-ano" min="1900" max="2026"></div>
+        <div class="campo"><label for="b-sexo">Sexo</label>
+          <select id="b-sexo"><option value=""></option><option value="M">Masculino</option><option value="F">Feminino</option></select></div>
+        <div class="campo"><label for="b-estado-civil">Estado civil</label>
+          <select id="b-estado-civil">
+            <option value=""></option><option>Solteiro(a)</option><option>Casado(a)</option><option>Viúvo(a)</option>
+            <option>Divorciado(a)</option><option>União estável</option>
+          </select></div>
+      </div>
+
+      <h3>Contato</h3>
+      <div class="grade-campos">
+        <div class="campo"><label for="b-telefone">Telefone</label><input type="tel" id="b-telefone" maxlength="30"></div>
+        <div class="campo"><label for="b-whatsapp">WhatsApp</label><input type="tel" id="b-whatsapp" maxlength="30"></div>
+        <div class="campo"><label for="b-email">E-mail</label><input type="email" id="b-email" maxlength="120"></div>
+      </div>
+
+      <h3>Endereço</h3>
+      <div class="grade-campos">
+        <div class="campo"><label for="b-cep">CEP</label><input type="text" id="b-cep" maxlength="9" inputmode="numeric" placeholder="00000-000"></div>
+        <div class="campo"><label for="b-rua">Rua</label><input type="text" id="b-rua" maxlength="140"></div>
+        <div class="campo"><label for="b-numero">Número</label><input type="text" id="b-numero" maxlength="20"></div>
+        <div class="campo"><label for="b-complemento">Complemento</label><input type="text" id="b-complemento" maxlength="80"></div>
+        <div class="campo"><label for="b-bairro">Bairro</label><input type="text" id="b-bairro" maxlength="80"></div>
+        <div class="campo"><label for="b-cidade">Cidade</label><input type="text" id="b-cidade" maxlength="80"></div>
+        <div class="campo"><label for="b-uf">UF</label>
+          <select id="b-uf"><option value=""></option>
+            <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option>
+            <option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+            <option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option>
+            <option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+            <option>SP</option><option>SE</option><option>TO</option>
+          </select></div>
+      </div>
+
+      <h3>Documentos</h3>
+      <div class="grade-campos">
+        <div class="campo"><label for="b-cpf">CPF</label><input type="text" id="b-cpf" maxlength="14" inputmode="numeric" placeholder="000.000.000-00"></div>
+        <div class="campo"><label for="b-rg">RG</label><input type="text" id="b-rg" maxlength="30"></div>
+      </div>
+
+      <h3>Vida na igreja</h3>
+      <div class="grade-campos">
+        <div class="campo"><label for="b-status">Status</label>
+          <select id="b-status">
+            <option value="visitante">Visitante</option><option value="congregado">Congregado</option>
+            <option value="membro">Membro</option><option value="inativo">Inativo</option>
+            <option value="transferido">Transferido</option>
+          </select></div>
+        <div class="campo"><label for="b-chegada">Chegou em</label><input type="date" id="b-chegada"></div>
+        <div class="campo"><label for="b-batismo">Batismo</label><input type="date" id="b-batismo"></div>
+        <div class="campo"><label for="b-membresia">Membresia</label><input type="date" id="b-membresia"></div>
+        <div class="campo"><label for="b-funcao">Função <span class="dica">(ex.: Diácono)</span></label><input type="text" id="b-funcao" maxlength="60"></div>
+      </div>
+      <div class="campo"><label for="b-ministerios">Ministérios <span class="dica">(separe por vírgula)</span></label>
+        <input type="text" id="b-ministerios" maxlength="200" list="dl-ministerios">
+        <datalist id="dl-ministerios"></datalist>
+      </div>
+
+      <h3>Família</h3>
+      <div class="grade-campos">
+        <div class="campo"><label for="b-conjuge">Cônjuge</label><select id="b-conjuge"></select></div>
+        <div class="campo"><label for="b-pai-1">Pai / mãe / responsável</label><select id="b-pai-1"></select></div>
+        <div class="campo"><label for="b-pai-2">Pai / mãe / responsável</label><select id="b-pai-2"></select></div>
+      </div>
+
+      <h3>Contato de emergência</h3>
+      <div class="grade-campos">
+        <div class="campo"><label for="b-emerg-nome">Nome</label><input type="text" id="b-emerg-nome" maxlength="100"></div>
+        <div class="campo"><label for="b-emerg-telefone">Telefone</label><input type="tel" id="b-emerg-telefone" maxlength="30"></div>
+        <div class="campo"><label for="b-emerg-vinculo">Vínculo <span class="dica">(ex.: irmã)</span></label><input type="text" id="b-emerg-vinculo" maxlength="60"></div>
+      </div>
+
+      <h3>Observações</h3>
+      <div class="campo"><label for="b-observacoes" class="escondido">Observações</label>
+        <textarea id="b-observacoes" maxlength="2000" style="min-height:80px"></textarea></div>
     </div>
-    <div class="campo"><label class="marcar"><input type="checkbox" id="b-ativo" checked><span>Ativo (entra nos aniversariantes)</span></label></div>
     <p class="erro" id="erro-membro" hidden></p>
     <div class="dialogo-acoes">
       <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
@@ -399,7 +530,40 @@
   </form>
 </dialog>
 
-<script src="/comum.js?v=2"></script>
-<script src="/painel.js?v=7"></script>
+<dialog id="dlg-ficha" class="dialogo-largo">
+  <div class="dialogo-rolagem" id="ficha-conteudo" style="padding:22px 24px"></div>
+  <div class="dialogo-acoes" style="padding:0 24px 22px">
+    <span class="dica" id="ficha-historico"></span>
+    <span class="espaco"></span>
+    <button class="botao secundario" id="fechar-ficha" type="button">Fechar</button>
+    <button class="botao" id="editar-da-ficha" type="button">Editar</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-importar">
+  <form method="dialog" id="form-importar">
+    <h2 style="font-size:20px">Importar membros</h2>
+    <p class="dica">Cole direto da planilha (uma pessoa por linha, separada por <code>;</code>). A primeira linha pode
+      ser o cabeçalho com as colunas:
+      <code>Nome;Aniversário;Sexo;Estado civil;CPF;RG;Telefone;WhatsApp;E-mail;CEP;Rua;Número;Complemento;Bairro;Cidade;UF;Status;Data de chegada;Data de batismo;Data de membresia;Ministérios;Função;Observações</code>.<br>
+      O formato antigo <code>Nome;dd/mm</code> continua valendo. Datas como <code>dd/mm/aaaa</code>; ministérios separados por <code>|</code>.</p>
+    <div class="campo">
+      <label for="csv-membros" class="escondido">Lista de membros</label>
+      <textarea id="csv-membros" placeholder="Ana Souza;05/03/1990;(11) 98888-7777;ana@exemplo.com;Congregada"></textarea>
+    </div>
+    <p id="resultado-importacao" role="status" style="white-space:pre-line"></p>
+    <div class="dialogo-acoes">
+      <button type="button" class="botao secundario pequeno" id="modelo-csv">Colar modelo</button>
+      <span class="espaco"></span>
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="importar">Importar</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="impressao-membros"></div>
+
+<script src="/comum.js?v=3"></script>
+<script src="/painel.js?v=8"></script>
 </body>
 </html>

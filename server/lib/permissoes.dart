@@ -15,7 +15,7 @@ enum Permissao {
   agendaEditar('Criar e editar eventos da agenda'),
   cartazes('Cartazes'),
   galeria('Galeria do site'),
-  membros('Aniversariantes'),
+  membros('Cadastro de membros'),
   resumo('Resumo da semana'),
   projetar('Projetar no telão'),
   admin('Administração'),

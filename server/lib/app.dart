@@ -23,6 +23,7 @@ import 'configuracoes.dart';
 import 'historico.dart';
 import 'holyrics.dart';
 import 'email_mensagens.dart';
+import 'fotos_membros.dart';
 import 'galeria.dart';
 import 'pagina_inicial.dart';
 import 'permissoes.dart';
@@ -56,7 +57,9 @@ class Servidor {
     DateTime Function()? relogio,
     LimiteTaxa? limitePedidos,
     Galeria? galeria,
+    FotosMembros? fotosMembros,
   })  : galeria = galeria ?? Galeria(store.pasta),
+        fotosMembros = fotosMembros ?? FotosMembros(store.pasta),
         _urlOracaoFixa = urlOracao,
         _chaveAgenteFixa = chaveAgente,
         _chaveMuralFixa = chaveMural,
@@ -81,6 +84,9 @@ class Servidor {
 
   /// Fotos do carrossel da página inicial (data/galeria).
   final Galeria galeria;
+
+  /// Fotos do cadastro de membros (data/fotos-membros) — nunca públicas.
+  final FotosMembros fotosMembros;
   final Backup backup;
   final String pastaWeb;
 
@@ -173,12 +179,17 @@ class Servidor {
       ..put('/api/motivos/<id>', _atualizarMotivo)
       ..post('/api/motivos/<id>/aprovar', _aprovarMotivo)
       ..delete('/api/motivos/<id>', _excluirMotivo)
-      // Membros / aniversariantes
-      ..get('/api/membros', (Request _) => _json(store.listar('membros')))
+      // Membros / aniversariantes (exportar antes das rotas com <id>)
+      ..get('/api/membros', (Request _) => _json([for (final m in _listaMembros()) m.toJson()]))
+      ..get('/api/membros/exportar', _exportarMembros)
       ..post('/api/membros', _criarMembro)
       ..post('/api/membros/importar', _importarMembros)
       ..put('/api/membros/<id>', _atualizarMembro)
-      ..delete('/api/membros/<id>', (Request _, String id) => _excluir('membros', id))
+      ..delete('/api/membros/<id>', _excluirMembro)
+      ..post('/api/membros/<id>/foto', _enviarFotoMembro)
+      ..delete('/api/membros/<id>/foto', _removerFotoMembro)
+      ..get('/api/membros/<id>/foto', (Request _, String id) => _fotoMembro(id, miniatura: false))
+      ..get('/api/membros/<id>/foto-miniatura', (Request _, String id) => _fotoMembro(id, miniatura: true))
       // Cartazes
       ..get('/api/cartazes', _listarCartazes)
       ..post('/api/cartazes', _enviarCartaz)
@@ -656,43 +667,265 @@ class Servidor {
 
   // ---------- Membros ----------
 
-  Future<Response> _criarMembro(Request req) async {
-    final corpo = await _corpo(req);
-    final m = Membro.fromJson({...corpo, 'id': novoId()});
+  /// Membros normalizados: documentos antigos (só nome/dia/mês/ativo) ganham status.
+  List<Membro> _listaMembros() => store.listar('membros').map(Membro.fromJson).toList();
+
+  /// Valida o corpo e monta o membro pronto para gravar. [base] é o documento atual
+  /// (edição) ou vazio (criação). Lança [FormatException] com a mensagem para o painel.
+  Membro _montarMembro(Map<String, dynamic> corpo, Map<String, dynamic> base, String id) {
+    if (corpo.containsKey('status') && StatusMembro.porNome(corpo['status'] as String?) == null) {
+      throw const FormatException('Status inválido.');
+    }
+    for (final campo in ['dataChegada', 'dataBatismo', 'dataMembresia']) {
+      final v = corpo[campo];
+      if (v is String && v.trim().isNotEmpty && Membro.dataDe(v) == null) {
+        throw FormatException('Data inválida em "$campo": use dd/mm/aaaa.');
+      }
+    }
+    final anterior = base.isEmpty ? null : Membro.fromJson(base);
+    // Foto (rotas próprias), histórico e datas de controle são do servidor, não do corpo.
+    final editavel = {...corpo}
+      ..remove('foto')
+      ..remove('historicoStatus')
+      ..remove('criadoEm')
+      ..remove('atualizadoEm');
+    final m = Membro.fromJson({...base, ...editavel, 'id': id});
     final erro = _validarMembro(m);
-    if (erro != null) return _erro(400, erro);
-    await store.salvar('membros', m.toJson());
-    return _json(m.toJson(), status: 201);
+    if (erro != null) throw FormatException(erro);
+    if (m.conjugeId != null && store.buscar('membros', m.conjugeId!) == null) {
+      throw const FormatException('Cônjuge não encontrado (foi excluído?).');
+    }
+    for (final paisId in m.paisIds) {
+      if (store.buscar('membros', paisId) == null) {
+        throw const FormatException('Vínculo de pais não encontrado (foi excluído?).');
+      }
+    }
+    // Mudança de status entra no histórico.
+    final historico = [...?anterior?.historicoStatus];
+    if (anterior == null || m.status != anterior.status) {
+      historico.add(MudancaStatus(m.status, _agora()));
+    }
+    final agora = _agora();
+    return Membro.fromJson({
+      ...m.toJson(),
+      'historicoStatus': [for (final h in historico) h.toJson()],
+      'criadoEm': anterior?.criadoEm?.toIso8601String() ?? agora.toIso8601String(),
+      'atualizadoEm': agora.toIso8601String(),
+    });
+  }
+
+  Future<Response> _criarMembro(Request req) async {
+    try {
+      final m = _montarMembro(await _corpo(req), {}, novoId());
+      await store.salvar('membros', m.toJson());
+      await _sincronizarConjuge(null, m);
+      return _json(m.toJson(), status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
   }
 
   Future<Response> _atualizarMembro(Request req, String id) async {
     final atual = store.buscar('membros', id);
     if (atual == null) return _erro(404, 'Membro não encontrado.');
-    final m = Membro.fromJson({...atual, ...await _corpo(req), 'id': id});
-    final erro = _validarMembro(m);
-    if (erro != null) return _erro(400, erro);
-    await store.salvar('membros', m.toJson());
-    return _json(m.toJson());
+    try {
+      final m = _montarMembro(await _corpo(req), atual, id);
+      await store.salvar('membros', m.toJson());
+      await _sincronizarConjuge(Membro.fromJson(atual), m);
+      return _json(m.toJson());
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
   }
 
-  /// Corpo em texto: uma linha "Nome;dd/mm" por membro. Não duplica nome + data já cadastrados.
+  /// Mantém o vínculo de cônjuge nos dois lados (o painel edita um lado de cada vez).
+  Future<void> _sincronizarConjuge(Membro? anterior, Membro novo) async {
+    final docs = <Map<String, dynamic>>[];
+    final idAntigo = anterior?.conjugeId;
+    if (idAntigo != null && idAntigo != novo.conjugeId && idAntigo != novo.id) {
+      final doc = store.buscar('membros', idAntigo);
+      if (doc != null && doc['conjugeId'] == novo.id) {
+        docs.add({...doc}..remove('conjugeId'));
+      }
+    }
+    final idNovo = novo.conjugeId;
+    if (idNovo != null && idNovo != novo.id) {
+      final doc = store.buscar('membros', idNovo);
+      if (doc != null && doc['conjugeId'] != novo.id) {
+        docs.add({...doc, 'conjugeId': novo.id});
+      }
+    }
+    if (docs.isNotEmpty) await store.salvarVarios('membros', docs);
+  }
+
+  Future<Response> _excluirMembro(Request _, String id) async {
+    final atual = store.buscar('membros', id);
+    if (atual == null) return _erro(404, 'Membro não encontrado.');
+    final m = Membro.fromJson(atual);
+    // Limpa os vínculos nos outros membros (cônjuge e filhos que apontam para este).
+    final docs = <Map<String, dynamic>>[];
+    if (m.conjugeId != null) {
+      final doc = store.buscar('membros', m.conjugeId!);
+      if (doc != null && doc['conjugeId'] == id) docs.add({...doc}..remove('conjugeId'));
+    }
+    for (final outro in store.listar('membros')) {
+      if (outro['id'] == id) continue;
+      final pais = (outro['paisIds'] as List?)?.map((e) => e.toString()).toList();
+      if (pais != null && pais.contains(id)) {
+        final restantes = pais.where((p) => p != id).toList();
+        // Passa pelo modelo: lista vazia sai do documento em vez de virar "paisIds": [].
+        docs.add(Membro.fromJson({...outro, 'paisIds': restantes}).toJson());
+      }
+    }
+    if (docs.isNotEmpty) await store.salvarVarios('membros', docs);
+    await store.excluir('membros', id);
+    if (m.foto != null) await _apagarFotoMembro(m.foto!);
+    return _json({'ok': true});
+  }
+
+  Future<void> _apagarFotoMembro(String arquivo) =>
+      fotosMembros.excluir([arquivo, arquivo.replaceFirst('.jpg', '-m.jpg')]);
+
+  /// Corpo em texto: "Nome;dd/mm" por linha (formato antigo) ou CSV com cabeçalho
+  /// (Nome;Aniversário;Telefone;Email;Status…). Não duplica nome + aniversário já cadastrados.
+  /// Campos inválidos de uma linha (ex.: CPF digitado errado) entram como aviso, sem perder a pessoa.
   Future<Response> _importarMembros(Request req) async {
     final lido = lerCsvMembros(await req.readAsString());
-    final existentes = store.listar('membros').map((m) => '${(m['nome'] as String).toLowerCase()}|${m['dia']}|${m['mes']}').toSet();
+    final existentes = store
+        .listar('membros')
+        .map((m) => '${(m['nome'] as String).toLowerCase()}|${m['dia']}|${m['mes']}')
+        .toSet();
+    final agora = _agora();
+    final detalhes = [...lido.detalhes];
     final novos = <Map<String, dynamic>>[];
-    for (final m in lido.membros) {
-      final chave = '${m.nome.toLowerCase()}|${m.dia}|${m.mes}';
+    for (final linha in lido.membros) {
+      final chave = '${linha.nome.toLowerCase()}|${linha.dia}|${linha.mes}';
       if (!existentes.add(chave)) continue;
-      novos.add(Membro(id: novoId(), nome: m.nome, dia: m.dia, mes: m.mes).toJson());
+      final j = {...linha.toJson(), 'id': novoId(), 'criadoEm': agora.toIso8601String()};
+      final m = Membro.fromJson(j);
+      if (m.cpf != null && !Membro.cpfValido(m.cpf!)) {
+        j.remove('cpf');
+        detalhes.add('${m.nome}: CPF inválido — importado sem o CPF.');
+      }
+      if (m.email != null && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(m.email!)) {
+        j.remove('email');
+        detalhes.add('${m.nome}: e-mail inválido — importado sem o e-mail.');
+      }
+      novos.add(Membro.fromJson(j).toJson());
     }
     if (novos.isNotEmpty) await store.salvarVarios('membros', novos);
-    return _json({'importados': novos.length, 'linhasComErro': lido.linhasComErro});
+    return _json({'importados': novos.length, 'linhasComErro': lido.linhasComErro, 'detalhes': detalhes});
+  }
+
+  /// GET /api/membros/exportar?status=&ministerio=&aniversariantes=mes — CSV com BOM,
+  /// pronto para abrir no Excel, respeitando os filtros do painel.
+  Future<Response> _exportarMembros(Request req) async {
+    final qs = req.url.queryParameters;
+    final soAtivos = qs['status'] == 'ativos';
+    final status = soAtivos ? null : StatusMembro.porNome(qs['status']);
+    final ministerio = (qs['ministerio'] ?? '').trim().toLowerCase();
+    final soAniversariantes = (qs['aniversariantes'] ?? '') == 'mes';
+    final agora = _agora();
+    var lista = _listaMembros();
+    if (soAtivos) lista = lista.where((m) => m.ativo).toList();
+    if (status != null) lista = lista.where((m) => m.status == status).toList();
+    if (ministerio.isNotEmpty) {
+      lista = lista.where((m) => m.ministerios.any((x) => x.toLowerCase() == ministerio)).toList();
+    }
+    if (soAniversariantes) lista = lista.where((m) => m.ativo && m.mes == agora.month).toList();
+    lista.sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
+
+    String celula(Object? v) {
+      final s = v?.toString() ?? '';
+      return s.contains(';') || s.contains('"') || s.contains('\n') || s.contains('\r')
+          ? '"${s.replaceAll('"', '""')}"'
+          : s;
+    }
+
+    final linhas = [
+      for (final m in lista)
+        [
+          m.nome,
+          m.ano == null ? m.aniversario : '${m.dia.toString().padLeft(2, '0')}/${m.mes.toString().padLeft(2, '0')}/${m.ano}',
+          m.idadeEm(agora) ?? '',
+          m.status.nome,
+          m.telefone ?? '',
+          m.whatsapp ?? '',
+          m.email ?? '',
+          m.ministerios.join('|'),
+          m.funcao ?? '',
+          m.cpf ?? '',
+          m.cidade ?? '',
+          m.estado ?? '',
+        ].map(celula).join(';'),
+    ];
+    final csv = [
+      'Nome;Aniversário;Idade;Status;Telefone;WhatsApp;E-mail;Ministérios;Função;CPF;Cidade;UF',
+      ...linhas,
+    ].join('\r\n');
+    // BOM na mão: o codec UTF-8 do Dart descarta o caractere \uFEFF (o Excel precisa dele).
+    final bytes = BytesBuilder()..add([0xEF, 0xBB, 0xBF])..add(utf8.encode(csv));
+    return Response.ok(bytes.toBytes(), headers: {
+      'content-type': 'text/csv; charset=utf-8',
+      'content-disposition': 'attachment; filename="membros.csv"',
+    });
+  }
+
+  /// Corpo: bytes da foto (JPG ou PNG até 15 MB). Substitui a anterior.
+  Future<Response> _enviarFotoMembro(Request req, String id) async {
+    final atual = store.buscar('membros', id);
+    if (atual == null) return _erro(404, 'Membro não encontrado.');
+    final tamanho = req.contentLength;
+    if (tamanho != null && tamanho > FotosMembros.tamanhoMaximo) return _erro(413, 'Foto maior que 15 MB.');
+    final bytes = await _lerBytes(req, FotosMembros.tamanhoMaximo);
+    if (bytes == null) return _erro(413, 'Foto maior que 15 MB.');
+    try {
+      final r = await fotosMembros.salvar(bytes);
+      final antiga = (atual['foto'] as String?)?.trim();
+      if (antiga != null && antiga.isNotEmpty) await _apagarFotoMembro(antiga);
+      final doc = {...atual, 'foto': r.arquivo, 'atualizadoEm': _agora().toIso8601String()};
+      await store.salvar('membros', doc);
+      return _json(doc, status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  Future<Response> _removerFotoMembro(Request _, String id) async {
+    final atual = store.buscar('membros', id);
+    if (atual == null) return _erro(404, 'Membro não encontrado.');
+    final antiga = (atual['foto'] as String?)?.trim();
+    if (antiga == null || antiga.isEmpty) return _erro(404, 'Este membro não tem foto.');
+    await _apagarFotoMembro(antiga);
+    final doc = {...atual}..remove('foto');
+    doc['atualizadoEm'] = _agora().toIso8601String();
+    await store.salvar('membros', doc);
+    return _json(doc);
+  }
+
+  /// GET /api/membros/<id>/foto (ou /foto-miniatura) — atrás de login, nunca pública.
+  Response _fotoMembro(String id, {required bool miniatura}) {
+    final doc = store.buscar('membros', id);
+    final nome = (doc?['foto'] as String?)?.trim();
+    if (doc == null || nome == null || nome.isEmpty) return Response.notFound('Não encontrado');
+    final nomeArquivo = miniatura ? nome.replaceFirst('.jpg', '-m.jpg') : nome;
+    final f = fotosMembros.arquivo(nomeArquivo);
+    if (f == null || !f.existsSync()) return Response.notFound('Não encontrado');
+    // A URL muda a cada foto nova (o painel usa ?v=), mas o login é por token: sem cache agressivo.
+    return Response.ok(f.openRead(),
+        headers: {'content-type': 'image/jpeg', 'cache-control': 'private, no-cache'});
   }
 
   static String? _validarMembro(Membro m) {
     if (m.nome.trim().isEmpty) return 'Informe o nome.';
     if (m.nome.length > 100) return 'Nome muito longo.';
     if (!Membro.dataValida(m.dia, m.mes)) return 'Data de aniversário inválida.';
+    if (m.ano != null && (m.ano! < 1900 || m.ano! > DateTime.now().year)) return 'Ano de nascimento inválido.';
+    if (m.cpf != null && !Membro.cpfValido(m.cpf!)) return 'CPF inválido: confira os números.';
+    if (m.email != null && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(m.email!)) return 'E-mail inválido.';
+    if (m.conjugeId == m.id) return 'O cônjuge não pode ser a própria pessoa.';
+    if (m.paisIds.contains(m.id)) return 'Os pais não podem ser a própria pessoa.';
+    if (m.ministerios.length > 12) return 'Muitos ministérios (máximo 12).';
     return null;
   }
 

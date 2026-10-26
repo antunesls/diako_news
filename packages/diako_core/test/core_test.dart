@@ -136,11 +136,137 @@ void main() {
     });
   });
 
+  group('Membro', () {
+    test('status deriva o ativo do formato antigo', () {
+      expect(Membro(id: 'a', nome: 'Ana', dia: 1, mes: 1, ativo: false).status, StatusMembro.inativo);
+      expect(Membro(id: 'a', nome: 'Ana', dia: 1, mes: 1).status, StatusMembro.membro);
+      expect(StatusMembro.visitante.ativo, isTrue);
+      expect(StatusMembro.congregado.ativo, isTrue);
+      expect(StatusMembro.membro.ativo, isTrue);
+      expect(StatusMembro.inativo.ativo, isFalse);
+      expect(StatusMembro.transferido.ativo, isFalse);
+    });
+
+    test('json antigo vira status, novo mantém os campos de sempre', () {
+      // Antes de existir o cadastro completo: só nome, dia, mes e ativo.
+      final antigo = Membro.fromJson({'id': 'x', 'nome': 'Ana', 'dia': 5, 'mes': 3, 'ativo': false});
+      expect(antigo.status, StatusMembro.inativo);
+      expect(antigo.toJson()['ativo'], isFalse);
+      expect(antigo.toJson()['status'], 'inativo');
+
+      final m = Membro(
+        id: 'x',
+        nome: 'Ana Souza',
+        dia: 5,
+        mes: 3,
+        ano: 1990,
+        sexo: 'F',
+        cpf: '11144477735',
+        telefone: '(11) 98888-7777',
+        email: 'ana@exemplo.com',
+        status: StatusMembro.congregado,
+        dataBatismo: '2015-06-14',
+        ministerios: const ['Louvor'],
+        conjugeId: 'y',
+        paisIds: const ['z'],
+      );
+      final j = m.toJson();
+      expect(Membro.fromJson(j).toJson(), j);
+      expect(j['ativo'], isTrue); // congregado é ativo
+      expect(j['dia'], 5);
+      expect(j['mes'], 3);
+    });
+
+    test('idade só quando o ano é guardado', () {
+      expect(Membro(id: 'a', nome: 'Ana', dia: 10, mes: 2, ano: 1990).idadeEm(DateTime(2026, 10, 26)), 36);
+      expect(Membro(id: 'a', nome: 'Ana', dia: 10, mes: 2, ano: 1990).idadeEm(DateTime(2026, 2, 9)), 35);
+      expect(Membro(id: 'a', nome: 'Ana', dia: 10, mes: 2).idadeEm(DateTime(2026)), isNull);
+    });
+
+    test('CPF confere dígitos e aceita pontuação', () {
+      expect(Membro.cpfValido('11144477735'), isTrue);
+      expect(Membro.cpfValido('111.444.777-35'), isTrue);
+      expect(Membro.cpfValido('11144477736'), isFalse);
+      expect(Membro.cpfValido('11111111111'), isFalse);
+      expect(Membro.cpfValido('1234567890'), isFalse);
+      expect(Membro.soDigitos('111.444.777-35'), '11144477735');
+      expect(Membro.soDigitos(''), isNull);
+    });
+
+    test('datas aceitam dd/mm/aaaa e ficam aaaa-mm-dd', () {
+      final m = Membro.fromJson({'id': 'x', 'nome': 'Ana', 'dia': 1, 'mes': 1, 'dataBatismo': '14/06/2015'});
+      expect(m.dataBatismo, '2015-06-14');
+      expect(Membro.dataIsoValida('2015-06-14'), isTrue);
+      expect(Membro.dataIsoValida('14/06/2015'), isFalse);
+      expect(Membro.dataIsoValida('2999-01-01'), isFalse);
+      expect(Membro.dataIsoValida(null), isFalse);
+      expect(Membro.dataDe('31/02/2015'), isNull);
+      expect(Membro.dataDe('2015-13-01'), isNull);
+      expect(Membro.dataDe('1/6/2015'), '2015-06-01');
+    });
+
+    test('status por nome aceita acento, maiúsculas e feminino', () {
+      expect(StatusMembro.porNome('congregado'), StatusMembro.congregado);
+      expect(StatusMembro.porNome('Congregada'), StatusMembro.congregado);
+      expect(StatusMembro.porNome('Transferido'), StatusMembro.transferido);
+      expect(StatusMembro.porNome('inativa'), StatusMembro.inativo);
+      expect(StatusMembro.porNome('xyz'), isNull);
+      expect(StatusMembro.porNome(''), isNull);
+    });
+  });
+
   group('CSV de membros', () {
-    test('lê separadores variados e ignora cabeçalho', () {
-      final r = lerCsvMembros('Nome;Aniversário\nAna Souza;12/03\nBruno, 5/11\nCarla\t29/02\nErro;31/02\n;01/01\n');
+    test('formato antigo, sem cabeçalho: separadores variados', () {
+      final r = lerCsvMembros('Ana Souza;12/03\nBruno, 5/11\nCarla\t29/02\nErro;31/02\n;01/01\n');
       expect(r.membros.map((m) => '${m.nome}-${m.dia}/${m.mes}'), ['Ana Souza-12/3', 'Bruno-5/11', 'Carla-29/2']);
-      expect(r.linhasComErro, [5, 6]); // "Erro;31/02" e ";01/01"
+      expect(r.linhasComErro, [4, 5]); // "Erro;31/02" e ";01/01"
+    });
+
+    test('cabeçalho com duas colunas conhecidas liga o formato completo', () {
+      final r = lerCsvMembros('Nome;Aniversário\nAna Souza;12/03\nAna Souza;32/03\n;12/03\n');
+      expect(r.membros.map((m) => m.nome), ['Ana Souza']);
+      expect(r.linhasComErro, [3, 4]);
+      expect(r.detalhes.length, 2);
+    });
+
+    test('cabeçalho completo lê todas as colunas', () {
+      const csv = 'Nome;Aniversário;Sexo;Estado civil;CPF;Telefone;WhatsApp;Email;Status;'
+          'Data de batismo;Data de membresia;Ministérios;Função;CEP;Rua;Número;Cidade;UF;Observações\n'
+          'Ana Souza;05/03/1990;F;Casada;111.444.777-35;(11) 98888-7777;11988887777;ana@exemplo.com;Congregado;'
+          '14/06/2015;2016-03-05;Louvor|Infantil;Líder;01234-000;Rua das Flores;120;São Paulo;SP;Chegou pela família\n'
+          'Bruno Lima;5/11;;;;;;;;;;;\n';
+      final r = lerCsvMembros(csv);
+      expect(r.linhasComErro, isEmpty);
+      final ana = r.membros.first;
+      expect(ana.nome, 'Ana Souza');
+      expect(ana.ano, 1990);
+      expect(ana.sexo, 'F');
+      expect(ana.estadoCivil, 'Casada');
+      expect(ana.cpf, '11144477735');
+      expect(ana.telefone, '(11) 98888-7777');
+      expect(ana.whatsapp, '11988887777');
+      expect(ana.email, 'ana@exemplo.com');
+      expect(ana.status, StatusMembro.congregado);
+      expect(ana.dataBatismo, '2015-06-14');
+      expect(ana.dataMembresia, '2016-03-05');
+      expect(ana.ministerios, ['Louvor', 'Infantil']);
+      expect(ana.funcao, 'Líder');
+      expect(ana.cep, '01234000');
+      expect(ana.rua, 'Rua das Flores');
+      expect(ana.numero, '120');
+      expect(ana.cidade, 'São Paulo');
+      expect(ana.estado, 'SP');
+      expect(ana.observacoes, 'Chegou pela família');
+      final bruno = r.membros.last;
+      expect(bruno.nome, 'Bruno Lima');
+      expect(bruno.status, StatusMembro.membro); // padrão quando vazio
+    });
+
+    test('linha sem aniversário no formato completo gera erro explicando', () {
+      final r = lerCsvMembros('Nome;Telefone\nAna;988887777\n');
+      expect(r.membros, isEmpty);
+      expect(r.linhasComErro, [2]);
+      expect(r.detalhes.single, contains('aniversário'));
     });
   });
 }

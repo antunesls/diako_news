@@ -53,6 +53,23 @@ async function baixarArquivo(caminho, nomePadrao) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
+/** URL de exibição para arquivo protegido por login (fotos de membros): fetch com o
+ *  token + blob, já que <img src> não manda o cabeçalho Authorization. Cache por
+ *  caminho na sessão — inclua ?v=<versão> para forçar nova busca quando o arquivo muda. */
+const _urlsAutenticadas = new Map();
+async function urlAutenticada(caminho) {
+  if (_urlsAutenticadas.has(caminho)) return _urlsAutenticadas.get(caminho);
+  const r = await fetch(caminho, { headers: { Authorization: 'Bearer ' + token } });
+  if (r.status === 401) {
+    sair();
+    throw new Error('Sessão expirada. Entre novamente.');
+  }
+  if (!r.ok) return null;
+  const url = URL.createObjectURL(await r.blob());
+  _urlsAutenticadas.set(caminho, url);
+  return url;
+}
+
 /** Cria elementos sem innerHTML (o conteúdo vem de usuários). */
 function el(tag, props = {}, ...filhos) {
   const e = document.createElement(tag);

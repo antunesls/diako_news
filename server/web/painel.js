@@ -420,7 +420,7 @@ function itemRecado(r, editaveis, hoje) {
     .filter(Boolean).join('\n');
   const i = editaveis.indexOf(r);
   const acoes = r.auto
-    ? [el('span', { class: 'dica' }, 'Automático — edite na aba Aniversariantes')]
+    ? [el('span', { class: 'dica' }, 'Automático — edite na aba Membros')]
     : [
         botao('↑', () => mover(editaveis, i, -1), 'secundario pequeno'),
         botao('↓', () => mover(editaveis, i, 1), 'secundario pequeno'),
@@ -744,48 +744,422 @@ $('arquivo-fotos').addEventListener('change', async (e) => {
 
 // ---------- Membros ----------
 
+let membros = [];
+let fotoPendente = null; // File escolhido no dialog (ainda não enviado)
+let removerFoto = false; // apagar a foto atual ao salvar
+
+const STATUS_MEMBRO = {
+  visitante: ['Visitante', '#42A5F5'],
+  congregado: ['Congregado', '#26A69A'],
+  membro: ['Membro', '#66BB6A'],
+  inativo: ['Inativo', '#8a8578'],
+  transferido: ['Transferido', '#FFA726'],
+};
+
+const semAcento = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const inicialMembro = (m) => m.nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+const aniversarioDe = (m) =>
+  String(m.dia).padStart(2, '0') + '/' + String(m.mes).padStart(2, '0') + (m.ano ? '/' + m.ano : '');
+const dataBr = (iso) => (iso ? new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR') : null);
+
+function idadeDe(m) {
+  if (!m.ano) return null;
+  const hoje = new Date();
+  let i = hoje.getFullYear() - m.ano;
+  if (hoje.getMonth() + 1 < m.mes || (hoje.getMonth() + 1 === m.mes && hoje.getDate() < m.dia)) i--;
+  return i;
+}
+
 async function carregarMembros() {
-  const lista = (await api('GET', '/api/membros')).sort((a, b) => (a.mes - b.mes) || (a.dia - b.dia));
+  membros = await api('GET', '/api/membros');
+  montarFiltroMinisterios();
+  renderMembros();
+}
+
+function montarFiltroMinisterios() {
+  const atual = $('filtro-ministerio-membro').value;
+  const todos = [...new Set(membros.flatMap((m) => m.ministerios || []))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  $('filtro-ministerio-membro').replaceChildren(
+    el('option', { value: '' }, 'Todos os ministérios'),
+    ...todos.map((x) => el('option', { value: x }, x)));
+  $('filtro-ministerio-membro').value = todos.includes(atual) ? atual : '';
+  $('dl-ministerios').replaceChildren(...todos.map((x) => el('option', { value: x })));
+}
+
+function membrosFiltrados() {
+  const busca = semAcento($('busca-membro').value.trim().toLowerCase());
+  const status = $('filtro-status-membro').value;
+  const ministerio = $('filtro-ministerio-membro').value;
+  const aniversariantes = $('filtro-aniversariantes').checked;
+  const mes = new Date().getMonth() + 1;
+  return membros
+    .filter((m) => {
+      if (status === 'ativos' ? !m.ativo : status && m.status !== status) return false;
+      if (ministerio && !(m.ministerios || []).includes(ministerio)) return false;
+      if (aniversariantes && (!m.ativo || m.mes !== mes)) return false;
+      if (busca) {
+        const alvo = semAcento([m.nome, m.telefone, m.whatsapp, m.email, m.cidade, m.bairro, m.funcao]
+          .filter(Boolean).join(' ').toLowerCase());
+        if (!alvo.includes(busca)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+function renderMembros() {
+  const lista = membrosFiltrados();
+  const agora = new Date();
+  const mes = agora.getMonth() + 1;
+  const noventaDias = Date.now() - 90 * 86400000;
+  const indicador = (rotulo, valor, detalhe) =>
+    el('div', { class: 'cartao', style: 'padding:16px 20px;display:flex;flex-direction:column;gap:2px' },
+      el('span', { class: 'dica' }, rotulo),
+      el('strong', { style: 'font-family:var(--fonte-titulo);font-size:32px;font-weight:600' }, String(valor)),
+      detalhe ? el('small', { class: 'dica' }, detalhe) : null);
+  $('indicadores-membros').replaceChildren(...[
+    indicador('Pessoas cadastradas', membros.length, membros.filter((m) => m.ativo).length + ' ativas'),
+    indicador('Aniversariantes de ' + agora.toLocaleDateString('pt-BR', { month: 'long' }),
+      membros.filter((m) => m.ativo && m.mes === mes).length),
+    indicador('Novas pessoas em 90 dias', membros.filter((m) => m.criadoEm && Date.parse(m.criadoEm) >= noventaDias).length),
+  ]);
   $('lista-membros').replaceChildren(
-    ...(lista.length
-      ? lista.map((m) => el('div', { class: 'item', style: m.ativo ? '' : 'opacity:.6' },
-          el('div', { class: 'conteudo' },
-            el('div', { class: 'titulo' }, m.nome, m.ativo ? null : el('span', { class: 'etiqueta' }, 'Inativo')),
-            el('div', { class: 'sub' }, String(m.dia).padStart(2, '0') + '/' + String(m.mes).padStart(2, '0'))),
-          el('div', { class: 'acoes' },
-            botao('Editar', () => editarMembro(m)),
-            botao('Excluir', () => confirm(`Excluir ${m.nome}?`) && api('DELETE', '/api/membros/' + m.id).then(carregarMembros), 'perigo pequeno'))))
-      : [el('p', { class: 'vazio' }, 'Nenhum membro cadastrado.')]));
+    ...(lista.length ? lista.map(cardMembro) : [el('p', { class: 'vazio' }, 'Ninguém neste filtro.')]));
+  hidratarFotos($('lista-membros'));
+}
+
+/** Coloca a miniatura (atrás de login) nos <img data-foto-id>; sem foto, ficam as iniciais. */
+function hidratarFotos(container) {
+  for (const img of container.querySelectorAll('img[data-foto-id]')) {
+    const m = membros.find((x) => x.id === img.dataset.fotoId);
+    if (!m || !m.foto) continue;
+    urlAutenticada(`/api/membros/${m.id}/foto-miniatura?v=${encodeURIComponent(m.atualizadoEm || m.foto)}`)
+      .then((url) => {
+        if (!url || !img.isConnected) return;
+        img.src = url;
+        img.hidden = false;
+        const iniciais = img.parentElement && img.parentElement.querySelector('.iniciais, span:not([hidden])');
+        if (iniciais) iniciais.hidden = true;
+      })
+      .catch(() => {});
+  }
+}
+
+function cardMembro(m) {
+  const [rotuloStatus, cor] = STATUS_MEMBRO[m.status] || STATUS_MEMBRO.membro;
+  const contatos = [m.telefone, m.whatsapp && m.whatsapp !== m.telefone ? m.whatsapp : null, m.email].filter(Boolean);
+  const mins = m.ministerios || [];
+  return el('article', { class: 'membro-card', style: m.ativo ? '' : 'opacity:.65' },
+    el('button', { class: 'foto', type: 'button', 'aria-label': 'Abrir a ficha de ' + m.nome, onclick: () => abrirFicha(m.id) },
+      el('span', { class: 'iniciais' }, inicialMembro(m)),
+      el('img', { 'data-foto-id': m.id, alt: '', hidden: true, loading: 'lazy' })),
+    el('div', { class: 'conteudo' },
+      el('button', { class: 'titulo', type: 'button', onclick: () => abrirFicha(m.id) }, m.nome,
+        el('span', { class: 'etiqueta', style: 'color:' + cor }, rotuloStatus)),
+      el('span', { class: 'sub' },
+        [aniversarioDe(m), idadeDe(m) != null ? idadeDe(m) + ' anos' : null].filter(Boolean).join(' · ')),
+      contatos.length ? el('span', { class: 'sub' }, contatos.join(' · ')) : null,
+      mins.length ? el('span', { class: 'sub' },
+        mins.slice(0, 3).join(', ') + (mins.length > 3 ? ` +${mins.length - 3}` : '')) : null,
+      el('div', { class: 'acoes' },
+        botao('Ficha', () => abrirFicha(m.id)),
+        botao('Editar', () => editarMembro(m)),
+        botao('Excluir', () => excluirMembro(m), 'perigo pequeno'))));
+}
+
+// ----- Ficha (todos os dados + família com links) -----
+
+let fichaAberta = null;
+
+function abrirFicha(id) {
+  const m = membros.find((x) => x.id === id);
+  if (!m) return;
+  fichaAberta = m;
+  const [rotuloStatus, cor] = STATUS_MEMBRO[m.status] || STATUS_MEMBRO.membro;
+  const linkMembro = (o) => o ? el('button', { class: 'link', type: 'button', onclick: () => abrirFicha(o.id) }, o.nome) : null;
+  const par = (rotulo, ...valores) => {
+    const tem = valores.some((v) => v != null && v !== '' && !(Array.isArray(v) && v.length === 0));
+    return tem ? el('div', { class: 'ficha-par' },
+      el('span', { class: 'rotulo' }, rotulo),
+      el('span', { class: 'valor' }, ...valores.filter((v) => v != null && v !== ''))) : null;
+  };
+  const conjuge = m.conjugeId ? membros.find((x) => x.id === m.conjugeId) : null;
+  const pais = (m.paisIds || []).map((pid) => membros.find((x) => x.id === pid)).filter(Boolean);
+  const filhos = membros.filter((x) => (x.paisIds || []).includes(m.id));
+  const idade = idadeDe(m);
+  const endereco = [
+    m.rua ? [m.rua, m.numero].filter(Boolean).join(', ') : null,
+    m.complemento, [m.bairro, m.cidade, m.uf].filter(Boolean).join(' — '),
+    m.cep ? 'CEP ' + m.cep : null,
+  ].filter(Boolean);
+
+  $('ficha-conteudo').replaceChildren(
+    el('div', { class: 'ficha-topo' },
+      el('div', { class: 'avatar' }, inicialMembro(m),
+        el('img', { 'data-foto-id': m.id, alt: 'Foto de ' + m.nome, hidden: true })),
+      el('div', {},
+        el('h2', { style: 'font-size:24px;margin:0 0 4px' }, m.nome),
+        el('span', { class: 'etiqueta', style: 'margin:0;color:' + cor }, rotuloStatus),
+        idade != null ? el('span', { class: 'dica', style: 'margin-left:8px' }, idade + ' anos') : null)),
+    par('Aniversário', aniversarioDe(m)), par('Sexo', m.sexo === 'M' ? 'Masculino' : m.sexo === 'F' ? 'Feminino' : null),
+    par('Estado civil', m.estadoCivil),
+    par('Telefone', m.telefone, m.whatsapp && m.whatsapp !== m.telefone ? ' · WhatsApp: ' + m.whatsapp : null),
+    par('E-mail', m.email ? el('a', { href: 'mailto:' + m.email }, m.email) : null),
+    par('Endereço', endereco.length ? endereco.join('\n') : null),
+    par('CPF', m.cpf), par('RG', m.rg),
+    par('Chegou em', dataBr(m.dataChegada)), par('Batismo', dataBr(m.dataBatismo)), par('Membresia', dataBr(m.dataMembresia)),
+    par('Ministérios', (m.ministerios || []).join(', ') || null), par('Função', m.funcao),
+    par('Cônjuge', linkMembro(conjuge)),
+    pais.length ? par('Pais', ...pais.map(linkMembro).flatMap((l, i) => i ? [', ', l] : [l])) : null,
+    filhos.length ? par('Filhos', ...filhos.map(linkMembro).flatMap((l, i) => i ? [', ', l] : [l])) : null,
+    par('Emergência', [m.emergenciaNome, m.emergenciaVinculo, m.emergenciaTelefone].filter(Boolean).join(' · ')),
+    par('Observações', m.observacoes));
+
+  const ultima = (m.historicoStatus || []).slice(-1)[0];
+  $('ficha-historico').textContent = ultima
+    ? rotuloStatus + ' desde ' + new Date(ultima.em).toLocaleDateString('pt-BR') : '';
+
+  hidratarFotos($('ficha-conteudo'));
+  $('dlg-ficha').showModal();
+}
+
+$('fechar-ficha').addEventListener('click', () => $('dlg-ficha').close());
+$('editar-da-ficha').addEventListener('click', () => {
+  $('dlg-ficha').close();
+  if (fichaAberta) editarMembro(fichaAberta);
+});
+
+// ----- Editar / criar -----
+
+/** Garante que um valor salvo aparece no select, mesmo fora das opções padrão. */
+function garantirOpcao(sel, valor) {
+  if (valor && ![...sel.options].some((o) => o.value === valor)) sel.append(el('option', {}, valor));
+  sel.value = valor || '';
+}
+
+function montarSelectsFamilia(m) {
+  const outros = membros.filter((x) => !m || x.id !== m.id);
+  const montar = (sel, selecionado) => {
+    sel.replaceChildren(el('option', { value: '' }, '(nenhum)'),
+      ...outros.map((x) => el('option', { value: x.id }, x.nome)));
+    sel.value = selecionado || '';
+  };
+  montar($('b-conjuge'), m?.conjugeId);
+  montar($('b-pai-1'), m?.paisIds?.[0]);
+  montar($('b-pai-2'), m?.paisIds?.[1]);
 }
 
 function editarMembro(m) {
-  $('titulo-membro').textContent = m ? 'Editar membro' : 'Novo membro';
+  const novo = !m;
+  $('titulo-membro').textContent = novo ? 'Novo membro' : 'Editar: ' + m.nome;
+  $('b-ano').max = new Date().getFullYear();
+  montarSelectsFamilia(m);
   $('b-nome').value = m ? m.nome : '';
   $('b-dia').value = m ? m.dia : '';
   $('b-mes').value = m ? m.mes : '';
-  $('b-ativo').checked = m ? m.ativo : true;
+  $('b-ano').value = m?.ano || '';
+  $('b-sexo').value = m?.sexo || '';
+  garantirOpcao($('b-estado-civil'), m?.estadoCivil);
+  $('b-telefone').value = m?.telefone || '';
+  $('b-whatsapp').value = m?.whatsapp || '';
+  $('b-email').value = m?.email || '';
+  $('b-cep').value = m?.cep || '';
+  $('b-rua').value = m?.rua || '';
+  $('b-numero').value = m?.numero || '';
+  $('b-complemento').value = m?.complemento || '';
+  $('b-bairro').value = m?.bairro || '';
+  $('b-cidade').value = m?.cidade || '';
+  garantirOpcao($('b-uf'), m?.estado);
+  $('b-cpf').value = m?.cpf || '';
+  $('b-rg').value = m?.rg || '';
+  $('b-status').value = m ? m.status : 'membro';
+  $('b-chegada').value = m?.dataChegada || '';
+  $('b-batismo').value = m?.dataBatismo || '';
+  $('b-membresia').value = m?.dataMembresia || '';
+  $('b-ministerios').value = (m?.ministerios || []).join(', ');
+  $('b-funcao').value = m?.funcao || '';
+  $('b-emerg-nome').value = m?.emergenciaNome || '';
+  $('b-emerg-telefone').value = m?.emergenciaTelefone || '';
+  $('b-emerg-vinculo').value = m?.emergenciaVinculo || '';
+  $('b-observacoes').value = m?.observacoes || '';
+
+  // Foto: prévia da atual (se houver) ou iniciais; a escolha nova aparece na hora.
+  fotoPendente = null;
+  removerFoto = false;
+  $('b-arquivo-foto').value = '';
+  $('b-remover-foto').hidden = !(m && m.foto);
+  const img = $('b-foto-atual');
+  img.hidden = true;
+  img.removeAttribute('src');
+  $('b-foto-iniciais').textContent = m ? inicialMembro(m) : '?';
+  $('b-foto-iniciais').hidden = false;
+  if (m && m.foto) {
+    urlAutenticada(`/api/membros/${m.id}/foto?v=${encodeURIComponent(m.atualizadoEm || m.foto)}`)
+      .then((url) => {
+        if (url && !fotoPendente && img.isConnected) {
+          img.src = url;
+          img.hidden = false;
+          $('b-foto-iniciais').hidden = true;
+        }
+      }).catch(() => {});
+  }
+
   abrirDialogo($('dlg-membro'), $('erro-membro'), async () => {
-    const dados = { nome: $('b-nome').value.trim(), dia: Number($('b-dia').value), mes: Number($('b-mes').value), ativo: $('b-ativo').checked };
-    if (m) await api('PUT', '/api/membros/' + m.id, dados);
-    else await api('POST', '/api/membros', dados);
+    const dados = {
+      nome: $('b-nome').value.trim(),
+      dia: Number($('b-dia').value),
+      mes: Number($('b-mes').value),
+      ano: $('b-ano').value ? Number($('b-ano').value) : null,
+      sexo: $('b-sexo').value || null,
+      estadoCivil: $('b-estado-civil').value || null,
+      cpf: $('b-cpf').value.trim() || null,
+      rg: $('b-rg').value.trim() || null,
+      telefone: $('b-telefone').value.trim() || null,
+      whatsapp: $('b-whatsapp').value.trim() || null,
+      email: $('b-email').value.trim() || null,
+      cep: $('b-cep').value.trim() || null,
+      rua: $('b-rua').value.trim() || null,
+      numero: $('b-numero').value.trim() || null,
+      complemento: $('b-complemento').value.trim() || null,
+      bairro: $('b-bairro').value.trim() || null,
+      cidade: $('b-cidade').value.trim() || null,
+      estado: $('b-uf').value || null,
+      status: $('b-status').value,
+      dataChegada: $('b-chegada').value || null,
+      dataBatismo: $('b-batismo').value || null,
+      dataMembresia: $('b-membresia').value || null,
+      ministerios: $('b-ministerios').value.split(',').map((s) => s.trim()).filter(Boolean),
+      funcao: $('b-funcao').value.trim() || null,
+      conjugeId: $('b-conjuge').value || null,
+      paisIds: [...new Set([$('b-pai-1').value, $('b-pai-2').value].filter(Boolean))],
+      emergenciaNome: $('b-emerg-nome').value.trim() || null,
+      emergenciaTelefone: $('b-emerg-telefone').value.trim() || null,
+      emergenciaVinculo: $('b-emerg-vinculo').value.trim() || null,
+      observacoes: $('b-observacoes').value.trim() || null,
+    };
+    const salvo = m ? await api('PUT', '/api/membros/' + m.id, dados) : await api('POST', '/api/membros', dados);
+    if (fotoPendente) {
+      await api('POST', '/api/membros/' + salvo.id + '/foto', fotoPendente,
+        { bruto: true, tipo: fotoPendente.type || 'application/octet-stream' });
+    } else if (removerFoto && m && m.foto) {
+      await api('DELETE', '/api/membros/' + m.id + '/foto');
+    }
     await carregarMembros();
   });
 }
 
 $('novo-membro').addEventListener('click', () => editarMembro(null));
 
-$('importar').addEventListener('click', async () => {
+$('b-arquivo-foto').addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  fotoPendente = f;
+  removerFoto = false;
+  $('b-foto-atual').src = URL.createObjectURL(f);
+  $('b-foto-atual').hidden = false;
+  $('b-foto-iniciais').hidden = true;
+  $('b-remover-foto').hidden = false;
+});
+
+$('b-remover-foto').addEventListener('click', () => {
+  fotoPendente = null;
+  removerFoto = true;
+  $('b-arquivo-foto').value = '';
+  $('b-foto-atual').hidden = true;
+  $('b-foto-atual').removeAttribute('src');
+  $('b-foto-iniciais').hidden = false;
+  $('b-remover-foto').hidden = true;
+});
+
+async function excluirMembro(m) {
+  if (!confirm(`Excluir ${m.nome}? A foto e os vínculos de família também saem.`)) return;
+  try {
+    await api('DELETE', '/api/membros/' + m.id);
+    await carregarMembros();
+  } catch (e) {
+    mensagem($('resultado-membros'), e.message, false);
+  }
+}
+
+// Filtros (só re-renderiza, sem buscar de novo).
+for (const id of ['busca-membro', 'filtro-status-membro', 'filtro-ministerio-membro', 'filtro-aniversariantes']) {
+  $(id).addEventListener('input', renderMembros);
+  $(id).addEventListener('change', renderMembros);
+}
+
+// ----- Importar -----
+
+$('abrir-importar-membros').addEventListener('click', () => {
+  mensagem($('resultado-importacao'), '');
+  $('dlg-importar').showModal();
+});
+
+$('form-importar').addEventListener('submit', async (e) => {
+  if (e.submitter && e.submitter.value === 'cancelar') return; // deixa o dialog fechar
+  e.preventDefault();
   const saida = $('resultado-importacao');
   try {
-    const r = await api('POST', '/api/membros/importar', $('csv').value);
-    let texto = `${r.importados} membro(s) importado(s).`;
-    if (r.linhasComErro.length) texto += ` Linhas com erro: ${r.linhasComErro.join(', ')}.`;
-    mensagem(saida, texto, r.linhasComErro.length === 0);
-    if (r.importados) $('csv').value = '';
-    carregarMembros();
+    const r = await api('POST', '/api/membros/importar', $('csv-membros').value);
+    const partes = [`${r.importados} membro(s) importado(s).`];
+    if (r.linhasComErro && r.linhasComErro.length) partes.push(`Linhas com erro: ${r.linhasComErro.join(', ')}.`);
+    for (const d of r.detalhes || []) partes.push(d);
+    mensagem(saida, partes.join('\n'), !(r.linhasComErro || []).length);
+    if (r.importados) {
+      $('csv-membros').value = '';
+      await carregarMembros();
+      if (!(r.linhasComErro || []).length && !(r.detalhes || []).length) $('dlg-importar').close();
+    }
   } catch (err) {
     mensagem(saida, err.message, false);
   }
+});
+
+$('modelo-csv').addEventListener('click', () => {
+  $('csv-membros').value =
+    'Nome;Aniversário;Sexo;Estado civil;CPF;Telefone;WhatsApp;E-mail;Status;Data de batismo;Ministérios;Função;Cidade;UF\n'
+    + 'Ana Souza;05/03/1990;F;Casada;111.444.777-35;(11) 98888-7777;;ana@exemplo.com;Congregado;14/06/2015;Louvor|Infantil;Líder;São Paulo;SP\n'
+    + 'Bruno Lima;05/11;;;;;;;;;;;;\n';
+});
+
+// ----- Exportar CSV / Imprimir -----
+
+$('exportar-membros').addEventListener('click', () => {
+  const qs = new URLSearchParams();
+  const status = $('filtro-status-membro').value;
+  if (status) qs.set('status', status);
+  if ($('filtro-ministerio-membro').value) qs.set('ministerio', $('filtro-ministerio-membro').value);
+  if ($('filtro-aniversariantes').checked) qs.set('aniversariantes', 'mes');
+  baixarArquivo('/api/membros/exportar' + (qs.toString() ? '?' + qs.toString() : ''), 'membros.csv');
+});
+
+$('imprimir-membros').addEventListener('click', () => {
+  const lista = membrosFiltrados();
+  if (!lista.length) return;
+  const filtros = [];
+  const st = $('filtro-status-membro').value;
+  if (st === 'ativos') filtros.push('ativos');
+  else if (st) filtros.push(((STATUS_MEMBRO[st] || STATUS_MEMBRO.membro)[0]).toLowerCase() + 's');
+  if ($('filtro-ministerio-membro').value) filtros.push($('filtro-ministerio-membro').value);
+  if ($('filtro-aniversariantes').checked) filtros.push('aniversariantes do mês');
+  const linha = (m) => el('tr', {},
+    el('td', {}, m.nome),
+    el('td', {}, aniversarioDe(m)),
+    el('td', {}, idadeDe(m) != null ? String(idadeDe(m)) : ''),
+    el('td', {}, (STATUS_MEMBRO[m.status] || STATUS_MEMBRO.membro)[0]),
+    el('td', {}, [m.telefone, m.whatsapp].filter(Boolean).join(' / ')),
+    el('td', {}, m.email || ''),
+    el('td', {}, [...(m.ministerios || []), m.funcao].filter(Boolean).join(' · ')),
+    el('td', {}, [m.cidade, m.uf].filter(Boolean).join('/')));
+  $('impressao-membros').replaceChildren(
+    el('h1', {}, 'Cadastro de membros' + (filtros.length ? ' — ' + filtros.join(', ') : '')),
+    el('p', {}, new Date().toLocaleDateString('pt-BR') + ' · ' + lista.length + ' pessoa(s)'),
+    el('table', {},
+      el('thead', {}, el('tr', {},
+        ...['Nome', 'Aniversário', 'Idade', 'Status', 'Telefone / WhatsApp', 'E-mail', 'Ministério / Função', 'Cidade']
+          .map((h) => el('th', {}, h)))),
+      el('tbody', {}, ...lista.map(linha))));
+  window.print();
 });
 
 // ---------- Status ----------
