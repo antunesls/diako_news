@@ -102,11 +102,17 @@
           </div>
           <div class="campo"><label for="siteEndereco">Endereço <span class="dica">(o botão "Como chegar" abre no Google Maps)</span></label><input type="text" id="siteEndereco" maxlength="200" placeholder="Rua, número, bairro, cidade"></div>
           <h3 style="font-size:17px;margin:22px 0 6px">PIX para dízimos e ofertas</h3>
-          <p class="dica" style="margin-top:0">Preencha os três campos para mostrar a chave e o QR code. Nome e cidade são os do recebedor, como no banco (sem acentos, até 25 e 15 letras).</p>
+          <p class="dica" style="margin-top:0">Preencha os três campos para mostrar a chave e o QR code. Nome e cidade são os do recebedor, como aparecem no banco.</p>
           <div class="campo"><label for="sitePixChave">Chave PIX</label><input type="text" id="sitePixChave" maxlength="77" placeholder="CNPJ, e-mail, telefone (+55…) ou chave aleatória"></div>
-          <div class="grade2">
-            <div class="campo"><label for="sitePixNome">Nome do recebedor</label><input type="text" id="sitePixNome" maxlength="25"></div>
-            <div class="campo"><label for="sitePixCidade">Cidade do recebedor</label><input type="text" id="sitePixCidade" maxlength="15"></div>
+          <div class="campo">
+            <label for="sitePixNome">Nome do recebedor</label>
+            <input type="text" id="sitePixNome" maxlength="100" placeholder="Ex.: Igreja Evangélica Diakonia Tulipas">
+            <span class="dica">Aparece completo na página. No QR code vão as primeiras 25 letras, sem acentos (limite do padrão do PIX); o banco mostra o nome cadastrado na chave.</span>
+          </div>
+          <div class="campo" style="max-width:320px">
+            <label for="sitePixCidade">Cidade do recebedor</label>
+            <input type="text" id="sitePixCidade" maxlength="15">
+            <span class="dica">Até 15 letras (limite do padrão do PIX).</span>
           </div>
           <h3 style="font-size:17px;margin:22px 0 6px">Redes e contato</h3>
           <div class="campo"><label for="siteInstagram">Instagram <span class="dica">(link completo)</span></label><input type="url" id="siteInstagram" maxlength="200" placeholder="https://instagram.com/…"></div>

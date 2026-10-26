@@ -831,7 +831,15 @@ class Servidor {
       'cultos': lerCultos(c.siteCultos),
       'endereco': c.siteEndereco,
       if (c.siteEndereco.isNotEmpty) 'mapa': linkMapa(c.siteEndereco),
-      if (pix) 'pix': {'chave': c.sitePixChave, 'nome': c.sitePixNome, 'qr': '/pix.png'},
+      if (pix)
+        'pix': {
+          'chave': c.sitePixChave,
+          'chaveFormatada': formatarChavePix(c.sitePixChave),
+          'nome': c.sitePixNome,
+          'qr': '/pix.png',
+          // Código "Pix copia e cola": funciona em qualquer banco (Pix › Pix copia e cola).
+          'copiaECola': payloadPix(chave: c.sitePixChave, nome: c.sitePixNome, cidade: c.sitePixCidade),
+        },
       'redes': {
         if (c.siteInstagram.isNotEmpty) 'instagram': c.siteInstagram,
         if (c.siteYoutube.isNotEmpty) 'youtube': c.siteYoutube,

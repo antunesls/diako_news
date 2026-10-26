@@ -54,6 +54,10 @@
   .endereco { color: var(--suave); padding-top: 10px; border-top: 1px solid var(--linha); white-space: pre-line; }
   .pix { display: flex; gap: 16px; align-items: center; }
   .pix img { width: 120px; height: 120px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--linha); background: #fff; }
+  .passos-pix { margin: 0; padding-left: 20px; color: var(--suave); font-size: 14px; line-height: 1.6; }
+  .passos-pix strong { color: var(--texto); }
+  #contribuir textarea { min-height: 0; font-family: ui-monospace, monospace; font-size: 13px; }
+  .pix { padding-top: 12px; border-top: 1px solid var(--linha); }
   .pix code { display: block; padding: 8px 10px; border-radius: 10px; background: var(--neutro); font-size: 14px; overflow-wrap: anywhere; margin: 6px 0 10px; }
   .rodape-site { max-width: 1120px; margin: 0 auto; padding: 8px 20px 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--suave); font-size: 14px; }
   .rodape-site .redes { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; font-weight: 600; }
@@ -179,22 +183,38 @@
 
     if (s.pix) {
       menu.push(['contribuir', 'Contribuir']);
-      const resultado = el('span', { class: 'dica', role: 'status' });
+      const resultado = el('p', { class: 'dica', role: 'status', style: 'margin:0' });
+      // Sem permissão de área de transferência: mostra o texto para copiar à mão.
+      const manual = el('textarea', { readonly: true, rows: 3, hidden: true, 'aria-label': 'Código Pix copia e cola' });
+      async function copiar(texto, aviso) {
+        try {
+          await navigator.clipboard.writeText(texto);
+          resultado.textContent = aviso;
+          manual.hidden = true;
+        } catch {
+          manual.value = texto;
+          manual.hidden = false;
+          manual.select();
+          resultado.textContent = 'Toque e segure no texto abaixo para copiar.';
+        }
+      }
       lateral.push(el('section', { class: 'caixa', id: 'contribuir', 'aria-labelledby': 'contribuir-t' },
         el('h2', { id: 'contribuir-t' }, 'Dízimos e ofertas (PIX)'),
+        el('button', { class: 'botao', type: 'button', style: 'width:100%',
+          onclick: () => copiar(s.pix.copiaECola, 'Código copiado! Agora é só colar no app do banco.') }, 'Copiar código Pix'),
+        el('ol', { class: 'passos-pix' },
+          el('li', {}, 'Toque em ', el('strong', {}, 'Copiar código Pix'), '.'),
+          el('li', {}, 'No app do seu banco, abra ', el('strong', {}, 'Pix › Pix copia e cola'), '.'),
+          el('li', {}, 'Cole o código, digite o valor e confirme.')),
+        resultado, manual,
         el('div', { class: 'pix' },
           el('img', { src: s.pix.qr, alt: 'QR code do PIX da igreja', loading: 'lazy' }),
           el('div', {},
-            el('span', { class: 'dica' }, s.pix.nome),
-            el('code', {}, s.pix.chave),
-            el('button', { class: 'botao pequeno', type: 'button', onclick: async () => {
-              try {
-                await navigator.clipboard.writeText(s.pix.chave);
-                resultado.textContent = 'Chave copiada.';
-              } catch {
-                resultado.textContent = 'Selecione e copie a chave acima.';
-              }
-            } }, 'Copiar chave'), ' ', resultado))));
+            el('span', { class: 'dica' }, 'Pelo QR code ou pela chave:'),
+            el('code', {}, s.pix.chaveFormatada || s.pix.chave),
+            el('span', { class: 'dica', style: 'display:block;margin-bottom:8px' }, s.pix.nome),
+            el('button', { class: 'botao secundario pequeno', type: 'button',
+              onclick: () => copiar(s.pix.chave, 'Chave copiada.') }, 'Copiar chave')))));
     }
 
     $('menu-site').replaceChildren(...menu.map(([id, nome]) => el('a', { href: '#' + id }, nome)));

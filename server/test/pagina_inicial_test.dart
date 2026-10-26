@@ -48,6 +48,18 @@ void main() {
     });
   });
 
+  test('chave PIX: só números no código, CNPJ e CPF formatados para mostrar', () {
+    expect(normalizarChavePix('12.345.678/0001-99'), '12345678000199');
+    expect(normalizarChavePix('123.456.789-09'), '12345678909');
+    expect(normalizarChavePix('+55 (11) 91234-5678'), '+5511912345678');
+    expect(normalizarChavePix(' Igreja@Exemplo.com '), 'Igreja@Exemplo.com');
+    expect(normalizarChavePix('123e4567-e12b-12d1-a456-426655440000'), '123e4567-e12b-12d1-a456-426655440000');
+    expect(formatarChavePix('12345678000199'), '12.345.678/0001-99');
+    expect(formatarChavePix('12345678909'), '123.456.789-09');
+    expect(formatarChavePix('+5511912345678'), '+5511912345678');
+    expect(formatarChavePix('igreja@exemplo.com'), 'igreja@exemplo.com');
+  });
+
   test('horários dos cultos', () {
     expect(lerCultos('Domingo — 19h\nQuarta (oração) | 19h30\n\nSábado - 17h\nTodo dia 19:30'), [
       {'dia': 'Domingo', 'hora': '19h'},
@@ -191,12 +203,13 @@ void main() {
 
       expect((await chamar('PUT', '/api/admin/configuracoes', {'siteInstagram': 'instagram.com/igreja'})).statusCode, 400);
       expect((await chamar('PUT', '/api/admin/configuracoes', {'siteWhatsapp': '123'})).statusCode, 400);
-      expect((await chamar('PUT', '/api/admin/configuracoes', {'sitePixNome': 'x' * 26})).statusCode, 400);
+      expect((await chamar('PUT', '/api/admin/configuracoes', {'sitePixNome': 'x' * 101})).statusCode, 400);
+      expect((await chamar('PUT', '/api/admin/configuracoes', {'sitePixCidade': 'x' * 16})).statusCode, 400);
 
       final ok = await chamar('PUT', '/api/admin/configuracoes', {
         'siteCultos': 'Domingo — 19h\nQuarta — 19h30',
         'siteEndereco': 'Rua das Tulipas, 100',
-        'sitePixChave': '12345678000199',
+        'sitePixChave': '12.345.678/0001-99', // digitado com pontuação: guarda só os números
         'sitePixNome': 'Igreja Diakonia',
         'sitePixCidade': 'Sao Paulo',
         'siteInstagram': 'https://instagram.com/igreja',
@@ -206,11 +219,24 @@ void main() {
       j = await inicio();
       expect(j['cultos'], [{'dia': 'Domingo', 'hora': '19h'}, {'dia': 'Quarta', 'hora': '19h30'}]);
       expect(j['mapa'], contains('Rua+das+Tulipas'));
-      expect(j['pix'], {'chave': '12345678000199', 'nome': 'Igreja Diakonia', 'qr': '/pix.png'});
+      expect(j['pix'], {
+        'chave': '12345678000199',
+        'chaveFormatada': '12.345.678/0001-99',
+        'nome': 'Igreja Diakonia',
+        'qr': '/pix.png',
+        'copiaECola': payloadPix(chave: '12345678000199', nome: 'Igreja Diakonia', cidade: 'Sao Paulo'),
+      });
+      expect(j['pix']['copiaECola'], contains('011412345678000199'));
       expect(j['redes'], {'instagram': 'https://instagram.com/igreja', 'whatsapp': 'https://wa.me/5511912345678'});
       final png = await chamar('GET', '/pix.png', null, false);
       expect(png.statusCode, 200);
       expect(png.headers['content-type'], 'image/png');
+
+      // Nome maior que o limite do QR: aparece inteiro na página e o QR continua válido.
+      const nomeLongo = 'Igreja Evangélica Diakonia Tulipas de São Paulo';
+      expect((await chamar('PUT', '/api/admin/configuracoes', {'sitePixNome': nomeLongo})).statusCode, 200);
+      expect((await inicio())['pix']['nome'], nomeLongo);
+      expect((await chamar('GET', '/pix.png', null, false)).statusCode, 200);
     });
   });
 }

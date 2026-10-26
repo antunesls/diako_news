@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'agenda_google_api.dart';
 import 'auth.dart';
 import 'config.dart';
+import 'pagina_inicial.dart';
 
 /// Configurações que o administrador altera pelo painel (/admin), gravadas em data/configuracoes.json.
 /// Os valores do config.json valem como padrão até a primeira alteração pelo painel.
@@ -226,10 +227,11 @@ class Configuracoes {
         case 'siteEndereco':
           novos[k] = texto(k, 200);
         case 'sitePixChave':
-          novos[k] = texto(k, 77);
+          // CNPJ/CPF digitado com pontos e barra vira só números, como o Pix exige.
+          novos[k] = normalizarChavePix(texto(k, 77));
         case 'sitePixNome':
-          // Limites do padrão do PIX (BR Code): 25 letras no nome e 15 na cidade.
-          novos[k] = texto(k, 25);
+          // O nome completo aparece na página; no QR (BR Code) vão só as 25 primeiras letras (ver payloadPix).
+          novos[k] = texto(k, 100);
         case 'sitePixCidade':
           novos[k] = texto(k, 15);
         case 'siteInstagram' || 'siteYoutube':

@@ -23,6 +23,24 @@ String payloadPix({required String chave, required String nome, required String 
   return semCrc + crc16Pix(semCrc);
 }
 
+/// Chave como o Pix exige: CNPJ, CPF e telefone só com dígitos (o telefone com +).
+/// E-mail e chave aleatória ficam como foram digitados.
+String normalizarChavePix(String chave) {
+  final t = chave.trim();
+  if (t.contains('@') || !RegExp(r'^[+\d][\d\s.()/-]*$').hasMatch(t)) return t;
+  final digitos = t.replaceAll(RegExp(r'\D'), '');
+  return t.startsWith('+') ? '+$digitos' : digitos;
+}
+
+/// Chave para mostrar na página: CNPJ como 12.345.678/0001-99 e CPF como 123.456.789-09.
+String formatarChavePix(String chave) {
+  final m14 = RegExp(r'^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$').firstMatch(chave);
+  if (m14 != null) return '${m14[1]}.${m14[2]}.${m14[3]}/${m14[4]}-${m14[5]}';
+  final m11 = RegExp(r'^(\d{3})(\d{3})(\d{3})(\d{2})$').firstMatch(chave);
+  if (m11 != null) return '${m11[1]}.${m11[2]}.${m11[3]}-${m11[4]}';
+  return chave;
+}
+
 /// CRC16-CCITT (polinômio 0x1021, valor inicial 0xFFFF), em 4 dígitos hexadecimais maiúsculos.
 String crc16Pix(String texto) {
   var crc = 0xFFFF;
