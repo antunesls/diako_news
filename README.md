@@ -1,10 +1,10 @@
-# Diako News
+# DiakoNews
 
 Sistema da Igreja Diakonia Tulipas para projetar recados e motivos de oração no Holyrics.
 
 ```
  Celular (membro) ──QR──▶ /oracao ─┐
- Navegador (secretaria) ─▶ /painel ├─▶  Servidor Diako News (PC do Holyrics) ──▶ Holyrics
+ Navegador (secretaria) ─▶ /painel ├─▶  Servidor DiakoNews (PC do Holyrics) ──▶ Holyrics
  TV da recepção ─────────▶ /mural  │      dados, cartazes, histórico, backup
  Tablet do pastor (este app) ──────┘
 ```

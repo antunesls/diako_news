@@ -113,10 +113,11 @@ function preencher() {
   $('smtpSsl').checked = cfg.smtpSsl === true;
   $('smtpSenha').value = '';
   $('smtpSenha').placeholder = cfg.smtpSenhaDefinida ? '•••••••• (deixe vazio para manter)' : 'Senha de aplicativo (se exigida)';
-  $('atualizar-agenda').disabled = !cfg.agendaConfigurada;
+  $('atualizar-agenda').disabled = !ag.configurada;
   $('remover-agenda').disabled = !cfg.agendaConfigurada;
+  preencherGoogle(cfg, ag);
   const estado = $('estado-agenda');
-  if (!cfg.agendaConfigurada) {
+  if (!ag.configurada) {
     estado.textContent = 'Agenda desligada.';
     estado.className = 'dica';
   } else if (ag.erro) {
@@ -221,6 +222,94 @@ $('atualizar-agenda').addEventListener('click', async () => {
     mensagem($('res-agenda'), r.erro ? r.erro : `Atualizada: ${r.eventos.length} evento(s) nos próximos 30 dias.`, !r.erro);
   } catch (err) {
     mensagem($('res-agenda'), err.message, false);
+  }
+});
+
+// Conta de serviço: criar e editar eventos pelo painel e pelo tablet.
+let trocandoChave = false;
+
+function preencherGoogle(cfg, ag) {
+  const ligada = ag.modo === 'google';
+  $('google-ligada').hidden = !ligada;
+  $('form-google').hidden = ligada && !trocandoChave;
+  $('cancelar-troca').hidden = !(ligada && trocandoChave);
+  $('email-conta').textContent = ag.contaServico || '';
+  if (document.activeElement !== $('agendaCalendarioId')) $('agendaCalendarioId').value = cfg.agendaCalendarioId || ag.calendarioId || '';
+  const estado = $('estado-google');
+  if (!ligada) {
+    estado.textContent = 'Desligada: a agenda é só para leitura.';
+    estado.className = 'dica';
+  } else if (ag.erro) {
+    mensagem(estado, 'Ligada, mas a última atualização falhou: ' + ag.erro, false);
+    estado.append(' ', el('a', { href: '/ajuda/agenda-google#problemas', target: '_blank', rel: 'noopener' }, 'Como resolver'));
+  } else {
+    mensagem(estado, 'Ligada: o painel e o tablet criam, editam e excluem eventos.');
+  }
+}
+
+function erroComAjuda(saida, err) {
+  saida.className = 'erro';
+  saida.replaceChildren(...textoDoErro(err).flat().filter(Boolean));
+}
+
+$('form-google').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const saida = $('res-form-google');
+  const arquivo = $('arquivo-chave').files[0];
+  if (!arquivo) {
+    mensagem(saida, 'Escolha o arquivo .json da chave.', false);
+    return;
+  }
+  if (arquivo.size > 20000) {
+    mensagem(saida, 'Esse arquivo é grande demais para ser a chave da conta de serviço.', false);
+    return;
+  }
+  mensagem(saida, 'Testando com o Google…');
+  try {
+    const r = await api('POST', '/api/admin/agenda/conta-servico', { chave: await arquivo.text(), calendarioId: valor('agendaCalendarioId') });
+    $('arquivo-chave').value = '';
+    trocandoChave = false;
+    saida.textContent = '';
+    await carregar();
+    mensagem($('res-google'), `Tudo certo: ligada à agenda "${r.agenda}".`);
+  } catch (err) {
+    erroComAjuda(saida, err);
+  }
+});
+
+$('copiar-email-conta').addEventListener('click', () => copiar($('email-conta').textContent, $('res-google')));
+
+$('testar-google').addEventListener('click', async () => {
+  const saida = $('res-google');
+  mensagem(saida, 'Testando…');
+  try {
+    const r = await api('POST', '/api/admin/agenda/conta-servico/testar');
+    await carregar();
+    mensagem(saida, `Funcionando: a conta pode alterar a agenda "${r.agenda}".`);
+  } catch (err) {
+    erroComAjuda(saida, err);
+  }
+});
+
+$('trocar-google').addEventListener('click', () => {
+  trocandoChave = true;
+  carregar();
+});
+$('cancelar-troca').addEventListener('click', () => {
+  trocandoChave = false;
+  carregar();
+});
+
+$('desligar-google').addEventListener('click', async () => {
+  if (!await confirmar('Desligar a edição da agenda?',
+    'A chave é apagada do servidor e a agenda volta a ser só para leitura (pelo endereço iCal, se houver). Os eventos no Google não são alterados. Para cortar o acesso de vez, remova também o compartilhamento da agenda com a conta de serviço.',
+    'Desligar')) return;
+  try {
+    await api('DELETE', '/api/admin/agenda/conta-servico');
+    await carregar();
+    mensagem($('estado-google'), 'Edição desligada.');
+  } catch (err) {
+    erroComAjuda($('res-google'), err);
   }
 });
 

@@ -1,4 +1,4 @@
-# Hospedar o Diako News na internet (LXC / VPS)
+# Hospedar o DiakoNews na internet (LXC / VPS)
 
 Com o servidor na internet, o painel, o formulário de pedidos de oração, o mural e o tablet funcionam de qualquer lugar. O Holyrics continua no PC da igreja. Lá roda um pequeno **agente**, que se conecta ao servidor **para fora** (não é preciso abrir portas no roteador da igreja).
 
@@ -55,7 +55,7 @@ Teste abrindo `https://diako.minhaigreja.com.br/painel`.
      "pastaImagensHolyrics": "C:\\caminho\\da\\pasta\\de\\imagens\\do\\Holyrics"
    }
    ```
-5. O agente inicia junto com o Windows (tarefa "Diako News Agente"). No painel, a aba **Status** deve mostrar **PC da igreja (agente): Conectado**.
+5. O agente inicia junto com o Windows (tarefa "DiakoNews Agente"). No painel, a aba **Status** deve mostrar **PC da igreja (agente): Conectado**.
 
 Os cartazes enviados pelo painel ou pelo tablet, e o QR dos pedidos de oração, aparecem sozinhos em `pasta de imagens\Diako`.
 
@@ -74,6 +74,7 @@ Em `https://…/admin` (mesma senha do painel) você:
 - configura o nome da igreja, os textos do formulário de pedidos, o endereço público, a chave do mural e os padrões de projeção;
 - vê e copia a **chave do agente**, ou gera uma nova (o agente é desconectado até você atualizar o `agente.json`);
 - liga a **Agenda do Google** colando o "Endereço secreto no formato iCal" (veja o [LEIA-ME do servidor](../server/LEIA-ME.md#agenda-do-google));
+- liga a **edição da agenda** (criar, editar e excluir eventos pelo painel e pelo tablet) enviando a chave de uma conta de serviço do Google. O passo a passo fica em `https://…/ajuda/agenda-google`;
 - desconecta todos os aparelhos, se um tablet for perdido.
 
 ## Backup e restauração

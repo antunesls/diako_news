@@ -3,23 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Painel — Diako News</title>
-<link rel="stylesheet" href="/estilo.css?v=3">
+<title>Painel — DiakoNews</title>
+<link rel="stylesheet" href="/estilo.css?v=4">
 <style>
   .topo {
     display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
-    padding: 14px max(20px, calc((100% - 1060px) / 2)); background: var(--superficie); border-bottom: 1px solid var(--linha);
+    padding: 14px max(20px, calc((100% - 1160px) / 2)); background: var(--superficie); border-bottom: 1px solid var(--linha);
   }
   .topo img { height: 40px; width: auto; }
   .topo .espaco { flex: 1; }
-  nav.abas { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 max(20px, calc((100% - 1060px) / 2)); background: var(--superficie); border-bottom: 1px solid var(--linha); }
+  nav.abas { display: flex; flex-wrap: nowrap; gap: 2px; overflow-x: auto; scrollbar-width: thin; padding: 0 max(20px, calc((100% - 1160px) / 2)); background: var(--superficie); border-bottom: 1px solid var(--linha); }
   nav.abas button {
-    min-height: 48px; padding: 0 14px; border: 0; border-bottom: 3px solid transparent;
+    flex-shrink: 0; white-space: nowrap; min-height: 48px; padding: 0 10px; border: 0; border-bottom: 3px solid transparent;
     background: none; font-weight: 600; color: var(--suave); cursor: pointer;
   }
   nav.abas button[aria-selected=true] { color: var(--primaria); border-bottom-color: var(--primaria); }
   .badge { display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 4px; border-radius: 11px; background: var(--perigo); color: #fff; font-size: 13px; line-height: 22px; text-align: center; }
-  main { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 28px 20px; }
   .barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
   .barra .espaco { flex: 1; }
   .lista { display: flex; flex-direction: column; gap: 8px; }
@@ -46,6 +46,40 @@
   #login img { width: 260px; max-width: 80%; margin-bottom: 24px; }
   #login form { text-align: left; }
   .qr { width: 100%; max-width: 320px; border: 1px solid var(--linha); border-radius: 8px; }
+  /* Início (cockpit) */
+  .saudacao { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 20px; }
+  .saudacao h1 { font-size: 30px; margin: 0; }
+  .indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, calc(50% - 8px)), 1fr)); gap: 16px; margin-bottom: 16px; }
+  .indicador {
+    min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 18px 20px;
+    background: var(--superficie); border: 1px solid var(--linha); border-radius: 18px; text-align: left; cursor: pointer;
+  }
+  .indicador:hover { border-color: var(--borda); }
+  .indicador span { font-size: 14px; color: var(--suave); }
+  .indicador strong { font-family: var(--fonte-titulo); font-size: clamp(30px, 8vw, 40px); font-weight: 600; line-height: 1.15; }
+  .indicador small { font-size: 13px; color: var(--suave); }
+  .indicador.alerta { border-color: var(--primaria); }
+  .indicador.alerta strong { color: var(--primaria); }
+  .cockpit { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .cockpit .cartao { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; }
+  .cockpit .cartao > div { display: flex; flex-direction: column; gap: 10px; }
+  .cockpit h2 { font-size: 19px; margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .link { white-space: nowrap; border: 0; background: none; padding: 0; color: var(--primaria); font-family: var(--fonte); font-size: 14px; font-weight: 600; cursor: pointer; }
+  .link:hover { color: var(--primaria-escura); text-decoration: underline; }
+  .linha-ck { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--linha); }
+  .linha-ck:last-child { padding-bottom: 0; border-bottom: 0; }
+  .linha-ck .conteudo { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .linha-ck .texto { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .linha-ck .sub { font-size: 13px; color: var(--suave); }
+  .linha-ck .rotulo { font-size: 12px; font-weight: 600; color: var(--primaria-escura); text-transform: uppercase; }
+  .data-ck { width: 48px; flex-shrink: 0; padding: 4px 0; border-radius: 10px; background: var(--neutro); text-align: center; font-size: 12px; font-weight: 600; line-height: 1.2; text-transform: uppercase; }
+  .data-ck strong { display: block; font-size: 18px; }
+  .data-ck.hoje { background: var(--primaria-suave); color: var(--primaria-escura); }
+  .par { display: flex; justify-content: space-between; gap: 12px; }
+  .par strong { text-align: right; }
+  .vazio-ck { margin: 0; color: var(--suave); font-size: 14px; }
+  .acoes-ck { display: inline-flex; gap: 14px; }
+  .grade-evento { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 12px; }
 </style>
 </head>
 <body>
@@ -53,7 +87,7 @@
 <section id="login" hidden>
   <img src="/logo.png" alt="Igreja Diakonia Tulipas">
   <form id="form-login" class="cartao">
-    <h1 style="font-size:20px">Painel Diako News</h1>
+    <h1 style="font-size:20px">Painel DiakoNews</h1>
     <div class="campo">
       <label for="senha">Senha</label>
       <input type="password" id="senha" autocomplete="current-password" required>
@@ -72,7 +106,8 @@
     <button class="botao secundario pequeno" id="sair">Sair</button>
   </header>
   <nav class="abas" role="tablist" aria-label="Seções">
-    <button role="tab" data-aba="motivos" aria-selected="true">Motivos de oração<span id="badge" class="badge" hidden></span></button>
+    <button role="tab" data-aba="inicio" aria-selected="true">Início</button>
+    <button role="tab" data-aba="motivos" aria-selected="false">Motivos de oração<span id="badge" class="badge" hidden></span></button>
     <button role="tab" data-aba="mensagens" aria-selected="false">Mensagens<span id="badge-mensagens" class="badge" hidden></span></button>
     <button role="tab" data-aba="recados" aria-selected="false">Recados</button>
     <button role="tab" data-aba="agenda" aria-selected="false">Agenda</button>
@@ -83,7 +118,25 @@
     <button role="tab" data-aba="status" aria-selected="false">Status</button>
   </nav>
   <main>
-    <section data-painel="motivos">
+    <section data-painel="inicio">
+      <div class="saudacao"><h1 id="saudacao">Olá!</h1><span class="dica" id="hoje"></span></div>
+      <div class="indicadores">
+        <button type="button" class="indicador" id="ind-pedidos" data-ir="motivos"><span>Pedidos aguardando</span><strong>–</strong><small></small></button>
+        <button type="button" class="indicador" id="ind-mensagens" data-ir="mensagens"><span>Mensagens novas</span><strong>–</strong><small></small></button>
+        <button type="button" class="indicador" id="ind-recados" data-ir="recados"><span>Recados no tablet</span><strong>–</strong><small></small></button>
+        <button type="button" class="indicador" id="ind-eventos" data-ir="agenda"><span>Eventos em 7 dias</span><strong>–</strong><small></small></button>
+      </div>
+      <div class="cockpit">
+        <section class="cartao"><h2>Pedidos para aprovar <button type="button" class="link" data-ir="motivos">Ver todos</button></h2><div id="ck-pedidos"></div></section>
+        <section class="cartao"><h2>Próximos eventos <span class="acoes-ck"><button type="button" class="link" id="ck-novo-evento" hidden>Novo</button><button type="button" class="link" data-ir="agenda">Agenda</button></span></h2><div id="ck-eventos"></div></section>
+        <section class="cartao"><h2>Mensagens novas <button type="button" class="link" data-ir="mensagens">Abrir</button></h2><div id="ck-mensagens"></div></section>
+        <section class="cartao"><h2>Aniversariantes da semana <button type="button" class="link" data-ir="membros">Ver todos</button></h2><div id="ck-aniversarios"></div></section>
+        <section class="cartao"><h2>Recados no tablet <button type="button" class="link" data-ir="recados">Editar</button></h2><div id="ck-recados"></div></section>
+        <section class="cartao"><h2>Sistema <button type="button" class="link" data-ir="status">Detalhes</button></h2><div id="ck-sistema"></div></section>
+      </div>
+    </section>
+
+    <section data-painel="motivos" hidden>
       <div class="barra">
         <div class="chips" role="radiogroup" aria-label="Filtro">
           <label><input type="radio" name="filtro-motivo" value="aguardando" checked>Aguardando aprovação</label>
@@ -108,7 +161,10 @@
     <section data-painel="agenda" hidden>
       <div class="barra">
         <span class="dica" id="estado-agenda-painel">Eventos do Google Agenda nos próximos 30 dias. Para criar ou mudar um evento, use o Google Agenda.</span>
+        <span class="espaco"></span>
+        <button class="botao" id="novo-evento" hidden>Novo evento</button>
       </div>
+      <p id="resultado-agenda" role="status"></p>
       <div class="lista" id="lista-agenda"></div>
     </section>
 
@@ -238,6 +294,28 @@
   </form>
 </dialog>
 
+<dialog id="dlg-evento">
+  <form method="dialog" id="form-evento">
+    <h2 style="font-size:20px" id="titulo-evento">Novo evento</h2>
+    <div class="campo"><label for="e-titulo">Título</label><input type="text" id="e-titulo" maxlength="200"></div>
+    <div class="campo"><label class="marcar"><input type="checkbox" id="e-dia-inteiro"><span>Dia inteiro</span></label></div>
+    <div class="grade-evento">
+      <div class="campo"><label for="e-data" id="rotulo-e-data">Data</label><input type="date" id="e-data"></div>
+      <div class="campo so-horario"><label for="e-hora-inicio">Início</label><input type="time" id="e-hora-inicio" step="300"></div>
+      <div class="campo so-horario"><label for="e-hora-fim">Término</label><input type="time" id="e-hora-fim" step="300"></div>
+      <div class="campo so-dia-inteiro" hidden><label for="e-data-fim">Último dia</label><input type="date" id="e-data-fim"></div>
+    </div>
+    <div class="campo"><label for="e-local">Local <span class="dica">(opcional)</span></label><input type="text" id="e-local" maxlength="300"></div>
+    <div class="campo"><label for="e-descricao">Descrição <span class="dica">(opcional)</span></label><textarea id="e-descricao" maxlength="4000" style="min-height:80px"></textarea></div>
+    <p class="dica">O evento vai direto para o Google Agenda da igreja.</p>
+    <p class="erro" id="erro-evento" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlg-recado">
   <form method="dialog" id="form-recado">
     <h2 style="font-size:20px" id="titulo-recado">Recado</h2>
@@ -274,7 +352,7 @@
   </form>
 </dialog>
 
-<script src="/comum.js"></script>
-<script src="/painel.js"></script>
+<script src="/comum.js?v=2"></script>
+<script src="/painel.js?v=4"></script>
 </body>
 </html>

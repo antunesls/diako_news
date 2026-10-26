@@ -1,4 +1,4 @@
-/// Eventos da agenda da igreja (Google Agenda via endereço iCal).
+/// Eventos da agenda da igreja (Google Agenda, pelo endereço iCal ou pela API).
 /// Datas são sempre o horário local da igreja ("relógio de parede"), sem fuso.
 class Evento {
   Evento({
@@ -9,6 +9,7 @@ class Evento {
     this.diaInteiro = false,
     this.local = '',
     this.descricao = '',
+    this.editavel = false,
   });
 
   final String id;
@@ -21,6 +22,9 @@ class Evento {
   final String local;
   final String descricao;
 
+  /// Pode ser alterado pelo DiakoNews (agenda ligada pela conta de serviço e evento que não se repete).
+  final bool editavel;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'titulo': titulo,
@@ -29,6 +33,7 @@ class Evento {
         'diaInteiro': diaInteiro,
         'local': local,
         'descricao': descricao,
+        'editavel': editavel,
       };
 
   factory Evento.fromJson(Map<String, dynamic> j) => Evento(
@@ -39,7 +44,35 @@ class Evento {
         diaInteiro: j['diaInteiro'] as bool? ?? false,
         local: j['local'] as String? ?? '',
         descricao: j['descricao'] as String? ?? '',
+        editavel: j['editavel'] as bool? ?? false,
       );
+}
+
+// ---------- Criar e editar eventos ----------
+
+const maxTituloEvento = 200;
+const maxLocalEvento = 300;
+const maxDescricaoEvento = 4000;
+
+/// Confere os dados de um evento antes de enviar ao Google. Retorna a mensagem de erro ou null.
+/// Para dia inteiro, [fim] é exclusivo (evento só em 02/11: fim = 03/11).
+String? validarEvento({
+  required String titulo,
+  required DateTime inicio,
+  required DateTime fim,
+  required bool diaInteiro,
+  String local = '',
+  String descricao = '',
+}) {
+  if (titulo.trim().isEmpty) return 'Informe o título do evento.';
+  if (titulo.length > maxTituloEvento) return 'Título muito longo (máximo $maxTituloEvento caracteres).';
+  if (local.length > maxLocalEvento) return 'Local muito longo (máximo $maxLocalEvento caracteres).';
+  if (descricao.length > maxDescricaoEvento) return 'Descrição muito longa (máximo $maxDescricaoEvento caracteres).';
+  if (!fim.isAfter(inicio)) {
+    return diaInteiro ? 'O último dia não pode ser antes do primeiro.' : 'O horário de término precisa ser depois do início.';
+  }
+  if (fim.difference(inicio) > const Duration(days: 366)) return 'O evento não pode durar mais de um ano.';
+  return null;
 }
 
 // ---------- Leitura do ICS ----------

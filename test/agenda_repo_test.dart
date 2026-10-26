@@ -68,4 +68,53 @@ void main() {
     expect(r.eventos, isEmpty);
     expect(r.proximo, isNull);
   });
+
+  test('com a conta de serviço: cria, edita e exclui pelo servidor e ressincroniza', () async {
+    final pedidos = <http.Request>[];
+    final api = ServerApi(
+      () => const ServidorConfig(base: 'http://srv:8080', sessao: 's'),
+      httpClient: MockClient((req) async {
+        pedidos.add(req);
+        if (req.url.path == '/api/agenda') {
+          return http.Response.bytes(utf8.encode(jsonEncode({'configurada': true, 'editavel': true, 'eventos': []})), 200);
+        }
+        if (req.method == 'DELETE') return http.Response('{"ok":true}', 200);
+        final corpo = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response.bytes(
+            utf8.encode(jsonEncode({...corpo, 'id': 'g1', 'editavel': true})), req.method == 'POST' ? 201 : 200);
+      }),
+    );
+    final r = AgendaRepo(api: api, cache: () async => File('${tmp.path}/agenda.json'), relogio: () => agora);
+    await r.carregar();
+    expect(r.editavel, isTrue);
+
+    final dados = AgendaRepo.dadosEvento(
+        titulo: ' Ensaio ', inicio: DateTime(2026, 11, 10, 20), fim: DateTime(2026, 11, 10, 22), diaInteiro: false, local: 'Templo');
+    final criado = await r.criar(dados);
+    expect(criado.id, 'g1');
+    final post = pedidos.firstWhere((p) => p.method == 'POST');
+    expect(post.url.path, '/api/agenda/eventos');
+    expect(jsonDecode(post.body), {
+      'titulo': 'Ensaio',
+      'inicio': '2026-11-10T20:00:00.000',
+      'fim': '2026-11-10T22:00:00.000',
+      'diaInteiro': false,
+      'local': 'Templo',
+      'descricao': '',
+    });
+    expect(pedidos.last.url.path, '/api/agenda'); // ressincronizou
+
+    await r.atualizar('g1', dados);
+    expect(pedidos.firstWhere((p) => p.method == 'PUT').url.path, '/api/agenda/eventos/g1');
+    await r.excluir('g1');
+    expect(pedidos.firstWhere((p) => p.method == 'DELETE').url.path, '/api/agenda/eventos/g1');
+
+    // O cache guarda que a agenda é editável (para abrir sem conexão).
+    final semServidor = AgendaRepo(
+        api: ServerApi(() => const ServidorConfig(base: '', sessao: '')),
+        cache: () async => File('${tmp.path}/agenda.json'),
+        relogio: () => agora);
+    await semServidor.carregar();
+    expect(semServidor.editavel, isTrue);
+  });
 }

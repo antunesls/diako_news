@@ -2,8 +2,10 @@ import 'package:diako_core/diako_core.dart';
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
+import 'evento_form.dart';
 
-/// Aba "Agenda": próximos eventos do Google Agenda (só leitura), com projeção e "virar recado".
+/// Aba "Agenda": próximos eventos do Google Agenda, com projeção e "virar recado". Com a conta de
+/// serviço ligada no servidor, também cria, edita e exclui eventos.
 class AgendaPanel extends StatefulWidget {
   const AgendaPanel({super.key, required this.onVirarRecado});
 
@@ -15,6 +17,13 @@ class AgendaPanel extends StatefulWidget {
 
 class _AgendaPanelState extends State<AgendaPanel> {
   String? _focadoId;
+
+  Future<void> _abrirForm(Evento? evento) async {
+    final salvo = await Navigator.of(context).push<Evento>(
+      MaterialPageRoute(builder: (_) => EventoForm(evento: evento), fullscreenDialog: true),
+    );
+    if (salvo != null && mounted) setState(() => _focadoId = salvo.id);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,10 +61,20 @@ class _AgendaPanelState extends State<AgendaPanel> {
                           child: Text(
                             agenda.erro != null
                                 ? 'Mostrando a última cópia: ${agenda.erro}'
-                                : 'Próximos 30 dias · editados no Google Agenda',
+                                : agenda.editavel
+                                    ? 'Próximos 30 dias · crie e edite por aqui'
+                                    : 'Próximos 30 dias · editados no Google Agenda',
                             style: TextStyle(color: agenda.erro != null ? esquema.error : esquema.outline),
                           ),
                         ),
+                        if (agenda.editavel) ...[
+                          FilledButton.tonalIcon(
+                            onPressed: () => _abrirForm(null),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Novo evento'),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
                         IconButton(
                           tooltip: 'Atualizar',
                           icon: const Icon(Icons.refresh),
@@ -85,7 +104,15 @@ class _AgendaPanelState extends State<AgendaPanel> {
               ),
             ),
             const VerticalDivider(width: 1),
-            Expanded(flex: 4, child: _Previa(evento: focado, onVirarRecado: widget.onVirarRecado)),
+            Expanded(
+              flex: 4,
+              child: _Previa(
+                evento: focado,
+                agendaEditavel: agenda.editavel,
+                onVirarRecado: widget.onVirarRecado,
+                onEditar: _abrirForm,
+              ),
+            ),
           ],
         );
       },
@@ -151,10 +178,12 @@ class _AgendaPanelState extends State<AgendaPanel> {
 }
 
 class _Previa extends StatelessWidget {
-  const _Previa({required this.evento, required this.onVirarRecado});
+  const _Previa({required this.evento, required this.agendaEditavel, required this.onVirarRecado, required this.onEditar});
 
   final Evento? evento;
+  final bool agendaEditavel;
   final ValueChanged<Evento> onVirarRecado;
+  final ValueChanged<Evento> onEditar;
 
   @override
   Widget build(BuildContext context) {
@@ -227,6 +256,21 @@ class _Previa extends StatelessWidget {
               label: const Text('Virar recado'),
             ),
           ),
+          if (e != null && e.editavel) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: () => onEditar(e),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Editar ou excluir'),
+              ),
+            ),
+          ] else if (e != null && agendaEditavel) ...[
+            const SizedBox(height: 12),
+            Text('Este evento se repete: altere no Google Agenda.',
+                textAlign: TextAlign.center, style: TextStyle(color: esquema.outline)),
+          ],
         ],
       ),
     );

@@ -1,5 +1,5 @@
 [Unit]
-Description=Diako News (recados e motivos de oração para o Holyrics)
+Description=DiakoNews (recados e motivos de oração para o Holyrics)
 After=network-online.target
 Wants=network-online.target
 

@@ -13,6 +13,7 @@ import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'agenda.dart';
+import 'agenda_google_api.dart';
 import 'agente_hub.dart';
 import 'auth.dart';
 import 'backup.dart';
@@ -111,6 +112,7 @@ class Servidor {
       ..get('/', (Request _) => Response.found('/painel'))
       ..get('/oracao', (Request _) => _pagina('oracao.html'))
       ..get('/mensagens', (Request _) => _pagina('mensagens.html'))
+      ..get(ajudaAgenda, (Request _) => _pagina('ajuda-agenda.html'))
       ..get('/painel', (Request _) => _pagina('painel.html'))
       ..get('/mural', (Request req) => _chaveMuralOk(req) ? _pagina('mural.html') : _semChaveMural())
       ..get('/api/public/mural', (Request req) => _chaveMuralOk(req) ? _mural(req) : _semChaveMural())
@@ -174,8 +176,14 @@ class Servidor {
       ..post('/api/admin/testar-holyrics', _adminTestarHolyrics)
       ..post('/api/admin/testar-email', _adminTestarEmail)
       ..get('/api/agenda', _agenda)
+      ..post('/api/agenda/eventos', _criarEvento)
+      ..put('/api/agenda/eventos/<id>', _atualizarEvento)
+      ..delete('/api/agenda/eventos/<id>', _excluirEvento)
       ..post('/api/admin/agenda/atualizar', _adminAgendaAtualizar)
       ..post('/api/admin/agenda/testar', _adminAgendaTestar)
+      ..post('/api/admin/agenda/conta-servico', _adminContaServico)
+      ..post('/api/admin/agenda/conta-servico/testar', _adminTestarContaServico)
+      ..delete('/api/admin/agenda/conta-servico', _adminRemoverContaServico)
       ..get('/ws', webSocketHandler(_conectarWs));
 
     final estaticos = createStaticHandler(pastaWeb);
@@ -621,18 +629,101 @@ class Servidor {
     return _json({
       ...?a?.estado(),
       'configurada': a?.configurada ?? false,
-      'eventos': [
-        for (final e in a?.proximos(dias: dias) ?? const <Evento>[])
-          {
-            ...e.toJson(),
-            // Textos prontos para o painel web.
-            'dia': diaPorExtenso(e.inicio),
-            'horario': horario(e),
-            'textoRecado': textoRecadoDoEvento(e),
-          },
-      ],
+      'eventos': [for (final e in a?.proximos(dias: dias) ?? const <Evento>[]) _eventoJson(e)],
     });
   }
+
+  static Map<String, dynamic> _eventoJson(Evento e) => {
+        ...e.toJson(),
+        // Textos prontos para o painel web.
+        'dia': diaPorExtenso(e.inicio),
+        'horario': horario(e),
+        'textoRecado': textoRecadoDoEvento(e),
+      };
+
+  /// Resposta de erro do Google, com o link da ajuda que explica como resolver.
+  static Response _erroGoogle(ErroGoogle e, {Map<String, dynamic> extra = const {}}) =>
+      _json({'erro': e.mensagem, 'ajuda': e.ajuda, ...extra}, status: e.status);
+
+  Future<Response> _naAgenda(Future<Response> Function(AgendaGoogle a) acao) async {
+    final a = agenda;
+    if (a == null) return _erro(501, 'Agenda indisponível.');
+    try {
+      return await acao(a);
+    } on ErroGoogle catch (e) {
+      return _erroGoogle(e);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  /// Corpo: {"titulo", "inicio", "fim", "diaInteiro", "local", "descricao"} (fim exclusivo no dia inteiro).
+  Future<Response> _criarEvento(Request req) => _naAgenda((a) async {
+        final dados = DadosEvento.fromJson(await _corpo(req));
+        return _json(_eventoJson(await a.criar(dados)), status: 201);
+      });
+
+  Future<Response> _atualizarEvento(Request req, String id) => _naAgenda((a) async {
+        final dados = DadosEvento.fromJson(await _corpo(req));
+        return _json(_eventoJson(await a.atualizar(Uri.decodeComponent(id), dados)));
+      });
+
+  Future<Response> _excluirEvento(Request req, String id) => _naAgenda((a) async {
+        await a.excluir(Uri.decodeComponent(id));
+        return _json({'ok': true});
+      });
+
+  /// Corpo: {"chave": <conteúdo do arquivo JSON>, "calendarioId": "..." (opcional)}.
+  /// Testa o acesso à agenda e só então guarda a chave em data/.
+  Future<Response> _adminContaServico(Request req) async {
+    final a = agenda, c = cfg, conta = agenda?.conta;
+    if (a == null || c == null || conta == null) return _erro(501, 'Agenda indisponível.');
+    final corpo = await _corpo(req);
+    final Map<String, dynamic> chave;
+    try {
+      final bruta = corpo['chave'];
+      chave = ContaServicoGoogle.validar(bruta is String ? bruta : jsonEncode(bruta));
+    } on FormatException catch (e) {
+      return _json({'erro': e.message, 'ajuda': '$ajudaAgenda#erro-chave'}, status: 400);
+    }
+    final idInformado = (corpo['calendarioId'] as String? ?? '').trim();
+    if (idInformado.contains(RegExp(r'[\s/]')) || idInformado.length > 300) {
+      return _json({'erro': 'ID da agenda inválido.', 'ajuda': '$ajudaAgenda#id-agenda'}, status: 400);
+    }
+    final id = idInformado.isNotEmpty ? idInformado : c.agendaCalendarioId;
+    if (id.isEmpty) {
+      return _json({
+        'erro': 'Informe o ID da agenda (Google Agenda › Configurações e compartilhamento › Integrar agenda).',
+        'ajuda': '$ajudaAgenda#id-agenda',
+      }, status: 400);
+    }
+    final email = chave['client_email'] as String;
+    try {
+      final acesso = await a.testarConta(chave, id);
+      if (idInformado.isNotEmpty) await c.atualizar({'agendaCalendarioId': idInformado});
+      await conta.salvar(chave);
+      await a.atualizarAgora();
+      return _json({'agenda': acesso.nome, 'permissao': acesso.permissao, 'contaServico': email, 'estado': a.estado()});
+    } on ErroGoogle catch (e) {
+      return _erroGoogle(e, extra: {'contaServico': email});
+    }
+  }
+
+  /// Testa a chave já guardada (útil depois de mudar o compartilhamento da agenda).
+  Future<Response> _adminTestarContaServico(Request _) => _naAgenda((a) async {
+        final cal = a.calendario;
+        if (cal == null) return _erro(400, 'Nenhuma conta de serviço ligada.');
+        final acesso = await cal.testarAcesso();
+        await a.atualizarAgora();
+        return _json({'agenda': acesso.nome, 'permissao': acesso.permissao, 'contaServico': a.conta?.email, 'estado': a.estado()});
+      });
+
+  /// Volta para o modo só leitura (iCal, se houver endereço). A chave é apagada do servidor.
+  Future<Response> _adminRemoverContaServico(Request _) => _naAgenda((a) async {
+        await a.conta?.remover();
+        await a.atualizarAgora();
+        return _json({'estado': a.estado()});
+      });
 
   Future<Response> _adminAgendaAtualizar(Request req) async {
     final a = agenda;
@@ -786,14 +877,14 @@ class Servidor {
     if (c == null) return _erro(501, 'Configurações indisponíveis.');
     final corpo = await _corpo(req);
     final urlAntes = c.urlOracao;
-    final agendaAntes = c.agendaUrl;
+    final agendaAntes = '${c.agendaUrl}|${c.agendaCalendarioId}';
     try {
       await c.atualizar(corpo);
     } on FormatException catch (e) {
       return _erro(400, e.message);
     }
     // Agenda trocada ou removida: busca na hora (e descarta a cópia antiga).
-    if (c.agendaUrl != agendaAntes) await agenda?.atualizarAgora();
+    if ('${c.agendaUrl}|${c.agendaCalendarioId}' != agendaAntes) await agenda?.atualizarAgora();
     // Holyrics direto: aplica a nova conexão sem reiniciar.
     final h = holyrics;
     if (h is HolyricsDireto) h.atualizar(host: c.holyricsHost, porta: c.holyricsPorta, token: c.holyricsToken);

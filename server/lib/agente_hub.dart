@@ -54,7 +54,7 @@ class HolyricsViaAgente extends PonteHolyrics {
   @override
   Future<RespostaHolyrics> chamar(String acao, String corpoJson) {
     if (_canal == null) {
-      return Future.value(erroHolyrics('O PC da igreja (agente Diako News) está desconectado.'));
+      return Future.value(erroHolyrics('O PC da igreja (agente DiakoNews) está desconectado.'));
     }
     final id = '${++_sequencia}';
     final completer = Completer<RespostaHolyrics>();

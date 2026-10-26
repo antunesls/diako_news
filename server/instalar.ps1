@@ -1,4 +1,4 @@
-﻿# Instala o Diako News no PC do Holyrics. Execute como administrador, de dentro da pasta descompactada:
+﻿# Instala o DiakoNews no PC do Holyrics. Execute como administrador, de dentro da pasta descompactada:
 #   powershell -ExecutionPolicy Bypass -File .\instalar.ps1               # servidor completo neste PC
 #   powershell -ExecutionPolicy Bypass -File .\instalar.ps1 -Modo agente  # servidor na internet: só o agente
 param(
@@ -25,9 +25,22 @@ function Registrar-Tarefa([string]$Nome, [string]$Exe, [string]$Config, [string]
     Start-ScheduledTask -TaskName $Nome
 }
 
+# Para a tarefa (com o nome atual e o antigo, "Diako News", de instalações anteriores).
+function Parar-Tarefa([string]$Nome) {
+    foreach ($n in @($Nome, ($Nome -replace '^DiakoNews', 'Diako News'))) {
+        Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue | Stop-ScheduledTask
+    }
+}
+
+# Remove a tarefa com o nome antigo, para não ficarem duas iniciando com o Windows.
+function Remover-TarefaAntiga([string]$Nome) {
+    $antigo = $Nome -replace '^DiakoNews', 'Diako News'
+    Get-ScheduledTask -TaskName $antigo -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false
+}
+
 if ($Modo -eq 'agente') {
     # O servidor está na internet: aqui roda só o agente, que conecta para fora (nenhuma porta é aberta).
-    Get-ScheduledTask -TaskName 'Diako News Agente' -ErrorAction SilentlyContinue | Stop-ScheduledTask
+    Parar-Tarefa 'DiakoNews Agente'
     Get-Process diako_agente -ErrorAction SilentlyContinue | Stop-Process -Force
 
     Write-Host "Copiando o agente para $Destino ..."
@@ -46,8 +59,9 @@ if ($Modo -eq 'agente') {
 
     Write-Host 'Criando a tarefa que inicia o agente junto com o Windows ...'
     $log = Join-Path $Destino 'agente.log'
-    Registrar-Tarefa 'Diako News Agente' (Join-Path $Destino 'diako_agente.exe') $config $log `
-        'Agente do Diako News: liga o servidor na internet ao Holyrics deste PC'
+    Remover-TarefaAntiga 'DiakoNews Agente'
+    Registrar-Tarefa 'DiakoNews Agente' (Join-Path $Destino 'diako_agente.exe') $config $log `
+        'Agente do DiakoNews: liga o servidor na internet ao Holyrics deste PC'
     Start-Sleep -Seconds 4
     Write-Host ''
     Write-Host 'Pronto! Últimas linhas do log do agente:' -ForegroundColor Green
@@ -58,7 +72,7 @@ if ($Modo -eq 'agente') {
 }
 
 # Para uma versão já em execução antes de copiar o .exe.
-Get-ScheduledTask -TaskName 'Diako News' -ErrorAction SilentlyContinue | Stop-ScheduledTask
+Parar-Tarefa 'DiakoNews'
 Get-Process diako_server -ErrorAction SilentlyContinue | Stop-Process -Force
 
 Write-Host "Copiando arquivos para $Destino ..."
@@ -81,13 +95,16 @@ $porta = (Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).porta
 if (-not $porta) { $porta = 8080 }
 
 Write-Host "Liberando a porta $porta no firewall (somente redes privadas) ..."
-Get-NetFirewallRule -DisplayName 'Diako News' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-New-NetFirewallRule -DisplayName 'Diako News' -Direction Inbound -Protocol TCP -LocalPort $porta -Profile Private -Action Allow | Out-Null
+foreach ($regra in 'DiakoNews', 'Diako News') {
+    Get-NetFirewallRule -DisplayName $regra -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+}
+New-NetFirewallRule -DisplayName 'DiakoNews' -Direction Inbound -Protocol TCP -LocalPort $porta -Profile Private -Action Allow | Out-Null
 
 Write-Host 'Criando a tarefa que inicia o servidor junto com o Windows ...'
 $log = Join-Path $Destino 'servidor.log'
-Registrar-Tarefa 'Diako News' (Join-Path $Destino 'diako_server.exe') $config $log `
-    'Servidor do Diako News (recados e motivos de oração para o Holyrics)'
+Remover-TarefaAntiga 'DiakoNews'
+Registrar-Tarefa 'DiakoNews' (Join-Path $Destino 'diako_server.exe') $config $log `
+    'Servidor do DiakoNews (recados e motivos de oração para o Holyrics)'
 
 Start-Sleep -Seconds 3
 $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))' } | Select-Object -First 1).IPAddress

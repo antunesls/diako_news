@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ajuda: criar eventos no Google Agenda — DiakoNews</title>
+<link rel="stylesheet" href="/estilo.css?v=4">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  .topo-ajuda { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-bottom: 18px; margin-bottom: 28px; border-bottom: 1px solid var(--linha); }
+  .topo-ajuda img { height: 40px; width: auto; }
+  .topo-ajuda .espaco { flex: 1; }
+  h1 { font-size: 34px; margin-bottom: 8px; }
+  .lead { font-size: 18px; color: var(--suave); margin: 0 0 24px; }
+  h2 { font-size: 25px; margin: 44px 0 10px; scroll-margin-top: 16px; }
+  h3 { font-size: 18px; margin: 22px 0 6px; font-family: var(--fonte); font-weight: 600; scroll-margin-top: 16px; }
+  p, li { line-height: 1.6; }
+  ol.passos { padding-left: 22px; }
+  ol.passos > li { margin-bottom: 10px; }
+  ol.passos > li::marker { font-weight: 600; color: var(--primaria); }
+  .rotulo { display: inline-block; padding: 0 7px; border: 1px solid var(--borda); border-radius: 6px; background: var(--superficie); font-weight: 600; font-size: 15px; white-space: nowrap; }
+  code { padding: 1px 6px; border-radius: 6px; background: var(--neutro); font-size: 14px; overflow-wrap: anywhere; }
+  .indice { columns: 2 240px; column-gap: 32px; padding: 18px 22px 18px 40px; margin: 0; }
+  .indice li { break-inside: avoid; }
+  .nota { padding: 14px 18px; border-radius: 14px; background: var(--primaria-suave); color: var(--primaria-escura); margin: 16px 0; }
+  .nota.atencao { background: #fbefe2; color: #6b3d00; }
+  .nota p { margin: 0; }
+  .nota p + p { margin-top: 8px; }
+  .comparacao { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 16px 0; }
+  .comparacao .cartao h3 { margin-top: 0; }
+  .comparacao ul { margin: 0; padding-left: 20px; }
+  .problema { scroll-margin-top: 16px; margin-bottom: 14px; }
+  .problema h3 { margin-top: 0; }
+  .problema:target { border-color: var(--primaria); box-shadow: 0 0 0 3px var(--primaria-suave); }
+  .problema p { margin: 6px 0 0; }
+  .voltar { display: inline-block; margin-top: 8px; font-size: 14px; }
+  @media (max-width: 520px) { h1 { font-size: 28px; } h2 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="topo-ajuda">
+    <a href="/painel"><img src="/logo.png" alt="Igreja Diakonia Tulipas"></a>
+    <span class="espaco"></span>
+    <a class="botao secundario pequeno" href="/admin#agenda">Ir para Administração</a>
+  </header>
+
+  <p class="sobretitulo">Ajuda</p>
+  <h1>Criar e editar eventos do Google Agenda pelo DiakoNews</h1>
+  <p class="lead">Passo a passo para ligar uma <strong>conta de serviço</strong> do Google, que deixa o painel e o tablet criarem, editarem e excluírem eventos na agenda da igreja.</p>
+
+  <nav aria-label="Nesta página" class="cartao">
+    <ol class="indice">
+      <li><a href="#para-que-serve">Para que serve</a></li>
+      <li><a href="#antes">Antes de começar</a></li>
+      <li><a href="#projeto">Criar o projeto no Google Cloud</a></li>
+      <li><a href="#api">Ativar a Google Calendar API</a></li>
+      <li><a href="#conta">Criar a conta de serviço</a></li>
+      <li><a href="#chave">Gerar a chave (arquivo JSON)</a></li>
+      <li><a href="#compartilhar">Compartilhar a agenda com a conta</a></li>
+      <li><a href="#id-agenda">Achar o ID da agenda</a></li>
+      <li><a href="#ligar">Ligar no DiakoNews</a></li>
+      <li><a href="#dia-a-dia">Usando no dia a dia</a></li>
+      <li><a href="#problemas">Problemas comuns</a></li>
+      <li><a href="#seguranca">Segurança e manutenção</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="para-que-serve">1. Para que serve</h2>
+  <p>O DiakoNews pode se ligar ao Google Agenda de dois jeitos:</p>
+  <div class="comparacao">
+    <div class="cartao">
+      <h3>Só mostrar (endereço iCal)</h3>
+      <ul>
+        <li>Mostra os eventos na TV, no tablet e no resumo da semana.</li>
+        <li>Eventos são criados e alterados no Google Agenda.</li>
+        <li>Mudanças podem levar alguns minutos para aparecer.</li>
+        <li>Configuração: colar um endereço (2 minutos).</li>
+      </ul>
+    </div>
+    <div class="cartao">
+      <h3>Mostrar e editar (conta de serviço)</h3>
+      <ul>
+        <li>Tudo do lado ao lado, e mais:</li>
+        <li><strong>Criar, editar e excluir</strong> eventos pelo painel e pelo tablet.</li>
+        <li>Mudanças aparecem na hora.</li>
+        <li>Configuração: este guia (uns 15 minutos, uma vez só).</li>
+      </ul>
+    </div>
+  </div>
+  <p>Uma <strong>conta de serviço</strong> é uma "conta de robô" do Google, criada só para o DiakoNews. Ela não tem senha nem caixa de e-mail: o servidor prova quem é com uma <strong>chave</strong> (um arquivo .json). Você compartilha a agenda da igreja com ela, do mesmo jeito que compartilharia com uma pessoa, e ela só enxerga o que você compartilhar.</p>
+  <div class="nota"><p><strong>Custo:</strong> o uso normal da Google Calendar API não é cobrado. O Google só planeja cobrar de quem passar dos limites de uso, que ficam muito acima do que uma igreja usa. Não é preciso cadastrar cartão de crédito.</p></div>
+  <p><strong>Eventos que se repetem</strong> (por exemplo, "todo domingo") continuam aparecendo normalmente, mas são alterados no Google Agenda. Os eventos criados pelo DiakoNews são de uma vez só.</p>
+
+  <h2 id="antes">2. Antes de começar</h2>
+  <ul>
+    <li>Use um <strong>computador</strong>: o Google Cloud não funciona bem pelo celular.</li>
+    <li>Entre com a <strong>conta Google dona da agenda da igreja</strong> (ou uma conta que possa gerenciar o compartilhamento dela).</li>
+    <li>Tenha acesso à página <a href="/admin#agenda">Administração</a> do DiakoNews (a mesma senha do painel).</li>
+    <li>Os nomes dos botões podem mudar um pouco com o tempo. Se algo estiver diferente, procure pelo texto mais parecido.</li>
+  </ul>
+
+  <h2 id="projeto">3. Criar o projeto no Google Cloud</h2>
+  <p>O "projeto" é só uma pasta no Google Cloud onde a conta de serviço vai morar.</p>
+  <ol class="passos">
+    <li>Abra <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">console.cloud.google.com/projectcreate</a>. Na primeira vez, o Google pede para escolher o país e aceitar os termos de serviço.</li>
+    <li>Em <span class="rotulo">Nome do projeto</span>, escreva <code>DiakoNews</code>.</li>
+    <li>Se aparecer <span class="rotulo">Local</span> ou <span class="rotulo">Recurso mãe</span>, deixe como está (<em>Sem organização</em>, numa conta Gmail comum).</li>
+    <li>Clique em <span class="rotulo">Criar</span> e espere alguns segundos.</li>
+    <li>No alto da tela, confira se o projeto selecionado é o <strong>DiakoNews</strong>. Todos os passos seguintes são feitos nele.</li>
+  </ol>
+  <div class="nota atencao"><p>Se o Google oferecer um <strong>teste gratuito</strong> ou pedir para ativar o <strong>faturamento</strong>, não precisa: feche o aviso e continue.</p></div>
+
+  <h2 id="api">4. Ativar a Google Calendar API</h2>
+  <ol class="passos">
+    <li>Abra a <a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener">página da Google Calendar API</a> (ou, no menu, <span class="rotulo">APIs e serviços</span> › <span class="rotulo">Biblioteca</span> e procure por <em>Google Calendar API</em>).</li>
+    <li>Confira se o projeto no alto da tela é o <strong>DiakoNews</strong>.</li>
+    <li>Clique em <span class="rotulo">Ativar</span>. Quando terminar, a página mostra os detalhes da API (e o botão vira <em>Gerenciar</em>).</li>
+  </ol>
+
+  <h2 id="conta">5. Criar a conta de serviço</h2>
+  <ol class="passos">
+    <li>Abra <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener">Contas de serviço</a> (no menu: <span class="rotulo">IAM e administrador</span> › <span class="rotulo">Contas de serviço</span>).</li>
+    <li>Clique em <span class="rotulo">Criar conta de serviço</span>.</li>
+    <li>Em <span class="rotulo">Nome da conta de serviço</span>, escreva <code>diako-agenda</code>. O ID é preenchido sozinho. A descrição é opcional (ex.: <em>Agenda da igreja pelo DiakoNews</em>).</li>
+    <li>Clique em <span class="rotulo">Criar e continuar</span>.</li>
+    <li>Na etapa de <strong>papéis</strong> (opcional), <strong>não escolha nada</strong>: a conta não precisa de nenhuma permissão no Google Cloud, só na agenda. Clique em <span class="rotulo">Continuar</span> e depois em <span class="rotulo">Concluído</span>.</li>
+    <li>Na lista, aparece o <strong>e-mail da conta</strong>, parecido com <code>diako-agenda@diako-news-123456.iam.gserviceaccount.com</code>. Copie e guarde: ele é usado no <a href="#compartilhar">passo 7</a>.</li>
+  </ol>
+
+  <h2 id="chave">6. Gerar a chave (arquivo JSON)</h2>
+  <ol class="passos">
+    <li>Na lista de contas de serviço, clique no <strong>e-mail</strong> da conta <code>diako-agenda</code>.</li>
+    <li>Abra a aba <span class="rotulo">Chaves</span>.</li>
+    <li>Clique em <span class="rotulo">Adicionar chave</span> › <span class="rotulo">Criar nova chave</span>.</li>
+    <li>Escolha <span class="rotulo">JSON</span> e clique em <span class="rotulo">Criar</span>.</li>
+    <li>O navegador baixa um arquivo <code>.json</code> (algo como <code>diako-news-123456-a1b2c3.json</code>). <strong>Ele só pode ser baixado uma vez.</strong> Se perder, crie outra chave.</li>
+  </ol>
+  <div class="nota atencao">
+    <p><strong>Trate este arquivo como uma senha.</strong> Quem tiver o arquivo consegue alterar a agenda da igreja. Não mande por WhatsApp nem por e-mail: use direto no passo 9 e depois apague da pasta Downloads.</p>
+    <p><strong>Conta Google Workspace</strong> (e-mail com o domínio da igreja)? Se aparecer um aviso de que a criação de chaves está bloqueada, a política da organização <code>iam.disableServiceAccountKeyCreation</code> está ativa (ela vem ligada por padrão em organizações criadas a partir de maio de 2024). Peça ao administrador do Workspace para liberar a criação de chaves só neste projeto, ou crie o projeto com uma conta Gmail comum e compartilhe a agenda com a conta de serviço do mesmo jeito.</p>
+  </div>
+
+  <h2 id="compartilhar">7. Compartilhar a agenda com a conta de serviço</h2>
+  <p>Agora a agenda da igreja precisa "aceitar" a conta de serviço, como se fosse uma pessoa da equipe.</p>
+  <ol class="passos">
+    <li>Abra o <a href="https://calendar.google.com" target="_blank" rel="noopener">Google Agenda</a> no computador, com a conta dona da agenda da igreja.</li>
+    <li>À esquerda, em <span class="rotulo">Minhas agendas</span>, passe o mouse sobre a agenda da igreja, clique em <span class="rotulo">⋮ Mais</span> › <span class="rotulo">Configurações e compartilhamento</span>.</li>
+    <li>Vá até a seção <span class="rotulo">Compartilhado com</span> e clique em <span class="rotulo">Adicionar participantes e grupos</span>.</li>
+    <li>Cole o <strong>e-mail da conta de serviço</strong> (o do passo 5, que termina em <code>iam.gserviceaccount.com</code>).</li>
+    <li>Em permissões, escolha <span class="rotulo">Fazer alterações e ver detalhes do evento</span>.</li>
+    <li>Clique em <span class="rotulo">Enviar</span>. Não chega convite para ninguém: a conta de serviço não tem caixa de e-mail, e está tudo certo assim.</li>
+  </ol>
+  <div class="nota"><p><strong>Por que essa permissão?</strong> "Ver detalhes do evento" só deixa ler, e o DiakoNews não conseguiria criar eventos. "Fazer alterações e gerenciar o compartilhamento" dá mais poder do que o necessário. "Fazer alterações e ver detalhes do evento" é o suficiente.</p></div>
+
+  <h2 id="id-agenda">8. Achar o ID da agenda</h2>
+  <ol class="passos">
+    <li>Na mesma tela de <span class="rotulo">Configurações e compartilhamento</span>, vá até a seção <span class="rotulo">Integrar agenda</span>.</li>
+    <li>Copie o <span class="rotulo">ID da agenda</span>. Numa agenda criada para a igreja, ele termina em <code>@group.calendar.google.com</code>. Se a agenda da igreja for a agenda principal da conta, o ID é o próprio e-mail da conta.</li>
+  </ol>
+  <div class="nota"><p>Se o <strong>endereço secreto no formato iCal</strong> já estiver salvo em Administração, o DiakoNews descobre o ID sozinho e você pode pular este passo.</p></div>
+
+  <h2 id="ligar">9. Ligar no DiakoNews</h2>
+  <ol class="passos">
+    <li>Abra <a href="/admin#agenda">Administração › Agenda (Google)</a> e desça até <strong>Criar e editar eventos pelo DiakoNews</strong>.</li>
+    <li>Em <span class="rotulo">Chave da conta de serviço</span>, escolha o arquivo <code>.json</code> do passo 6.</li>
+    <li>Confira o <span class="rotulo">ID da agenda</span> (passo 8).</li>
+    <li>Clique em <span class="rotulo">Testar e ligar</span>. O DiakoNews testa com o Google antes de salvar: se faltar algo, a mensagem diz o quê, com um link para a parte certa desta página.</li>
+    <li>Deu certo quando aparecer <em>"Tudo certo: ligada à agenda …"</em> e o e-mail da conta de serviço.</li>
+    <li>Para conferir de verdade: no painel, aba <strong>Agenda</strong>, crie um evento de teste, veja se ele aparece no Google Agenda e depois exclua.</li>
+    <li>Apague o arquivo <code>.json</code> da pasta Downloads do computador.</li>
+  </ol>
+
+  <h2 id="dia-a-dia">10. Usando no dia a dia</h2>
+  <h3>No painel (navegador)</h3>
+  <ul>
+    <li>Aba <strong>Agenda</strong>: botão <strong>Novo evento</strong>, e <strong>Editar</strong> / <strong>Excluir</strong> em cada evento.</li>
+    <li>Aba <strong>Início</strong>: no cartão <em>Próximos eventos</em>, o link <strong>Novo</strong>.</li>
+  </ul>
+  <h3>No tablet</h3>
+  <ul>
+    <li>Aba <strong>Agenda</strong>: botão <strong>Novo evento</strong>. Toque num evento e use <strong>Editar</strong> ou <strong>Excluir</strong>.</li>
+  </ul>
+  <h3>Bom saber</h3>
+  <ul>
+    <li><strong>Dia inteiro:</strong> marque a opção e escolha o primeiro e o último dia (para eventos de vários dias, como um retiro).</li>
+    <li><strong>Horário:</strong> sempre o de Brasília, o mesmo da agenda da igreja.</li>
+    <li><strong>Eventos que se repetem</strong> aparecem com o aviso <em>"Repete: altere no Google Agenda"</em>.</li>
+    <li>Mudanças feitas direto no Google Agenda aparecem no DiakoNews em até 15 minutos (ou na hora, com <strong>Atualizar agora</strong> em Administração).</li>
+  </ul>
+
+  <h2 id="problemas">11. Problemas comuns</h2>
+  <p>As mensagens de erro do DiakoNews têm um link <em>Como resolver</em> que traz direto para o item certo abaixo.</p>
+
+  <section class="cartao problema" id="erro-permissao">
+    <h3>"Sem permissão" ou "A conta de serviço só pode ver esta agenda"</h3>
+    <p>A agenda não foi compartilhada com a conta de serviço, ou foi com a permissão errada. Refaça o <a href="#compartilhar">passo 7</a> com <strong>Fazer alterações e ver detalhes do evento</strong>, confira se colou o e-mail que termina em <code>iam.gserviceaccount.com</code>, espere 1 minuto e clique em <strong>Testar acesso</strong> em Administração.</p>
+  </section>
+  <section class="cartao problema" id="erro-api">
+    <h3>"A Google Calendar API não está ativada"</h3>
+    <p>Faça o <a href="#api">passo 4</a> no <strong>mesmo projeto</strong> da conta de serviço. Depois de ativar, pode levar alguns minutos para valer.</p>
+  </section>
+  <section class="cartao problema" id="erro-404">
+    <h3>"Agenda ou evento não encontrado"</h3>
+    <p>O ID da agenda está errado ou a agenda não foi compartilhada (o Google diz "não encontrado" quando a conta não enxerga a agenda). Confira o <a href="#id-agenda">ID da agenda</a> e o <a href="#compartilhar">compartilhamento</a>. Se foi um evento, ele pode ter sido excluído no Google Agenda: clique em <strong>Atualizar agora</strong>.</p>
+  </section>
+  <section class="cartao problema" id="erro-chave">
+    <h3>"A chave da conta de serviço é inválida" ou "O Google recusou a chave"</h3>
+    <p>O arquivo enviado não é a chave JSON da conta de serviço, ou a chave foi excluída no Google Cloud. Gere uma chave nova (<a href="#chave">passo 6</a>) e envie em Administração com <strong>Trocar chave</strong>. Cuidado para não enviar outro tipo de arquivo, como o "ID do cliente OAuth".</p>
+  </section>
+  <section class="cartao problema" id="id-agenda-vazio">
+    <h3>"Informe o ID da agenda"</h3>
+    <p>Cole o ID no campo <strong>ID da agenda</strong> (<a href="#id-agenda">passo 8</a>) ou salve antes o endereço secreto iCal, de onde o ID é tirado sozinho.</p>
+  </section>
+  <section class="cartao problema" id="recorrentes">
+    <h3>"Este evento se repete"</h3>
+    <p>Eventos com repetição (toda semana, todo mês…) são alterados no Google Agenda, onde dá para escolher entre mudar só aquele dia ou toda a série.</p>
+  </section>
+  <section class="cartao problema" id="erro-conexao">
+    <h3>"Não foi possível falar com o Google"</h3>
+    <p>O servidor ficou sem internet ou o Google demorou para responder. Os eventos continuam aparecendo pela última cópia guardada. Tente de novo em alguns minutos.</p>
+  </section>
+  <section class="cartao problema" id="ligar-antes">
+    <h3>"A agenda está ligada só para leitura"</h3>
+    <p>A conta de serviço ainda não foi ligada (ou foi desligada). Siga este guia a partir do <a href="#projeto">passo 3</a>.</p>
+  </section>
+  <section class="cartao problema" id="horario">
+    <h3>O horário aparece diferente no Google Agenda</h3>
+    <p>O DiakoNews grava no horário de Brasília. Confira o fuso em <em>Configurações › Fuso horário</em> do Google Agenda e nas configurações da agenda da igreja.</p>
+  </section>
+  <section class="cartao problema" id="nao-aparece">
+    <h3>Mudei no Google Agenda e não apareceu</h3>
+    <p>O DiakoNews busca a agenda a cada 15 minutos. Para ver na hora, use <strong>Atualizar agora</strong> em Administração › Agenda.</p>
+  </section>
+
+  <h2 id="seguranca">12. Segurança e manutenção</h2>
+  <ul>
+    <li><strong>Onde a chave fica:</strong> no servidor, em <code>data/google-conta-servico.json</code>, que só o próprio serviço lê. Ela <strong>não</strong> vai para os backups e nunca é mostrada no painel (só o e-mail da conta).</li>
+    <li><strong>O que a conta pode fazer:</strong> só mexer nas agendas compartilhadas com ela. Não tem acesso a e-mails, Drive nem outras agendas.</li>
+    <li><strong>Trocar a chave</strong> (recomendado se alguém da equipe sair ou uma vez por ano): gere uma chave nova (<a href="#chave">passo 6</a>), envie em Administração › <strong>Trocar chave</strong> e depois exclua a chave antiga na aba <em>Chaves</em> da conta de serviço.</li>
+    <li><strong>Desligar:</strong> em Administração, <strong>Desligar edição</strong> (a chave é apagada do servidor) e, no Google Agenda, remova a conta de serviço de <em>Compartilhado com</em>.</li>
+    <li><strong>Se a chave vazar</strong> (arquivo enviado por engano, computador perdido): exclua a chave na aba <em>Chaves</em> da conta de serviço na hora. Ela para de funcionar imediatamente. Depois gere outra e envie no DiakoNews.</li>
+    <li><strong>Restaurar um backup em outro servidor:</strong> como a chave não vai no backup, envie a chave de novo em Administração (ou gere uma nova).</li>
+  </ul>
+  <a class="voltar" href="#para-que-serve">Voltar ao início da página</a>
+</main>
+</body>
+</html>

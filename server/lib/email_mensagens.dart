@@ -24,7 +24,7 @@ Future<void> enviarEmailMensagem(
       Message()
         ..from = Address(cfg.smtpRemetente)
         ..recipients.add(cfg.smtpDestinatario)
-        ..subject = 'Diako News: nova $tipo na caixa de mensagens'
+        ..subject = 'DiakoNews: nova $tipo na caixa de mensagens'
         ..text =
             'Chegou uma nova $tipo. Abra o painel protegido para ler: $urlPainel',
       _servidor(cfg));
@@ -35,7 +35,7 @@ Future<void> enviarEmailTeste(Configuracoes cfg) async {
       Message()
         ..from = Address(cfg.smtpRemetente)
         ..recipients.add(cfg.smtpDestinatario)
-        ..subject = 'Diako News: teste de e-mail'
+        ..subject = 'DiakoNews: teste de e-mail'
         ..text =
             'A configuração de avisos da caixa de mensagens está funcionando.',
       _servidor(cfg));

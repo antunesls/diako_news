@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 /// Versão definida na compilação (dart compile exe -DVERSAO=1.2.0).
 const versao = String.fromEnvironment('VERSAO', defaultValue: 'dev');
 
-/// Agente do PC da igreja: liga o servidor Diako News da internet ao Holyrics local.
+/// Agente do PC da igreja: liga o servidor DiakoNews da internet ao Holyrics local.
 /// Uso: diako_agente [caminho/do/agente.json]
 Future<void> main(List<String> args) async {
   final arquivo = args.isNotEmpty ? args.first : _configPadrao();
@@ -24,7 +24,7 @@ Future<void> main(List<String> args) async {
   }
 
   stdout.writeln('''
-Agente Diako News $versao
+Agente DiakoNews $versao
   Servidor:  ${config.servidor}
   Holyrics:  ${config.holyricsHost}:${config.holyricsPorta}
   Cartazes:  ${config.pastaCartazes}

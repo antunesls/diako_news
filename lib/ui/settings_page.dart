@@ -120,7 +120,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Text('Servidor da igreja', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              'O endereço e a senha são definidos na instalação do servidor Diako News '
+              'O endereço e a senha são definidos na instalação do servidor DiakoNews '
               '(ex: diako.minhaigreja.com.br ou 192.168.0.10:8080).',
               style: TextStyle(color: esquema.outline),
             ),

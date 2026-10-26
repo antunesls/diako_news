@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Administração — Diako News</title>
-<link rel="stylesheet" href="/estilo.css?v=3">
+<title>Administração — DiakoNews</title>
+<link rel="stylesheet" href="/estilo.css?v=4">
 <style>
   .topo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px max(20px, calc((100% - 1060px) / 2)); background: var(--superficie); border-bottom: 1px solid var(--linha); }
   .topo img { height: 40px; width: auto; }
@@ -26,6 +26,8 @@
   th { color: var(--suave); font-weight: 600; }
   td.acoes-tabela { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
   .tabela-rolagem { overflow-x: auto; }
+  .bloco-google { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--linha); }
+  .bloco-google h3 { font-size: 18px; margin-bottom: 6px; }
   .aviso { padding: 12px 14px; border-radius: 8px; background: #fff4e5; color: #6b3d00; font-size: 14px; margin-bottom: 12px; }
   #login { max-width: 380px; margin: 10vh auto 0; padding: 0 16px; text-align: center; }
   #login img { width: 260px; max-width: 80%; margin-bottom: 24px; }
@@ -130,7 +132,7 @@
 
       <section class="cartao" id="agenda">
         <h2>Agenda (Google)</h2>
-        <p class="dica">Os eventos continuam sendo criados no Google Agenda. Aqui o Diako News só lê e mostra: na TV (hoje e próximos dias), no tablet do pastor e no resumo da semana. Atualiza a cada 15 minutos.</p>
+        <p class="dica">Mostra os eventos da agenda da igreja na TV (hoje e próximos dias), no tablet do pastor e no resumo da semana. Para só mostrar, basta o endereço iCal. Para também <strong>criar, editar e excluir eventos</strong> pelo painel e pelo tablet, ligue a conta de serviço mais abaixo. Atualiza a cada 15 minutos.</p>
         <details style="margin-bottom:16px">
           <summary style="cursor:pointer;font-weight:600">Onde encontro o endereço da agenda?</summary>
           <ol style="line-height:1.7">
@@ -160,6 +162,41 @@
           </div>
         </form>
         <ul id="teste-agenda" class="dica" style="margin-top:12px"></ul>
+
+        <div id="agenda-google" class="bloco-google">
+          <h3>Criar e editar eventos pelo DiakoNews</h3>
+          <p class="dica">Com uma <strong>conta de serviço</strong> do Google (gratuita), o painel e o tablet criam, editam e excluem eventos direto na agenda da igreja, e as mudanças aparecem na hora.
+            <a href="/ajuda/agenda-google" target="_blank" rel="noopener">Veja o passo a passo completo</a> (uns 15 minutos, no computador).</p>
+          <p id="estado-google" role="status"></p>
+          <div id="google-ligada" hidden>
+            <p style="font-weight:600;margin:0 0 6px">E-mail da conta de serviço</p>
+            <div class="chave"><code id="email-conta"></code><button type="button" class="botao secundario pequeno" id="copiar-email-conta">Copiar</button></div>
+            <p class="dica">A agenda da igreja precisa estar compartilhada com este e-mail com a permissão <strong>Fazer alterações e ver detalhes do evento</strong>
+              (<a href="/ajuda/agenda-google#compartilhar" target="_blank" rel="noopener">como fazer</a>).</p>
+            <div class="acoes">
+              <button class="botao secundario" type="button" id="testar-google">Testar acesso</button>
+              <button class="botao secundario" type="button" id="trocar-google">Trocar chave</button>
+              <button class="botao perigo" type="button" id="desligar-google">Desligar edição</button>
+              <span id="res-google" role="status"></span>
+            </div>
+          </div>
+          <form id="form-google">
+            <div class="campo">
+              <label for="arquivo-chave">Chave da conta de serviço <span class="dica">(o arquivo .json baixado no Google Cloud)</span></label>
+              <input type="file" id="arquivo-chave" accept=".json,application/json">
+            </div>
+            <div class="campo">
+              <label for="agendaCalendarioId">ID da agenda</label>
+              <input type="text" id="agendaCalendarioId" maxlength="300" spellcheck="false" autocomplete="off" placeholder="…@group.calendar.google.com">
+              <p class="dica">Fica em <em>Configurações e compartilhamento › Integrar agenda</em> (<a href="/ajuda/agenda-google#id-agenda" target="_blank" rel="noopener">onde achar</a>). Se o endereço iCal acima já foi salvo, o ID aparece aqui sozinho.</p>
+            </div>
+            <div class="acoes">
+              <button class="botao">Testar e ligar</button>
+              <button class="botao secundario" type="button" id="cancelar-troca" hidden>Cancelar</button>
+              <span id="res-form-google" role="status"></span>
+            </div>
+          </form>
+        </div>
       </section>
 
       <section class="cartao" id="projecao">
@@ -219,7 +256,7 @@
         </div>
 
         <h3 style="font-size:16px;margin-top:24px">Restaurar de um arquivo</h3>
-        <p class="dica">Use um .zip baixado daqui (deste ou de outro servidor Diako News). Antes de restaurar, um backup de segurança do estado atual é gravado.</p>
+        <p class="dica">Use um .zip baixado daqui (deste ou de outro servidor DiakoNews). Antes de restaurar, um backup de segurança do estado atual é gravado.</p>
         <div class="campo"><label for="arquivo-restaurar">Arquivo de backup (.zip)</label><input type="file" id="arquivo-restaurar" accept=".zip,application/zip"></div>
         <div class="campo"><label class="marcar"><input type="checkbox" id="restaurar-config"><span>Restaurar também as configurações (nome, textos, endereço público, projeção, agenda)</span></label></div>
         <div class="acoes"><button class="botao perigo" type="button" id="restaurar-arquivo">Restaurar arquivo</button><span id="res-restaurar" role="status"></span></div>
@@ -256,7 +293,7 @@
   </form>
 </dialog>
 
-<script src="/comum.js"></script>
-<script src="/admin.js"></script>
+<script src="/comum.js?v=2"></script>
+<script src="/admin.js?v=2"></script>
 </body>
 </html>

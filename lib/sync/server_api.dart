@@ -57,7 +57,7 @@ class Cartaz {
   final String url;
 }
 
-/// Cliente REST do servidor Diako News.
+/// Cliente REST do servidor DiakoNews.
 class ServerApi {
   ServerApi(this._config, {http.Client? httpClient}) : _http = httpClient ?? http.Client();
 
@@ -99,11 +99,25 @@ class ServerApi {
     final j = Map<String, dynamic>.from(await _req('GET', '/api/agenda?dias=$dias') as Map);
     return AgendaServidor(
       configurada: j['configurada'] == true,
+      editavel: j['editavel'] == true,
       erro: j['erro'] as String?,
       atualizado: DateTime.tryParse(j['atualizado'] as String? ?? ''),
       eventos: [for (final e in (j['eventos'] as List? ?? const [])) Evento.fromJson(Map<String, dynamic>.from(e as Map))],
     );
   }
+
+  /// Cria um evento no Google Agenda (pelo servidor, com a conta de serviço).
+  Future<Evento> criarEvento(Map<String, dynamic> dados) async =>
+      Evento.fromJson(Map<String, dynamic>.from(await _req('POST', '/api/agenda/eventos', json: dados, tempo: _tempoGoogle) as Map));
+
+  Future<Evento> atualizarEvento(String id, Map<String, dynamic> dados) async => Evento.fromJson(Map<String, dynamic>.from(
+      await _req('PUT', '/api/agenda/eventos/${Uri.encodeComponent(id)}', json: dados, tempo: _tempoGoogle) as Map));
+
+  Future<void> excluirEvento(String id) =>
+      _req('DELETE', '/api/agenda/eventos/${Uri.encodeComponent(id)}', tempo: _tempoGoogle);
+
+  /// O servidor conversa com o Google antes de responder.
+  static const _tempoGoogle = Duration(seconds: 30);
 
   Future<List<Cartaz>> cartazes() async {
     final j = await _req('GET', '/api/cartazes') as List;
@@ -129,16 +143,16 @@ class ServerApi {
     return u.replace(scheme: u.scheme == 'https' ? 'wss' : 'ws', path: '/ws', queryParameters: {'token': c.sessao});
   }
 
-  Future<dynamic> _req(String metodo, String caminho, {Object? json, List<int>? bytes}) {
+  Future<dynamic> _req(String metodo, String caminho, {Object? json, List<int>? bytes, Duration tempo = timeout}) {
     final c = _config();
     if (c.base.isEmpty || c.sessao.isEmpty) {
       throw ServidorException('Configure o endereço do servidor e entre com a senha nas Configurações.');
     }
-    return _enviar(metodo, c.base, caminho, c.sessao, json: json, bytes: bytes);
+    return _enviar(metodo, c.base, caminho, c.sessao, json: json, bytes: bytes, tempo: tempo);
   }
 
   Future<dynamic> _enviar(String metodo, String base, String caminho, String? sessao,
-      {Object? json, List<int>? bytes}) async {
+      {Object? json, List<int>? bytes, Duration tempo = timeout}) async {
     final req = http.Request(metodo, Uri.parse('$base$caminho'));
     if (sessao != null) req.headers['Authorization'] = 'Bearer $sessao';
     if (json != null) {
@@ -150,7 +164,7 @@ class ServerApi {
     }
     final http.Response resp;
     try {
-      resp = await http.Response.fromStream(await _http.send(req).timeout(timeout));
+      resp = await http.Response.fromStream(await _http.send(req).timeout(tempo));
     } on TimeoutException {
       throw ServidorException('O servidor não respondeu. Verifique a internet do tablet e se o servidor está no ar.');
     } catch (_) {
@@ -173,8 +187,11 @@ class ServerApi {
 
 /// Resposta de GET /api/agenda.
 class AgendaServidor {
-  AgendaServidor({required this.configurada, required this.eventos, this.erro, this.atualizado});
+  AgendaServidor({required this.configurada, required this.eventos, this.editavel = false, this.erro, this.atualizado});
   final bool configurada;
+
+  /// O servidor pode criar e alterar eventos (conta de serviço do Google ligada).
+  final bool editavel;
   final List<Evento> eventos;
 
   /// Problema na última atualização do servidor com o Google (os eventos são da última cópia boa).

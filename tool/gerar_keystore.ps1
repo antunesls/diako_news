@@ -24,7 +24,7 @@ $texto = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServ
 if ($texto.Length -lt 6) { throw 'Senha muito curta.' }
 
 & $keytool -genkeypair -v -keystore $Saida -alias $Alias -keyalg RSA -keysize 2048 -validity 10000 `
-    -storepass $texto -keypass $texto -dname 'CN=Igreja Diakonia Tulipas, O=Diako News, C=BR'
+    -storepass $texto -keypass $texto -dname 'CN=Igreja Diakonia Tulipas, O=DiakoNews, C=BR'
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao gerar a keystore.' }
 
 $base64 = Join-Path (Split-Path $Saida) 'diako-news-release.jks.base64.txt'

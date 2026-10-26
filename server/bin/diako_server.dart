@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:diako_server/agenda.dart';
+import 'package:diako_server/agenda_google_api.dart';
 import 'package:diako_server/agente_hub.dart';
 import 'package:diako_server/app.dart';
 import 'package:diako_server/auth.dart';
@@ -57,8 +58,17 @@ Future<void> main(List<String> args) async {
   final agente = modoAgente ? HolyricsViaAgente() : null;
   final online = modoAgente || config.confiarProxy;
 
-  // Agenda do Google: baixa a cada 15 min e avisa o painel/app quando muda.
-  final agenda = AgendaGoogle(pastaDados: config.pastaDados, url: () => cfg.agendaUrl, aoMudar: () => store.avisar('agenda'));
+  // Agenda do Google: baixa a cada 15 min e avisa o painel/app quando muda. Com a chave de uma
+  // conta de serviço, lê e altera pela API (criar/editar/excluir eventos pelo painel e pelo tablet).
+  final contaGoogle = ContaServicoGoogle(config.pastaDados);
+  await contaGoogle.carregar();
+  final agenda = AgendaGoogle(
+    pastaDados: config.pastaDados,
+    url: () => cfg.agendaUrl,
+    conta: contaGoogle,
+    calendarioId: () => cfg.agendaCalendarioId,
+    aoMudar: () => store.avisar('agenda'),
+  );
   await agenda.carregar();
   agenda.iniciar();
 
@@ -95,7 +105,7 @@ Future<void> main(List<String> args) async {
   final http = await io.serve(servidor.handler, config.endereco, config.porta);
   final mural = cfg.chaveMural.isEmpty ? '$base/mural' : '$base/mural?chave=${cfg.chaveMural}';
   stdout.writeln('''
-Diako News $versao rodando em ${config.endereco}:${config.porta}.
+DiakoNews $versao rodando em ${config.endereco}:${config.porta}.
   Painel:              $base/painel
   Pedidos de oração:   ${cfg.urlOracao}
   Caixa de mensagens:  ${cfg.urlMensagens}

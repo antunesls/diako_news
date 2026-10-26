@@ -1,4 +1,4 @@
-﻿# Sobe o Diako News neste PC para testes: Holyrics simulado + servidor.
+﻿# Sobe o DiakoNews neste PC para testes: Holyrics simulado + servidor.
 # Uso: powershell -ExecutionPolicy Bypass -File .\tool\rodar_local.ps1
 # Abre duas janelas (feche-as para parar). Os dados de teste ficam em server\dev\.
 param(
@@ -48,7 +48,7 @@ if (Em-Uso 8091) {
         "`$host.UI.RawUI.WindowTitle = 'Holyrics simulado'; dart run tool/fake_holyrics.dart 8091 teste"
 }
 Start-Process powershell -WorkingDirectory $servidor -ArgumentList '-NoExit', '-Command',
-    "`$host.UI.RawUI.WindowTitle = 'Servidor Diako News'; dart run bin/diako_server.dart '$config'"
+    "`$host.UI.RawUI.WindowTitle = 'Servidor DiakoNews'; dart run bin/diako_server.dart '$config'"
 
 $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))' } | Select-Object -First 1).IPAddress
 Write-Host ''

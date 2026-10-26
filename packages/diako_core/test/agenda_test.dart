@@ -185,4 +185,24 @@ void main() {
       expect(texto, isNot(contains('15/11'))); // semana seguinte
     });
   });
+
+  group('criar e editar eventos', () {
+    test('editavel vai e volta no JSON e é falso em caches antigos', () {
+      final e = Evento(id: 'a', titulo: 'Ensaio', inicio: DateTime(2026, 11, 10, 20), fim: DateTime(2026, 11, 10, 22), editavel: true);
+      expect(Evento.fromJson(e.toJson()).editavel, isTrue);
+      final antigo = e.toJson()..remove('editavel');
+      expect(Evento.fromJson(antigo).editavel, isFalse);
+    });
+
+    test('validarEvento', () {
+      final d = DateTime(2026, 11, 10, 20);
+      final umaHora = d.add(const Duration(hours: 1));
+      expect(validarEvento(titulo: 'Ensaio', inicio: d, fim: umaHora, diaInteiro: false), isNull);
+      expect(validarEvento(titulo: '  ', inicio: d, fim: umaHora, diaInteiro: false), contains('título'));
+      expect(validarEvento(titulo: 'x' * (maxTituloEvento + 1), inicio: d, fim: umaHora, diaInteiro: false), contains('longo'));
+      expect(validarEvento(titulo: 'x', inicio: d, fim: d, diaInteiro: false), contains('término'));
+      expect(validarEvento(titulo: 'x', inicio: d, fim: d, diaInteiro: true), contains('último dia'));
+      expect(validarEvento(titulo: 'x', inicio: d, fim: d.add(const Duration(days: 400)), diaInteiro: true), contains('um ano'));
+    });
+  });
 }

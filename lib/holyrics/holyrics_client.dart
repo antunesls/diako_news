@@ -28,7 +28,7 @@ class Apresentacao {
       );
 }
 
-/// Comandos para o Holyrics. As chamadas passam pelo servidor Diako News,
+/// Comandos para o Holyrics. As chamadas passam pelo servidor DiakoNews,
 /// que guarda o token e repassa para a API Server do Holyrics.
 /// Docs: https://github.com/holyrics/API-Server
 class HolyricsClient {

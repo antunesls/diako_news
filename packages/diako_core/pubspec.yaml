@@ -1,5 +1,5 @@
 name: diako_core
-description: Modelos e regras compartilhados entre o app Diako News e o servidor.
+description: Modelos e regras compartilhados entre o app DiakoNews e o servidor.
 publish_to: 'none'
 version: 1.0.0
 

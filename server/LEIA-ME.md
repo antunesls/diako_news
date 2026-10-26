@@ -1,4 +1,4 @@
-# Servidor Diako News
+# Servidor DiakoNews
 
 Programa que roda **no PC do Holyrics** e centraliza recados, motivos de oração, cartazes e aniversariantes.
 O tablet, o painel da secretaria e o formulário de pedidos de oração conversam com ele, e ele comanda o Holyrics.
@@ -33,13 +33,13 @@ Instalado assim, funciona para quem está no **Wi-Fi da igreja**. Para acessar d
      "senhaAdmin": "uma senha forte para o painel e o tablet",
      "holyrics": { "host": "127.0.0.1", "porta": 8091, "token": "TOKEN DO HOLYRICS" },
      "pastaImagensHolyrics": "C:\\caminho\\da\\pasta\\de\\imagens\\do\\Holyrics",
-     "pastaBackup": "G:\\Meu Drive\\Igreja\\Backup Diako News",
+     "pastaBackup": "G:\\Meu Drive\\Igreja\\Backup DiakoNews",
      "horaBackup": "03:00",
      "urlPublica": ""
    }
    ```
    Em JSON, cada `\` do caminho vira `\\`.
-5. O instalador libera a porta no firewall (só redes privadas), cria a tarefa **"Diako News"** que inicia com o Windows e mostra os endereços.
+5. O instalador libera a porta no firewall (só redes privadas), cria a tarefa **"DiakoNews"** que inicia com o Windows e mostra os endereços.
 6. **Reserve o IP do PC no roteador** para o endereço do tablet e do QR code não mudar.
 
 Os arquivos ficam em `C:\DiakoNews`: `config.json`, `data\` (os dados), `servidor.log` (o registro).
@@ -62,7 +62,7 @@ Para atualizar, rode o `instalar.ps1` da versão nova. Ele não mexe em `config.
 - **Histórico:** a aba *Histórico* mostra o que foi projetado (texto, imagem, contagem, mensagem para o palco) e quando.
 
 ## Agenda do Google
-Os eventos continuam sendo criados no **Google Agenda**. O Diako News só lê e mostra:
+Os eventos continuam sendo criados no **Google Agenda**. O DiakoNews só lê e mostra:
 - na **TV** (mural), com um slide **Hoje** e os **Próximos eventos** (7 dias por padrão, com descrição se quiser);
 - no **tablet**, na aba **Agenda**, onde o pastor projeta um evento no telão ou o transforma em recado;
 - no **painel**, na aba *Agenda*, com o botão **Criar recado**;
@@ -76,6 +76,14 @@ Para ligar:
 O servidor busca a agenda a cada 15 minutos (use **Atualizar agora** para não esperar). O próprio Google pode levar alguns minutos para publicar as mudanças. Sem internet, a última cópia continua aparecendo.
 
 Trate o endereço secreto como uma senha: ele dá acesso a todos os eventos. Ele não aparece no painel nem vai para os backups. Se vazar, use **Redefinir** no Google e cole o novo endereço.
+
+### Criar e editar eventos pelo DiakoNews
+Com uma **conta de serviço** do Google (gratuita), o painel e o tablet também **criam, editam e excluem** eventos direto na agenda da igreja, e as mudanças aparecem na hora (o servidor passa a ler pela API do Google em vez do iCal). Resumo:
+1. No Google Cloud, crie um projeto, ative a **Google Calendar API** e crie uma conta de serviço com uma chave **JSON**.
+2. No Google Agenda, compartilhe a agenda da igreja com o e-mail da conta de serviço com a permissão **Fazer alterações e ver detalhes do evento**.
+3. Em `/admin` › *Agenda (Google)* › *Criar e editar eventos pelo DiakoNews*, envie o arquivo JSON e clique em **Testar e ligar**.
+
+O passo a passo completo, com os problemas comuns, fica no próprio servidor em **`/ajuda/agenda-google`**. A chave é guardada em `data/google-conta-servico.json`, não vai para os backups e nunca aparece no painel. Eventos que se repetem continuam sendo alterados no Google Agenda.
 
 ## Problemas comuns
 | Sintoma | O que verificar |

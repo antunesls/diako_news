@@ -1,5 +1,5 @@
 name: diako_server
-description: Servidor do Diako News que roda no PC do Holyrics.
+description: Servidor do DiakoNews que roda no PC do Holyrics.
 publish_to: 'none'
 version: 1.0.0
 
@@ -11,6 +11,7 @@ dependencies:
   crypto: ^3.0.7
   diako_core:
     path: ../packages/diako_core
+  googleapis_auth: ^2.0.0
   http: ^1.6.0
   image: ^4.12.0
   mailer: ^6.4.1

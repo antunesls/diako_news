@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import 'agenda_google_api.dart';
 import 'auth.dart';
 import 'config.dart';
 
@@ -47,6 +48,7 @@ class Configuracoes {
       'horaBackup': config.horaBackup,
       'backupsManter': 30,
       'agendaUrl': '',
+      'agendaCalendarioId': '',
       'agendaMostrarDescricao': true,
       'agendaDiasMural': 7,
       'smtpHost': '',
@@ -92,6 +94,9 @@ class Configuracoes {
 
   /// Endereço secreto iCal do Google Agenda ('' = sem agenda).
   String get agendaUrl => _s('agendaUrl');
+  /// ID da agenda para a API do Google (vazio: tirado do endereço iCal).
+  String get agendaCalendarioId =>
+      _s('agendaCalendarioId').isNotEmpty ? _s('agendaCalendarioId') : calendarioIdDoIcal(agendaUrl);
   bool get agendaMostrarDescricao => _valores['agendaMostrarDescricao'] as bool? ?? true;
   int get agendaDiasMural => _i('agendaDiasMural', 7);
 
@@ -174,6 +179,12 @@ class Configuracoes {
             throw const FormatException('Endereço da agenda inválido. Cole o "Endereço secreto no formato iCal" do Google Agenda.');
           }
           novos[k] = v;
+        case 'agendaCalendarioId':
+          final v = texto(k, 300);
+          if (v.contains(RegExp(r'[\s/]'))) {
+            throw const FormatException('ID da agenda inválido. Copie o "ID da agenda" em Integrar agenda.');
+          }
+          novos[k] = v;
         case 'agendaMostrarDescricao':
           if (mudancas[k] is! bool) throw const FormatException('"agendaMostrarDescricao" deve ser verdadeiro ou falso.');
           novos[k] = mudancas[k];
@@ -208,7 +219,7 @@ class Configuracoes {
     final permitidos = {
       'nomeIgreja', 'urlPublica', 'pedidoTitulo', 'pedidoIntro', 'pedidoObrigado', 'chaveMural',
       'holyricsHost', 'holyricsPorta', 'motivosPorSlide', 'segundosPorSlide', 'diasRespondidas',
-      'temaPadrao', 'horaBackup', 'backupsManter', 'agendaMostrarDescricao', 'agendaDiasMural',
+      'temaPadrao', 'horaBackup', 'backupsManter', 'agendaMostrarDescricao', 'agendaDiasMural', 'agendaCalendarioId',
       'smtpHost', 'smtpPorta', 'smtpSsl', 'smtpUsuario', 'smtpRemetente', 'smtpDestinatario',
     };
     for (final e in dados.entries) {

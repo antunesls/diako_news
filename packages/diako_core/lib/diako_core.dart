@@ -1,4 +1,4 @@
-/// Modelos e regras compartilhados entre o app Diako News e o servidor.
+/// Modelos e regras compartilhados entre o app DiakoNews e o servidor.
 library;
 
 export 'src/agenda.dart';

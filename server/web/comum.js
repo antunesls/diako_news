@@ -20,8 +20,17 @@ async function api(metodo, caminho, corpo, { bruto = false, tipo } = {}) {
     throw new Error('Sessão expirada. Entre novamente.');
   }
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.erro || 'Erro ' + r.status);
+  if (!r.ok) {
+    const erro = new Error(j.erro || 'Erro ' + r.status);
+    erro.ajuda = j.ajuda; // página de ajuda que explica como resolver (ex.: agenda do Google)
+    throw erro;
+  }
   return j;
+}
+
+/** Mensagem de erro com o link "Como resolver", quando o servidor manda um. */
+function textoDoErro(err) {
+  return [err.message, err.ajuda ? [' ', el('a', { href: err.ajuda, target: '_blank', rel: 'noopener' }, 'Como resolver')] : null];
 }
 
 /** Baixa um arquivo protegido por login (ex: backup) e salva no computador. */
@@ -89,7 +98,7 @@ function abrirDialogo(dialogo, erroEl, salvar) {
       await salvar();
       dialogo.close();
     } catch (err) {
-      erroEl.textContent = err.message;
+      erroEl.replaceChildren(...textoDoErro(err).flat().filter(Boolean));
       erroEl.hidden = false;
     }
   };

@@ -42,7 +42,7 @@ $('sair').addEventListener('click', sair);
 
 // ---------- Abas ----------
 
-let abaAtual = 'motivos';
+let abaAtual = 'inicio';
 document.querySelectorAll('nav.abas button').forEach((b) =>
   b.addEventListener('click', () => mostrarAba(b.dataset.aba)));
 
@@ -54,6 +54,7 @@ function mostrarAba(nome) {
 }
 
 const carregar = {
+  inicio: carregarInicio,
   motivos: carregarMotivos,
   mensagens: carregarMensagens,
   recados: carregarRecados,
@@ -65,15 +66,145 @@ const carregar = {
   status: carregarStatus,
 };
 
+// ---------- Início (resumo de tudo) ----------
+
+document.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => mostrarAba(b.dataset.ir)));
+
+/** Dia local no formato AAAA-MM-DD. */
+const diaIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const ddmm = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+function indicador(id, valor, detalhe, alerta = false) {
+  const b = $(id);
+  b.querySelector('strong').textContent = valor;
+  b.querySelector('small').textContent = detalhe;
+  b.classList.toggle('alerta', alerta);
+}
+
+const vazioCk = (texto) => el('p', { class: 'vazio-ck' }, texto);
+
+async function carregarInicio() {
+  const agora = new Date();
+  const hora = agora.getHours();
+  $('saudacao').textContent = hora < 12 ? 'Bom dia!' : hora < 18 ? 'Boa tarde!' : 'Boa noite!';
+  $('hoje').textContent = agora.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  carregarSistemaInicio();
+
+  const [listaMotivos, listaMensagens, listaRecados, agenda, membros] = await Promise.all([
+    api('GET', '/api/motivos'), api('GET', '/api/mensagens'), api('GET', '/api/recados'),
+    api('GET', '/api/agenda?dias=7'), api('GET', '/api/membros')]);
+  motivos = listaMotivos;
+  mensagensRecebidas = listaMensagens;
+  atualizarBadge();
+  atualizarBadgeMensagens();
+
+  const hoje = diaIso(agora);
+  const daquiUmaSemana = diaIso(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 7));
+
+  // Pedidos
+  const aguardando = motivos.filter((m) => m.status === 'aguardando').sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+  const naLista = motivos.filter((m) => m.status === 'pendente').length;
+  indicador('ind-pedidos', aguardando.length, naLista + ' na lista de oração', aguardando.length > 0);
+  $('ck-pedidos').replaceChildren(...(aguardando.length
+    ? aguardando.slice(0, 3).map((m) => el('div', { class: 'linha-ck' },
+        el('div', { class: 'conteudo' },
+          el('strong', { class: 'texto' }, m.para || m.motivo),
+          el('span', { class: 'sub' }, [TIPOS[m.tipo], dataCurta(m.criadoEm), m.publico ? null : 'particular'].filter(Boolean).join(' · '))),
+        botao('Aprovar', () => api('POST', `/api/motivos/${m.id}/aprovar`).then(carregarInicio), 'pequeno')))
+    : [vazioCk('Nenhum pedido aguardando aprovação.')]));
+
+  // Mensagens
+  const novas = mensagensRecebidas.filter((m) => m.status === 'nova').sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+  const emAnalise = mensagensRecebidas.filter((m) => m.status === 'emAnalise').length;
+  indicador('ind-mensagens', novas.length, emAnalise + ' em análise', novas.length > 0);
+  $('ck-mensagens').replaceChildren(...(novas.length
+    ? novas.slice(0, 3).map((m) => el('div', { class: 'linha-ck' },
+        el('div', { class: 'conteudo' },
+          el('span', { class: 'rotulo' }, (nomesMensagem[m.tipo] || m.tipo) + ' · ' + dataCurta(m.criadoEm)),
+          el('span', { class: 'texto' }, m.texto))))
+    : [vazioCk('Nenhuma mensagem nova.')]));
+
+  // Recados
+  const ativos = listaRecados
+    .filter((r) => !r.validoAte || r.validoAte.slice(0, 10) >= hoje)
+    .sort((a, b) => (b.fixo - a.fixo) || (a.ordem - b.ordem));
+  const vencendo = ativos.filter((r) => r.validoAte && r.validoAte.slice(0, 10) <= daquiUmaSemana).length;
+  indicador('ind-recados', ativos.length,
+    vencendo === 0 ? 'nenhum vence esta semana' : vencendo === 1 ? '1 vence esta semana' : vencendo + ' vencem esta semana');
+  $('ck-recados').replaceChildren(...(ativos.length
+    ? [...ativos.slice(0, 4).map((r) => {
+        const vence = r.validoAte && r.validoAte.slice(0, 10) <= daquiUmaSemana;
+        return el('div', { class: 'linha-ck' },
+          el('div', { class: 'conteudo' },
+            el('span', { class: 'texto' }, r.titulo,
+              r.fixo ? el('span', { class: 'etiqueta' }, 'Fixo') : null,
+              vence ? el('span', { class: 'etiqueta', style: 'color:var(--perigo)' }, 'vence ' + ddmm(new Date(r.validoAte))) : null)));
+      }),
+      ativos.length > 4 ? el('span', { class: 'dica' }, '+ ' + (ativos.length - 4) + ' recados') : null].filter(Boolean)
+    : [vazioCk('Nenhum recado no tablet.')]));
+
+  // Agenda
+  $('ck-novo-evento').hidden = !agenda.editavel;
+  if (!agenda.configurada) {
+    indicador('ind-eventos', '–', 'agenda não configurada');
+    $('ck-eventos').replaceChildren(el('p', { class: 'vazio-ck' }, 'Agenda do Google não configurada. ',
+      el('a', { href: '/admin#agenda' }, 'Configurar em Administração'), '.'));
+  } else {
+    const eventos = agenda.eventos;
+    indicador('ind-eventos', eventos.length, eventos.length ? 'próximo: ' + eventos[0].dia.split(',')[0].toLowerCase() + ', ' + eventos[0].horario : 'nada marcado');
+    $('ck-eventos').replaceChildren(...(eventos.length
+      ? eventos.slice(0, 4).map((e) => {
+          const inicio = new Date(e.inicio);
+          return el('div', { class: 'linha-ck' },
+            el('span', { class: 'data-ck' + (diaIso(inicio) === hoje ? ' hoje' : '') },
+              inicio.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
+              el('strong', {}, String(inicio.getDate()))),
+            el('div', { class: 'conteudo' },
+              el('strong', { class: 'texto' }, e.titulo),
+              el('span', { class: 'sub' }, [e.horario, e.local].filter(Boolean).join(' · '))));
+        })
+      : [vazioCk('Nenhum evento nos próximos 7 dias.')]));
+  }
+
+  // Aniversariantes (hoje e nos próximos 6 dias)
+  const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const aniversarios = membros.filter((m) => m.ativo).map((m) => {
+    let data = new Date(agora.getFullYear(), m.mes - 1, m.dia);
+    if (data < inicioHoje) data = new Date(agora.getFullYear() + 1, m.mes - 1, m.dia);
+    return { nome: m.nome, data, dias: Math.round((data - inicioHoje) / 86400000) };
+  }).filter((a) => a.dias < 7).sort((a, b) => a.dias - b.dias);
+  $('ck-aniversarios').replaceChildren(...(aniversarios.length
+    ? aniversarios.map((a) => el('div', { class: 'par' },
+        el('span', {}, a.nome),
+        a.dias === 0 ? el('strong', { style: 'color:var(--primaria)' }, 'hoje') : el('span', { class: 'dica' }, ddmm(a.data))))
+    : [vazioCk('Nenhum aniversariante nos próximos 7 dias.')]));
+}
+
+/** O estado consulta o Holyrics e pode demorar; carrega à parte para não segurar o resto. */
+async function carregarSistemaInicio() {
+  const [est, historico] = await Promise.all([api('GET', '/api/estado'), api('GET', '/api/historico?limite=1')]);
+  estado = est;
+  const situacao = (ok, texto) => el('strong', { style: 'color:' + (ok ? 'var(--ok)' : 'var(--perigo)') },
+    el('span', { class: 'ponto', style: 'background:currentColor' }), texto);
+  const ultima = historico[0];
+  $('ck-sistema').replaceChildren(...[
+    est.modo === 'agente'
+      ? el('div', { class: 'par' }, el('span', {}, 'PC da igreja (agente)'), situacao(est.agenteConectado, est.agenteConectado ? 'Conectado' : 'Desconectado'))
+      : null,
+    el('div', { class: 'par' }, el('span', {}, 'Holyrics'), situacao(est.holyricsConectado, est.holyricsConectado ? 'Conectado' : 'Sem conexão')),
+    el('div', { class: 'par' }, el('span', {}, 'Último backup'),
+      est.backupConfigurado ? el('strong', {}, est.ultimoBackup ? dataCurta(est.ultimoBackup) : 'ainda não feito') : situacao(false, 'Desativado')),
+    el('div', { class: 'par' }, el('span', {}, 'Última projeção'),
+      el('strong', {}, ultima ? dataCurta(ultima.quando) : 'nenhuma'))].filter(Boolean));
+}
+
 // ---------- Caixa de mensagens (privada) ----------
 
 let mensagensRecebidas = [];
 const nomesMensagem = { duvida: 'Dúvida', sugestao: 'Sugestão', critica: 'Crítica' };
 async function carregarMensagens() {
   mensagensRecebidas = await api('GET', '/api/mensagens');
-  const novas = mensagensRecebidas.filter(m => m.status === 'nova').length;
-  $('badge-mensagens').textContent = novas;
-  $('badge-mensagens').hidden = !novas;
+  atualizarBadgeMensagens();
   const filtro = $('filtro-mensagens').value;
   const lista = filtro === 'todas' ? mensagensRecebidas : mensagensRecebidas.filter(m => m.status === filtro);
   const cartoes = lista.map(m => el('article', { class: 'item' },
@@ -91,6 +222,11 @@ async function carregarMensagens() {
         catch (e) { mensagem($('resultado-mensagens'), e.message, false); }
       }, 'pequeno') : null)));
   $('lista-mensagens').replaceChildren(...(cartoes.length ? cartoes : [el('p', { class: 'vazio' }, 'Nenhuma mensagem neste filtro.')]));
+}
+function atualizarBadgeMensagens() {
+  const novas = mensagensRecebidas.filter(m => m.status === 'nova').length;
+  $('badge-mensagens').textContent = novas;
+  $('badge-mensagens').hidden = !novas;
 }
 async function mudarMensagem(m, status) {
   try { await api('PUT', '/api/mensagens/' + m.id, { status }); await carregarMensagens(); }
@@ -325,15 +461,21 @@ $('novo-recado').addEventListener('click', async () => {
 async function carregarAgenda() {
   const r = await api('GET', '/api/agenda?dias=30');
   const estado = $('estado-agenda-painel');
+  $('novo-evento').hidden = !r.editavel;
   if (!r.configurada) {
     estado.replaceChildren('Agenda do Google não configurada. ', el('a', { href: '/admin#agenda' }, 'Configurar em Administração'), '.');
     $('lista-agenda').replaceChildren();
     return;
   }
-  estado.textContent = r.erro
-    ? 'Problema ao atualizar a agenda: ' + r.erro + ' (mostrando a última cópia).'
-    : 'Eventos do Google Agenda nos próximos 30 dias' + (r.atualizado ? ' · atualizada ' + dataCurta(r.atualizado) : '') +
-      '. Para criar ou mudar um evento, use o Google Agenda.';
+  const atualizada = r.atualizado ? ' · atualizada ' + dataCurta(r.atualizado) : '';
+  if (r.erro) {
+    estado.textContent = 'Problema ao atualizar a agenda: ' + r.erro + ' (mostrando a última cópia).';
+  } else if (r.editavel) {
+    estado.textContent = 'Eventos do Google Agenda nos próximos 30 dias' + atualizada + '. Crie, edite e exclua por aqui.';
+  } else {
+    estado.replaceChildren('Eventos do Google Agenda nos próximos 30 dias' + atualizada + '. Para criar ou mudar eventos por aqui, ',
+      el('a', { href: '/ajuda/agenda-google', target: '_blank' }, 'ligue a conta de serviço'), '.');
+  }
   const itens = [];
   let diaAtual = '';
   for (const e of r.eventos) {
@@ -347,10 +489,80 @@ async function carregarAgenda() {
         el('div', { class: 'titulo' }, e.titulo, el('span', { class: 'etiqueta' }, e.horario)),
         e.local ? el('div', { class: 'sub' }, e.local) : null,
         e.descricao ? el('div', { class: 'sub' }, e.descricao) : null),
-      el('div', { class: 'acoes' }, botao('Criar recado', () => criarRecadoDoEvento(e)))));
+      el('div', { class: 'acoes' },
+        botao('Criar recado', () => criarRecadoDoEvento(e)),
+        e.editavel ? botao('Editar', () => editarEvento(e)) : null,
+        e.editavel ? botao('Excluir', () => excluirEvento(e), 'perigo pequeno') : null,
+        r.editavel && !e.editavel ? el('span', { class: 'dica' }, 'Repete: altere no Google Agenda') : null)));
   }
   $('lista-agenda').replaceChildren(...(itens.length ? itens : [el('p', { class: 'vazio' }, 'Nenhum evento nos próximos 30 dias.')]));
 }
+
+// Eventos chegam como "relógio de parede" sem fuso (ex.: 2026-11-07T19:30:00.000).
+const horaMinuto = (d) => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+function somarDias(dia, n) {
+  const d = new Date(dia + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return diaIso(d);
+}
+
+function mostrarCamposEvento() {
+  const diaInteiro = $('e-dia-inteiro').checked;
+  document.querySelectorAll('#dlg-evento .so-horario').forEach((c) => (c.hidden = diaInteiro));
+  document.querySelectorAll('#dlg-evento .so-dia-inteiro').forEach((c) => (c.hidden = !diaInteiro));
+  $('rotulo-e-data').textContent = diaInteiro ? 'Primeiro dia' : 'Data';
+}
+$('e-dia-inteiro').addEventListener('change', mostrarCamposEvento);
+
+function editarEvento(e) {
+  const inicio = e ? new Date(e.inicio) : null;
+  const fim = e ? new Date(e.fim) : null;
+  $('titulo-evento').textContent = e ? 'Editar evento' : 'Novo evento';
+  $('e-titulo').value = e ? e.titulo : '';
+  $('e-dia-inteiro').checked = e ? e.diaInteiro : false;
+  $('e-data').value = inicio ? diaIso(inicio) : diaIso(new Date());
+  $('e-hora-inicio').value = inicio && !e.diaInteiro ? horaMinuto(inicio) : '19:00';
+  $('e-hora-fim').value = fim && !e.diaInteiro ? horaMinuto(fim) : '21:00';
+  $('e-data-fim').value = e && e.diaInteiro ? somarDias(diaIso(fim), -1) : '';
+  $('e-local').value = e ? e.local : '';
+  $('e-descricao').value = e ? e.descricao : '';
+  mostrarCamposEvento();
+  abrirDialogo($('dlg-evento'), $('erro-evento'), async () => {
+    const dia = $('e-data').value;
+    if (!dia) throw new Error('Informe a data.');
+    const diaInteiro = $('e-dia-inteiro').checked;
+    const dados = {
+      titulo: $('e-titulo').value.trim(),
+      diaInteiro,
+      inicio: diaInteiro ? dia + 'T00:00:00' : `${dia}T${$('e-hora-inicio').value || '00:00'}:00`,
+      fim: diaInteiro ? somarDias($('e-data-fim').value || dia, 1) + 'T00:00:00' : `${dia}T${$('e-hora-fim').value || '00:00'}:00`,
+      local: $('e-local').value.trim(),
+      descricao: $('e-descricao').value.trim(),
+    };
+    if (e) await api('PUT', '/api/agenda/eventos/' + encodeURIComponent(e.id), dados);
+    else await api('POST', '/api/agenda/eventos', dados);
+    await recarregarAgendaVisivel();
+  });
+}
+
+async function excluirEvento(e) {
+  if (!confirm(`Excluir "${e.titulo}" do Google Agenda?`)) return;
+  try {
+    await api('DELETE', '/api/agenda/eventos/' + encodeURIComponent(e.id));
+    mensagem($('resultado-agenda'), `"${e.titulo}" foi excluído.`);
+    await recarregarAgendaVisivel();
+  } catch (err) {
+    mensagem($('resultado-agenda'), '', false);
+    $('resultado-agenda').replaceChildren(...textoDoErro(err).flat().filter(Boolean));
+  }
+}
+
+function recarregarAgendaVisivel() {
+  return abaAtual === 'inicio' ? carregarInicio() : carregarAgenda();
+}
+
+$('novo-evento').addEventListener('click', () => editarEvento(null));
+$('ck-novo-evento').addEventListener('click', () => editarEvento(null));
 
 async function criarRecadoDoEvento(e) {
   cartazes = await api('GET', '/api/cartazes');
@@ -501,6 +713,7 @@ function conectarTempoReal() {
     if (tipo === 'motivos') carregarMotivos();
     else if (tipo === 'mensagens') carregarMensagens();
     else if (tipo === abaAtual || (tipo === 'membros' && abaAtual === 'recados')) carregar[abaAtual]();
+    if (abaAtual === 'inicio') carregarInicio();
   };
   ws.onclose = () => {
     $('conexao').textContent = 'reconectando…';
