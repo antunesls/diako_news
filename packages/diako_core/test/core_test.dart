@@ -222,6 +222,22 @@ void main() {
       expect(r.linhasComErro, [4, 5]); // "Erro;31/02" e ";01/01"
     });
 
+    test('formato antigo com colunas a mais avisa o que foi ignorado e guarda o ano', () {
+      final r = lerCsvMembros('Ana Souza;05/03/1990;(11) 98888-7777;ana@exemplo.com\nBruno;10/04\n');
+      expect(r.membros.map((m) => m.nome), ['Ana Souza', 'Bruno']);
+      expect(r.membros.first.ano, 1990);
+      expect(r.linhasComErro, isEmpty);
+      expect(r.detalhes.single, contains('Linha 1'));
+      expect(r.detalhes.single, contains('cabeçalho'));
+    });
+
+    test('cabeçalho aceita como conheceu e consentimento', () {
+      final r = lerCsvMembros('Nome;Aniversário;Como conheceu;Consentimento\nRita;07/08;Redes sociais;26/10/2026\n');
+      final j = r.membros.single.toJson();
+      expect(j['comoConheceu'], 'Redes sociais');
+      expect(j['consentimentoEm'], '2026-10-26');
+    });
+
     test('cabeçalho com duas colunas conhecidas liga o formato completo', () {
       final r = lerCsvMembros('Nome;Aniversário\nAna Souza;12/03\nAna Souza;32/03\n;12/03\n');
       expect(r.membros.map((m) => m.nome), ['Ana Souza']);

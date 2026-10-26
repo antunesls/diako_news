@@ -111,12 +111,19 @@ function abrirDialogo(dialogo, erroEl, salvar) {
   form.onsubmit = async (e) => {
     if (e.submitter && e.submitter.value === 'cancelar') return;
     e.preventDefault();
+    // Botão desativado enquanto salva: clique duplo não grava duas vezes.
+    const botaoSalvar = e.submitter || form.querySelector('button:not([type=button])');
+    if (botaoSalvar && botaoSalvar.disabled) return;
+    if (botaoSalvar) botaoSalvar.disabled = true;
+    erroEl.hidden = true;
     try {
       await salvar();
       dialogo.close();
     } catch (err) {
       erroEl.replaceChildren(...textoDoErro(err).flat().filter(Boolean));
       erroEl.hidden = false;
+    } finally {
+      if (botaoSalvar) botaoSalvar.disabled = false;
     }
   };
   dialogo.showModal();

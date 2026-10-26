@@ -676,7 +676,7 @@ class Servidor {
     if (corpo.containsKey('status') && StatusMembro.porNome(corpo['status'] as String?) == null) {
       throw const FormatException('Status inválido.');
     }
-    for (final campo in ['dataChegada', 'dataBatismo', 'dataMembresia']) {
+    for (final campo in ['dataChegada', 'dataBatismo', 'dataMembresia', 'consentimentoEm']) {
       final v = corpo[campo];
       if (v is String && v.trim().isNotEmpty && Membro.dataDe(v) == null) {
         throw FormatException('Data inválida em "$campo": use dd/mm/aaaa.');
@@ -752,6 +752,13 @@ class Servidor {
     if (idNovo != null && idNovo != novo.id) {
       final doc = store.buscar('membros', idNovo);
       if (doc != null && doc['conjugeId'] != novo.id) {
+        // O novo cônjuge era casado com outra pessoa no cadastro: desfaz o vínculo antigo
+        // (o painel pede confirmação antes), senão essa pessoa continuaria apontando para ele.
+        final outroId = doc['conjugeId'] as String?;
+        if (outroId != null && outroId != idAntigo) {
+          final outro = store.buscar('membros', outroId);
+          if (outro != null && outro['conjugeId'] == idNovo) docs.add({...outro}..remove('conjugeId'));
+        }
         docs.add({...doc, 'conjugeId': novo.id});
       }
     }
@@ -817,10 +824,11 @@ class Servidor {
     return _json({'importados': novos.length, 'linhasComErro': lido.linhasComErro, 'detalhes': detalhes});
   }
 
-  /// GET /api/membros/exportar?status=&ministerio=&aniversariantes=mes — CSV com BOM,
-  /// pronto para abrir no Excel, respeitando os filtros do painel.
+  /// GET /api/membros/exportar?status=&ministerio=&aniversariantes=mes&busca=&semConsentimento=1&novasDias=90 — CSV com BOM,
+  /// pronto para abrir no Excel, respeitando os filtros do painel (a busca casa como na tela).
   Future<Response> _exportarMembros(Request req) async {
     final qs = req.url.queryParameters;
+    final busca = semAcento((qs['busca'] ?? '').trim().toLowerCase()) ?? '';
     final soAtivos = qs['status'] == 'ativos';
     final status = soAtivos ? null : StatusMembro.porNome(qs['status']);
     final ministerio = (qs['ministerio'] ?? '').trim().toLowerCase();
@@ -833,6 +841,21 @@ class Servidor {
       lista = lista.where((m) => m.ministerios.any((x) => x.toLowerCase() == ministerio)).toList();
     }
     if (soAniversariantes) lista = lista.where((m) => m.ativo && m.mes == agora.month).toList();
+    if (qs['semConsentimento'] == '1') lista = lista.where((m) => m.consentimentoEm == null).toList();
+    final novasDias = int.tryParse(qs['novasDias'] ?? '');
+    if (novasDias != null && novasDias > 0) {
+      final desde = agora.subtract(Duration(days: novasDias));
+      lista = lista.where((m) => m.criadoEm != null && !m.criadoEm!.isBefore(desde)).toList();
+    }
+    if (busca.isNotEmpty) {
+      lista = lista.where((m) {
+        final alvo = [m.nome, m.telefone, m.whatsapp, m.email, m.cidade, m.bairro, m.funcao]
+            .whereType<String>()
+            .join(' ')
+            .toLowerCase();
+        return (semAcento(alvo) ?? '').contains(busca);
+      }).toList();
+    }
     lista.sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()));
 
     String celula(Object? v) {
@@ -857,10 +880,11 @@ class Servidor {
           m.cpf ?? '',
           m.cidade ?? '',
           m.estado ?? '',
+          m.consentimentoEm == null ? '' : m.consentimentoEm!.split('-').reversed.join('/'),
         ].map(celula).join(';'),
     ];
     final csv = [
-      'Nome;Aniversário;Idade;Status;Telefone;WhatsApp;E-mail;Ministérios;Função;CPF;Cidade;UF',
+      'Nome;Aniversário;Idade;Status;Telefone;WhatsApp;E-mail;Ministérios;Função;CPF;Cidade;UF;Consentimento',
       ...linhas,
     ].join('\r\n');
     // BOM na mão: o codec UTF-8 do Dart descarta o caractere \uFEFF (o Excel precisa dele).
@@ -926,6 +950,7 @@ class Servidor {
     if (m.conjugeId == m.id) return 'O cônjuge não pode ser a própria pessoa.';
     if (m.paisIds.contains(m.id)) return 'Os pais não podem ser a própria pessoa.';
     if (m.ministerios.length > 12) return 'Muitos ministérios (máximo 12).';
+    if ((m.comoConheceu ?? '').length > 200) return '"Como conheceu" muito longo.';
     return null;
   }
 

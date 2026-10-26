@@ -35,7 +35,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 label { display: block; font-weight: 600; margin: 0 0 6px; }
 .dica { color: var(--suave); font-size: 14px; font-weight: 400; }
 .sobretitulo { margin: 0 0 6px; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--primaria); }
-input[type=text], input[type=password], input[type=date], input[type=time], input[type=number], input[type=email], input[type=url], input:not([type]), select, textarea {
+input[type=text], input[type=password], input[type=date], input[type=time], input[type=number], input[type=email], input[type=url], input[type=tel], input[type=search], input:not([type]), select, textarea {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--borda);

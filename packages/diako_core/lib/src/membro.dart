@@ -74,6 +74,8 @@ class Membro {
     this.ministerios = const [],
     this.funcao,
     this.observacoes,
+    this.comoConheceu,
+    this.consentimentoEm,
     this.conjugeId,
     this.paisIds = const [],
     this.emergenciaNome,
@@ -123,6 +125,12 @@ class Membro {
   List<String> ministerios;
   String? funcao;
   String? observacoes;
+
+  /// Como a pessoa conheceu a igreja (cadastro rápido de visitante).
+  String? comoConheceu;
+
+  /// Data (aaaa-mm-dd) em que a pessoa autorizou o uso dos dados (LGPD).
+  String? consentimentoEm;
 
   /// Id do cônjuge (o servidor mantém o vínculo nos dois lados).
   String? conjugeId;
@@ -217,6 +225,8 @@ class Membro {
         if (ministerios.isNotEmpty) 'ministerios': ministerios,
         if (!(funcao ?? '').isEmpty) 'funcao': funcao,
         if (!(observacoes ?? '').isEmpty) 'observacoes': observacoes,
+        if (!(comoConheceu ?? '').isEmpty) 'comoConheceu': comoConheceu,
+        if (consentimentoEm != null) 'consentimentoEm': consentimentoEm,
         if (conjugeId != null) 'conjugeId': conjugeId,
         if (paisIds.isNotEmpty) 'paisIds': paisIds,
         if (!(emergenciaNome ?? '').isEmpty) 'emergenciaNome': emergenciaNome,
@@ -260,6 +270,8 @@ class Membro {
       ministerios: lista(j['ministerios']),
       funcao: _texto(j['funcao']),
       observacoes: _texto(j['observacoes']),
+      comoConheceu: _texto(j['comoConheceu']),
+      consentimentoEm: dataDe(j['consentimentoEm']),
       conjugeId: _texto(j['conjugeId']),
       paisIds: lista(j['paisIds']),
       emergenciaNome: _texto(j['emergenciaNome']),
@@ -343,6 +355,8 @@ class MembroCsv {
   List<String> ministerios = const [];
   String? funcao;
   String? observacoes;
+  String? comoConheceu;
+  String? consentimentoEm;
 
   Map<String, dynamic> toJson() => {
         'nome': nome,
@@ -370,6 +384,8 @@ class MembroCsv {
         if (ministerios.isNotEmpty) 'ministerios': ministerios,
         if (funcao != null) 'funcao': funcao,
         if (observacoes != null) 'observacoes': observacoes,
+        if (comoConheceu != null) 'comoConheceu': comoConheceu,
+        if (consentimentoEm != null) 'consentimentoEm': consentimentoEm,
       };
 }
 
@@ -382,6 +398,7 @@ class MembroCsv {
   final membros = <MembroCsv>[];
   final erros = <int>[];
   final detalhes = <String>[];
+  final ignoradas = <int>[]; // formato antigo com colunas a mais
   final linhas = texto.split(RegExp(r'\r?\n'));
 
   // Cabeçalho quando a primeira linha traz o nome e mais alguma coluna conhecida
@@ -408,9 +425,10 @@ class MembroCsv {
       continue;
     }
 
-    // Formato antigo: Nome;dd/mm
+    // Formato antigo: Nome;dd/mm (aceita dd/mm/aaaa)
     final partes = linha.split(RegExp(r'[;,\t]'));
-    final data = partes.length >= 2 ? RegExp(r'^(\d{1,2})/(\d{1,2})').firstMatch(partes[1].trim()) : null;
+    final data =
+        partes.length >= 2 ? RegExp(r'^(\d{1,2})/(\d{1,2})(?:/(\d{4}))?').firstMatch(partes[1].trim()) : null;
     if (data == null) {
       // Ignora um cabeçalho na primeira linha.
       if (i > 0 || !linha.toLowerCase().contains('nome')) {
@@ -426,7 +444,16 @@ class MembroCsv {
       detalhes.add('linha $n: aniversário inválido');
       continue;
     }
-    membros.add(MembroCsv(nome: nome, dia: dia, mes: mes));
+    final r = MembroCsv(nome: nome, dia: dia, mes: mes);
+    if (data.group(3) != null) r.ano = int.parse(data.group(3)!);
+    membros.add(r);
+    // Telefone, e-mail etc. sem cabeçalho não têm como ser lidos: avisa em vez de perder calado.
+    if (partes.skip(2).any((p) => p.trim().isNotEmpty)) ignoradas.add(n);
+  }
+  if (ignoradas.isNotEmpty) {
+    detalhes.add('${ignoradas.length == 1 ? 'Linha ${ignoradas.first}' : 'Linhas ${ignoradas.join(', ')}'}: '
+        'só nome e aniversário foram lidos. Para importar telefone, e-mail, status etc., '
+        'coloque a linha de cabeçalho (botão "Colar modelo").');
   }
   return (membros: membros, linhasComErro: erros, detalhes: detalhes);
 }
@@ -490,6 +517,11 @@ const _nomesColuna = {
   'função': 'funcao',
   'observacoes': 'observacoes',
   'observações': 'observacoes',
+  'como conheceu': 'comoConheceu',
+  'como conheceu a igreja': 'comoConheceu',
+  'consentimento': 'consentimentoEm',
+  'consentimento lgpd': 'consentimentoEm',
+  'autorizou em': 'consentimentoEm',
 };
 
 ({MembroCsv? membro, String? erro}) _lerLinhaComCabecalho(String linha, Map<String, int> colunas) {
@@ -534,6 +566,8 @@ const _nomesColuna = {
   }
   r.funcao = _textoCsv(celula('funcao'));
   r.observacoes = _textoCsv(celula('observacoes'));
+  r.comoConheceu = _textoCsv(celula('comoConheceu'));
+  r.consentimentoEm = Membro.dataDe(celula('consentimentoEm'));
   return (membro: r, erro: null);
 }
 

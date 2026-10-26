@@ -747,20 +747,31 @@ $('arquivo-fotos').addEventListener('change', async (e) => {
 let membros = [];
 let fotoPendente = null; // File escolhido no dialog (ainda não enviado)
 let removerFoto = false; // apagar a foto atual ao salvar
+let soNovas = false; // filtro "novas em 90 dias", ligado pelo atalho da barra de composição
 
 const STATUS_MEMBRO = {
-  visitante: ['Visitante', '#42A5F5'],
-  congregado: ['Congregado', '#26A69A'],
-  membro: ['Membro', '#66BB6A'],
-  inativo: ['Inativo', '#8a8578'],
-  transferido: ['Transferido', '#FFA726'],
+  visitante: ['Visitante', 'Visitante'],
+  congregado: ['Congregado', 'Congregada'],
+  membro: ['Membro', 'Membro'],
+  inativo: ['Inativo', 'Inativa'],
+  transferido: ['Transferido', 'Transferida'],
 };
+const NOVENTA_DIAS = 90 * 86400000;
 
-const semAcento = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const statusValido = (s) => (STATUS_MEMBRO[s] ? s : 'membro');
+/** Nome do status concordando com o sexo da pessoa ("Congregada"). */
+const rotuloStatus = (s, sexo) => STATUS_MEMBRO[statusValido(s)][sexo === 'F' ? 1 : 0];
+const pilulaStatus = (m) => el('span', { class: 'pilula st-' + statusValido(m.status) }, rotuloStatus(m.status, m.sexo));
+
+const semAcento = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+const normalizado = (s) => semAcento(s).toLowerCase().replace(/\s+/g, ' ').trim();
+const soDigitos = (s) => (s || '').replace(/\D/g, '');
 const inicialMembro = (m) => m.nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
-const aniversarioDe = (m) =>
-  String(m.dia).padStart(2, '0') + '/' + String(m.mes).padStart(2, '0') + (m.ano ? '/' + m.ano : '');
+const doisDigitos = (n) => String(n).padStart(2, '0');
+const aniversarioDe = (m) => doisDigitos(m.dia) + '/' + doisDigitos(m.mes) + (m.ano ? '/' + m.ano : '');
 const dataBr = (iso) => (iso ? new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR') : null);
+const hojeIso = () => new Date().toLocaleDateString('sv-SE'); // aaaa-mm-dd no fuso local
+const ehNova = (m) => m.criadoEm && Date.parse(m.criadoEm) >= Date.now() - NOVENTA_DIAS;
 
 function idadeDe(m) {
   if (!m.ano) return null;
@@ -769,6 +780,145 @@ function idadeDe(m) {
   if (hoje.getMonth() + 1 < m.mes || (hoje.getMonth() + 1 === m.mes && hoje.getDate() < m.dia)) i--;
   return i;
 }
+
+// ----- Máscaras e validações do formulário -----
+
+function mascaraCpf(v) {
+  const d = soDigitos(v).slice(0, 11);
+  return d.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1-$2');
+}
+function mascaraCep(v) {
+  const d = soDigitos(v).slice(0, 8);
+  return d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d;
+}
+function mascaraTelefone(v) {
+  const d = soDigitos(v).slice(0, 11);
+  if (d.length <= 2) return d.length ? '(' + d : '';
+  const meio = d.length === 11 ? 7 : 6;
+  return '(' + d.slice(0, 2) + ') ' + d.slice(2, meio) + (d.length > meio ? '-' + d.slice(meio) : '');
+}
+function mascaraData(v) {
+  const d = soDigitos(v).slice(0, 8);
+  return [d.slice(0, 2), d.slice(2, 4), d.slice(4)].filter(Boolean).join('/');
+}
+
+/** Mesmo cálculo do servidor (Membro.cpfValido): formato e os dois dígitos verificadores. */
+function cpfValido(cpf) {
+  const d = soDigitos(cpf);
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const digito = (n) => {
+    let soma = 0;
+    for (let i = 0; i < n; i++) soma += Number(d[i]) * (n + 1 - i);
+    const r = (soma * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return digito(9) === Number(d[9]) && digito(10) === Number(d[10]);
+}
+
+/** "05/03" ou "05/03/1990" → {dia, mes, ano}; null quando a data não existe. */
+function lerAniversario(texto) {
+  const r = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/.exec((texto || '').trim());
+  if (!r) return null;
+  const dia = Number(r[1]), mes = Number(r[2]), ano = r[3] ? Number(r[3]) : null;
+  const maximo = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (mes < 1 || mes > 12 || dia < 1 || dia > maximo[mes - 1]) return null;
+  if (ano != null) {
+    if (ano < 1900 || ano > new Date().getFullYear()) return null;
+    if (new Date(ano, mes - 1, dia).getDate() !== dia) return null; // 29/02 fora de ano bissexto
+  }
+  return { dia, mes, ano };
+}
+
+/** Telefone em links de contato: "tel:" e WhatsApp (wa.me). Só números brasileiros com DDD. */
+function linksTelefone(numero, { ligar = true, whatsapp = false } = {}) {
+  let d = soDigitos(numero);
+  if (d.length === 13 && d.startsWith('55')) d = d.slice(2);
+  if (d.length < 10 || d.length > 11) return [];
+  return [
+    ligar ? el('a', { href: 'tel:+55' + d }, 'Ligar') : null,
+    whatsapp ? el('a', { href: 'https://wa.me/55' + d, target: '_blank', rel: 'noopener' }, 'WhatsApp') : null,
+  ].filter(Boolean);
+}
+
+for (const [id, mascara] of [['b-cpf', mascaraCpf], ['b-cep', mascaraCep], ['b-telefone', mascaraTelefone],
+  ['b-whatsapp', mascaraTelefone], ['b-emerg-telefone', mascaraTelefone], ['b-aniversario', mascaraData],
+  ['v-telefone', mascaraTelefone], ['v-aniversario', mascaraData]]) {
+  $(id).addEventListener('input', (e) => {
+    const campo = e.target;
+    // Só reformata digitando no fim (não atrapalha quem corrige no meio).
+    if (campo.selectionStart === campo.value.length) campo.value = mascara(campo.value);
+    campo.setCustomValidity('');
+  });
+}
+
+for (const id of ['b-aniversario', 'v-aniversario']) {
+  $(id).addEventListener('blur', (e) => {
+    const campo = e.target;
+    if (campo.value && !lerAniversario(campo.value)) {
+      campo.setCustomValidity('Data que não existe: confira o dia, o mês e o ano.');
+      campo.reportValidity();
+    }
+  });
+}
+
+$('b-cpf').addEventListener('blur', () => {
+  const campo = $('b-cpf');
+  if (soDigitos(campo.value) && !cpfValido(campo.value)) {
+    campo.setCustomValidity('CPF inválido: confira os números.');
+    campo.reportValidity();
+  }
+});
+
+// ----- CEP: preenche o endereço pela ViaCEP -----
+
+let consultaCep = null;
+async function buscarCep() {
+  const cep = soDigitos($('b-cep').value);
+  const aviso = $('b-cep-aviso');
+  if (cep.length !== 8) {
+    mensagem(aviso, 'Digite os 8 números do CEP.', false);
+    return;
+  }
+  if (consultaCep) consultaCep.abort();
+  const controle = (consultaCep = new AbortController());
+  const tempo = setTimeout(() => controle.abort(), 8000);
+  aviso.className = 'aviso-campo dica';
+  aviso.textContent = 'Buscando o endereço…';
+  try {
+    const r = await fetch('https://viacep.com.br/ws/' + cep + '/json/', { signal: controle.signal });
+    const j = await r.json();
+    if (!r.ok || j.erro) {
+      mensagem(aviso, 'CEP não encontrado. Confira o número ou preencha o endereço à mão.', false);
+      return;
+    }
+    if (j.logradouro) $('b-rua').value = j.logradouro;
+    if (j.bairro) $('b-bairro').value = j.bairro;
+    if (j.localidade) $('b-cidade').value = j.localidade;
+    if (j.uf) garantirOpcao($('b-uf'), j.uf);
+    // O "complemento" da ViaCEP é a faixa de números da rua ("de 612 a 1510"), não o da pessoa: fica de fora.
+    mensagem(aviso, 'Endereço preenchido pelo CEP. Falta o número.');
+    $('b-numero').focus();
+  } catch (e) {
+    if (controle !== consultaCep) return; // outra consulta tomou o lugar
+    mensagem(aviso, 'Não foi possível consultar o CEP agora. Preencha o endereço à mão.', false);
+  } finally {
+    clearTimeout(tempo);
+    if (controle === consultaCep) consultaCep = null;
+  }
+}
+$('b-buscar-cep').addEventListener('click', buscarCep);
+$('b-cep').addEventListener('input', () => {
+  if (soDigitos($('b-cep').value).length === 8) buscarCep();
+  else $('b-cep-aviso').textContent = '';
+});
+$('b-cep').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    buscarCep();
+  }
+});
+
+// ----- Lista -----
 
 async function carregarMembros() {
   membros = await api('GET', '/api/membros');
@@ -781,26 +931,37 @@ function montarFiltroMinisterios() {
   const todos = [...new Set(membros.flatMap((m) => m.ministerios || []))]
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
   $('filtro-ministerio-membro').replaceChildren(
-    el('option', { value: '' }, 'Todos os ministérios'),
+    el('option', { value: '' }, 'Todos'),
     ...todos.map((x) => el('option', { value: x }, x)));
   $('filtro-ministerio-membro').value = todos.includes(atual) ? atual : '';
   $('dl-ministerios').replaceChildren(...todos.map((x) => el('option', { value: x })));
 }
 
+/** Os filtros da tela, no formato da exportação (o CSV sai com as mesmas pessoas). */
+function filtrosMembros() {
+  return {
+    busca: $('busca-membro').value.trim(),
+    status: $('filtro-status-membro').value,
+    ministerio: $('filtro-ministerio-membro').value,
+    aniversariantes: $('filtro-aniversariantes').checked,
+    semConsentimento: $('filtro-sem-consentimento').checked,
+    novas: soNovas,
+  };
+}
+
 function membrosFiltrados() {
-  const busca = semAcento($('busca-membro').value.trim().toLowerCase());
-  const status = $('filtro-status-membro').value;
-  const ministerio = $('filtro-ministerio-membro').value;
-  const aniversariantes = $('filtro-aniversariantes').checked;
+  const f = filtrosMembros();
+  const busca = normalizado(f.busca);
   const mes = new Date().getMonth() + 1;
   return membros
     .filter((m) => {
-      if (status === 'ativos' ? !m.ativo : status && m.status !== status) return false;
-      if (ministerio && !(m.ministerios || []).includes(ministerio)) return false;
-      if (aniversariantes && (!m.ativo || m.mes !== mes)) return false;
+      if (f.status === 'ativos' ? !m.ativo : f.status && m.status !== f.status) return false;
+      if (f.ministerio && !(m.ministerios || []).includes(f.ministerio)) return false;
+      if (f.aniversariantes && (!m.ativo || m.mes !== mes)) return false;
+      if (f.semConsentimento && m.consentimentoEm) return false;
+      if (f.novas && !ehNova(m)) return false;
       if (busca) {
-        const alvo = semAcento([m.nome, m.telefone, m.whatsapp, m.email, m.cidade, m.bairro, m.funcao]
-          .filter(Boolean).join(' ').toLowerCase());
+        const alvo = normalizado([m.nome, m.telefone, m.whatsapp, m.email, m.cidade, m.bairro, m.funcao].filter(Boolean).join(' '));
         if (!alvo.includes(busca)) return false;
       }
       return true;
@@ -808,64 +969,104 @@ function membrosFiltrados() {
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
-function renderMembros() {
-  const lista = membrosFiltrados();
+function renderComposicao() {
   const agora = new Date();
   const mes = agora.getMonth() + 1;
-  const noventaDias = Date.now() - 90 * 86400000;
-  const indicador = (rotulo, valor, detalhe) =>
-    el('div', { class: 'cartao', style: 'padding:16px 20px;display:flex;flex-direction:column;gap:2px' },
-      el('span', { class: 'dica' }, rotulo),
-      el('strong', { style: 'font-family:var(--fonte-titulo);font-size:32px;font-weight:600' }, String(valor)),
-      detalhe ? el('small', { class: 'dica' }, detalhe) : null);
-  $('indicadores-membros').replaceChildren(...[
-    indicador('Pessoas cadastradas', membros.length, membros.filter((m) => m.ativo).length + ' ativas'),
-    indicador('Aniversariantes de ' + agora.toLocaleDateString('pt-BR', { month: 'long' }),
-      membros.filter((m) => m.ativo && m.mes === mes).length),
-    indicador('Novas pessoas em 90 dias', membros.filter((m) => m.criadoEm && Date.parse(m.criadoEm) >= noventaDias).length),
-  ]);
+  const total = membros.length;
+  const atual = $('filtro-status-membro').value;
+  const contagem = Object.keys(STATUS_MEMBRO).map((s) => [s, membros.filter((m) => statusValido(m.status) === s).length]);
+  const aniversariantes = membros.filter((m) => m.ativo && m.mes === mes).length;
+  const novas = membros.filter(ehNova).length;
+  const alternarStatus = (s) => {
+    $('filtro-status-membro').value = atual === s ? '' : s;
+    renderMembros();
+  };
+  const plural = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
+  if (!total) {
+    $('composicao-membros').replaceChildren(
+      el('div', { class: 'composicao-topo' }, el('strong', {}, 'Nenhuma pessoa cadastrada'),
+        el('span', { class: 'dica' }, 'Use "Nova pessoa" ou "Importar" para começar.')));
+    return;
+  }
+  $('composicao-membros').replaceChildren(
+    el('div', { class: 'composicao-topo' },
+      el('strong', {}, plural(total, 'pessoa', 'pessoas')),
+      el('div', { class: 'atalhos' },
+        el('button', { class: 'link', type: 'button', 'aria-pressed': String($('filtro-aniversariantes').checked),
+          onclick: () => { $('filtro-aniversariantes').checked = !$('filtro-aniversariantes').checked; renderMembros(); } },
+        plural(aniversariantes, 'aniversariante', 'aniversariantes') + ' em ' + agora.toLocaleDateString('pt-BR', { month: 'long' })),
+        el('button', { class: 'link', type: 'button', 'aria-pressed': String(soNovas),
+          onclick: () => { soNovas = !soNovas; renderMembros(); } },
+        plural(novas, 'nova', 'novas') + ' em 90 dias'))),
+    el('div', { class: 'barra-status', role: 'group', 'aria-label': 'Pessoas por status (clique para filtrar)' },
+      ...contagem.filter(([, n]) => n).map(([s, n]) => el('button', {
+        type: 'button', class: 'st-' + s, style: 'flex-grow:' + n, title: STATUS_MEMBRO[s][0] + ': ' + n,
+        'aria-label': STATUS_MEMBRO[s][0] + ': ' + n, 'aria-pressed': String(atual === s), onclick: () => alternarStatus(s),
+      }))),
+    el('div', { class: 'legenda-status' },
+      ...contagem.filter(([, n]) => n).map(([s, n]) => el('button', {
+        type: 'button', class: 'st-' + s, 'aria-pressed': String(atual === s), onclick: () => alternarStatus(s),
+      }, STATUS_MEMBRO[s][0] + (n === 1 ? '' : 's') + ' ' + n))));
+}
+
+function renderMembros() {
+  renderComposicao();
+  const lista = membrosFiltrados();
+  const avisos = [];
+  if (soNovas) avisos.push('cadastradas nos últimos 90 dias');
+  $('resultado-membros').className = 'dica';
+  $('resultado-membros').replaceChildren(...(avisos.length
+    ? ['Mostrando só pessoas ' + avisos.join(', ') + '. ', el('button', { class: 'link', type: 'button', onclick: () => { soNovas = false; renderMembros(); } }, 'Mostrar todas')]
+    : []));
   $('lista-membros').replaceChildren(
-    ...(lista.length ? lista.map(cardMembro) : [el('p', { class: 'vazio' }, 'Ninguém neste filtro.')]));
+    ...(lista.length ? lista.map(cardMembro) : [el('p', { class: 'vazio' }, membros.length ? 'Ninguém neste filtro.' : '')]));
   hidratarFotos($('lista-membros'));
 }
 
 /** Coloca a miniatura (atrás de login) nos <img data-foto-id>; sem foto, ficam as iniciais. */
-function hidratarFotos(container) {
+function hidratarFotos(container, { grande = false } = {}) {
   for (const img of container.querySelectorAll('img[data-foto-id]')) {
     const m = membros.find((x) => x.id === img.dataset.fotoId);
     if (!m || !m.foto) continue;
-    urlAutenticada(`/api/membros/${m.id}/foto-miniatura?v=${encodeURIComponent(m.atualizadoEm || m.foto)}`)
+    urlAutenticada(`/api/membros/${m.id}/${grande ? 'foto' : 'foto-miniatura'}?v=${encodeURIComponent(m.atualizadoEm || m.foto)}`)
       .then((url) => {
         if (!url || !img.isConnected) return;
         img.src = url;
         img.hidden = false;
-        const iniciais = img.parentElement && img.parentElement.querySelector('.iniciais, span:not([hidden])');
-        if (iniciais) iniciais.hidden = true;
+        if (img.previousElementSibling) img.previousElementSibling.hidden = true;
       })
       .catch(() => {});
   }
 }
 
+function contatoRapido(m) {
+  const whatsapp = m.whatsapp || (soDigitos(m.telefone).length === 11 ? m.telefone : null);
+  const links = [
+    ...(m.telefone ? linksTelefone(m.telefone) : []),
+    ...(whatsapp ? linksTelefone(whatsapp, { ligar: !m.telefone, whatsapp: true }) : []),
+    m.email ? el('a', { href: 'mailto:' + m.email }, 'E-mail') : null,
+  ].filter(Boolean);
+  return links.length ? el('div', { class: 'contato-rapido' }, ...links) : null;
+}
+
 function cardMembro(m) {
-  const [rotuloStatus, cor] = STATUS_MEMBRO[m.status] || STATUS_MEMBRO.membro;
-  const contatos = [m.telefone, m.whatsapp && m.whatsapp !== m.telefone ? m.whatsapp : null, m.email].filter(Boolean);
+  const abrir = () => abrirFicha(m.id);
   const mins = m.ministerios || [];
-  return el('article', { class: 'membro-card', style: m.ativo ? '' : 'opacity:.65' },
-    el('button', { class: 'foto', type: 'button', 'aria-label': 'Abrir a ficha de ' + m.nome, onclick: () => abrirFicha(m.id) },
-      el('span', { class: 'iniciais' }, inicialMembro(m)),
-      el('img', { 'data-foto-id': m.id, alt: '', hidden: true, loading: 'lazy' })),
-    el('div', { class: 'conteudo' },
-      el('button', { class: 'titulo', type: 'button', onclick: () => abrirFicha(m.id) }, m.nome,
-        el('span', { class: 'etiqueta', style: 'color:' + cor }, rotuloStatus)),
-      el('span', { class: 'sub' },
-        [aniversarioDe(m), idadeDe(m) != null ? idadeDe(m) + ' anos' : null].filter(Boolean).join(' · ')),
-      contatos.length ? el('span', { class: 'sub' }, contatos.join(' · ')) : null,
-      mins.length ? el('span', { class: 'sub' },
-        mins.slice(0, 3).join(', ') + (mins.length > 3 ? ` +${mins.length - 3}` : '')) : null,
-      el('div', { class: 'acoes' },
-        botao('Ficha', () => abrirFicha(m.id)),
-        botao('Editar', () => editarMembro(m)),
-        botao('Excluir', () => excluirMembro(m), 'perigo pequeno'))));
+  const idade = idadeDe(m);
+  return el('article', {
+    class: 'membro-card' + (m.ativo ? '' : ' inativo'),
+    onclick: (e) => { if (!e.target.closest('a, button')) abrir(); },
+  },
+  el('div', { class: 'foto', 'aria-hidden': 'true' },
+    el('span', {}, inicialMembro(m)),
+    el('img', { 'data-foto-id': m.id, alt: '', hidden: true, loading: 'lazy' })),
+  el('div', { class: 'conteudo' },
+    el('div', { class: 'linha-nome' },
+      el('button', { class: 'titulo', type: 'button', onclick: abrir, 'aria-label': 'Abrir a ficha de ' + m.nome }, m.nome),
+      pilulaStatus(m)),
+    el('span', { class: 'sub' }, [aniversarioDe(m), idade != null ? idade + ' anos' : null].filter(Boolean).join(' · ')),
+    mins.length ? el('span', { class: 'sub' }, mins.slice(0, 3).join(', ') + (mins.length > 3 ? ` +${mins.length - 3}` : '')) : null,
+    contatoRapido(m)));
 }
 
 // ----- Ficha (todos os dados + família com links) -----
@@ -876,13 +1077,23 @@ function abrirFicha(id) {
   const m = membros.find((x) => x.id === id);
   if (!m) return;
   fichaAberta = m;
-  const [rotuloStatus, cor] = STATUS_MEMBRO[m.status] || STATUS_MEMBRO.membro;
   const linkMembro = (o) => o ? el('button', { class: 'link', type: 'button', onclick: () => abrirFicha(o.id) }, o.nome) : null;
   const par = (rotulo, ...valores) => {
-    const tem = valores.some((v) => v != null && v !== '' && !(Array.isArray(v) && v.length === 0));
-    return tem ? el('div', { class: 'ficha-par' },
-      el('span', { class: 'rotulo' }, rotulo),
-      el('span', { class: 'valor' }, ...valores.filter((v) => v != null && v !== ''))) : null;
+    const v = valores.flat().filter((x) => x != null && x !== '');
+    return v.length ? el('div', { class: 'ficha-par' }, el('span', { class: 'rotulo' }, rotulo), el('span', { class: 'valor' }, ...v)) : null;
+  };
+  const juntar = (itens) => itens.flatMap((l, i) => (i ? [', ', l] : [l]));
+  /** Documento oculto por padrão: só os dígitos do meio, com botão "Mostrar". */
+  const oculto = (valor, mascarar) => {
+    if (!valor) return null;
+    const texto = el('span', {}, mascarar(valor));
+    const b = el('button', { class: 'link', type: 'button', style: 'margin-left:10px' }, 'Mostrar');
+    b.addEventListener('click', () => {
+      const mostrando = b.textContent === 'Ocultar';
+      texto.textContent = mostrando ? mascarar(valor) : (valor.length === 11 && /^\d+$/.test(valor) ? mascaraCpf(valor) : valor);
+      b.textContent = mostrando ? 'Mostrar' : 'Ocultar';
+    });
+    return [texto, b];
   };
   const conjuge = m.conjugeId ? membros.find((x) => x.id === m.conjugeId) : null;
   const pais = (m.paisIds || []).map((pid) => membros.find((x) => x.id === pid)).filter(Boolean);
@@ -890,44 +1101,63 @@ function abrirFicha(id) {
   const idade = idadeDe(m);
   const endereco = [
     m.rua ? [m.rua, m.numero].filter(Boolean).join(', ') : null,
-    m.complemento, [m.bairro, m.cidade, m.uf].filter(Boolean).join(' — '),
-    m.cep ? 'CEP ' + m.cep : null,
+    m.complemento, [m.bairro, m.cidade, m.estado].filter(Boolean).join(' — '),
+    m.cep ? 'CEP ' + mascaraCep(m.cep) : null,
   ].filter(Boolean);
+  const historico = m.historicoStatus || [];
+  const linhaTempo = historico.length
+    ? el('span', { class: 'linha-tempo' }, ...historico.flatMap((h, i) => [
+      i ? el('span', { class: 'seta', 'aria-hidden': 'true' }, '→') : null,
+      el('span', {}, pilulaStatus({ status: h.status, sexo: m.sexo }),
+        el('small', {}, new Date(h.em).toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' }))),
+    ]))
+    : null;
 
-  $('ficha-conteudo').replaceChildren(
+  // replaceChildren escreveria "null" para os campos vazios: só entram as linhas com valor.
+  $('ficha-conteudo').replaceChildren(...[
     el('div', { class: 'ficha-topo' },
-      el('div', { class: 'avatar' }, inicialMembro(m),
+      el('div', { class: 'avatar' }, el('span', {}, inicialMembro(m)),
         el('img', { 'data-foto-id': m.id, alt: 'Foto de ' + m.nome, hidden: true })),
       el('div', {},
         el('h2', { style: 'font-size:24px;margin:0 0 4px' }, m.nome),
-        el('span', { class: 'etiqueta', style: 'margin:0;color:' + cor }, rotuloStatus),
+        pilulaStatus(m),
         idade != null ? el('span', { class: 'dica', style: 'margin-left:8px' }, idade + ' anos') : null)),
-    par('Aniversário', aniversarioDe(m)), par('Sexo', m.sexo === 'M' ? 'Masculino' : m.sexo === 'F' ? 'Feminino' : null),
+    par('Aniversário', aniversarioDe(m)),
+    par('Sexo', m.sexo === 'M' ? 'Masculino' : m.sexo === 'F' ? 'Feminino' : null),
     par('Estado civil', m.estadoCivil),
-    par('Telefone', m.telefone, m.whatsapp && m.whatsapp !== m.telefone ? ' · WhatsApp: ' + m.whatsapp : null),
+    par('Telefone', m.telefone ? [mascaraTelefone(m.telefone) + '  ', ...linksTelefone(m.telefone, { ligar: true, whatsapp: !m.whatsapp })] : null),
+    par('WhatsApp', m.whatsapp ? [mascaraTelefone(m.whatsapp) + '  ', ...linksTelefone(m.whatsapp, { ligar: false, whatsapp: true })] : null),
     par('E-mail', m.email ? el('a', { href: 'mailto:' + m.email }, m.email) : null),
     par('Endereço', endereco.length ? endereco.join('\n') : null),
-    par('CPF', m.cpf), par('RG', m.rg),
+    par('CPF', oculto(m.cpf, (v) => '***.' + v.slice(3, 6) + '.' + v.slice(6, 9) + '-**')),
+    par('RG', oculto(m.rg, (v) => '*'.repeat(Math.max(0, v.length - 3)) + v.slice(-3))),
+    par('Histórico', linhaTempo),
     par('Chegou em', dataBr(m.dataChegada)), par('Batismo', dataBr(m.dataBatismo)), par('Membresia', dataBr(m.dataMembresia)),
+    par('Como conheceu', m.comoConheceu),
     par('Ministérios', (m.ministerios || []).join(', ') || null), par('Função', m.funcao),
     par('Cônjuge', linkMembro(conjuge)),
-    pais.length ? par('Pais', ...pais.map(linkMembro).flatMap((l, i) => i ? [', ', l] : [l])) : null,
-    filhos.length ? par('Filhos', ...filhos.map(linkMembro).flatMap((l, i) => i ? [', ', l] : [l])) : null,
+    pais.length ? par('Pais', juntar(pais.map(linkMembro))) : null,
+    filhos.length ? par('Filhos', juntar(filhos.map(linkMembro))) : null,
     par('Emergência', [m.emergenciaNome, m.emergenciaVinculo, m.emergenciaTelefone].filter(Boolean).join(' · ')),
-    par('Observações', m.observacoes));
+    par('Observações', m.observacoes),
+    par('LGPD', m.consentimentoEm
+      ? 'Autorizou o uso dos dados em ' + dataBr(m.consentimentoEm)
+      : el('span', { class: 'erro' }, 'Sem autorização registrada')),
+  ].filter(Boolean));
 
-  const ultima = (m.historicoStatus || []).slice(-1)[0];
-  $('ficha-historico').textContent = ultima
-    ? rotuloStatus + ' desde ' + new Date(ultima.em).toLocaleDateString('pt-BR') : '';
-
-  hidratarFotos($('ficha-conteudo'));
-  $('dlg-ficha').showModal();
+  hidratarFotos($('ficha-conteudo'), { grande: true });
+  if (!$('dlg-ficha').open) $('dlg-ficha').showModal();
+  $('ficha-conteudo').scrollTop = 0;
 }
 
 $('fechar-ficha').addEventListener('click', () => $('dlg-ficha').close());
 $('editar-da-ficha').addEventListener('click', () => {
   $('dlg-ficha').close();
   if (fichaAberta) editarMembro(fichaAberta);
+});
+$('excluir-da-ficha').addEventListener('click', async () => {
+  if (!fichaAberta) return;
+  if (await excluirMembro(fichaAberta)) $('dlg-ficha').close();
 });
 
 // ----- Editar / criar -----
@@ -938,51 +1168,141 @@ function garantirOpcao(sel, valor) {
   sel.value = valor || '';
 }
 
-function montarSelectsFamilia(m) {
-  const outros = membros.filter((x) => !m || x.id !== m.id);
-  const montar = (sel, selecionado) => {
-    sel.replaceChildren(el('option', { value: '' }, '(nenhum)'),
-      ...outros.map((x) => el('option', { value: x.id }, x.nome)));
-    sel.value = selecionado || '';
-  };
-  montar($('b-conjuge'), m?.conjugeId);
-  montar($('b-pai-1'), m?.paisIds?.[0]);
-  montar($('b-pai-2'), m?.paisIds?.[1]);
+/** Rótulo único de cada pessoa nos campos de família ("Ana Souza (05/03)") → id. */
+let pessoasPorRotulo = new Map();
+const rotuloDe = (id) => [...pessoasPorRotulo].find(([, v]) => v === id)?.[0] || '';
+
+function montarPessoas(m) {
+  pessoasPorRotulo = new Map();
+  const outros = membros.filter((x) => !m || x.id !== m.id).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const opcoes = [];
+  for (const x of outros) {
+    let rotulo = `${x.nome} (${doisDigitos(x.dia)}/${doisDigitos(x.mes)})`;
+    for (let n = 2; pessoasPorRotulo.has(rotulo); n++) rotulo = `${x.nome} (${doisDigitos(x.dia)}/${doisDigitos(x.mes)}) ${n}`;
+    pessoasPorRotulo.set(rotulo, x.id);
+    const conj = x.conjugeId && x.conjugeId !== m?.id ? membros.find((y) => y.id === x.conjugeId) : null;
+    opcoes.push(el('option', { value: rotulo, label: conj ? 'cônjuge de ' + conj.nome : rotuloStatus(x.status, x.sexo) }));
+  }
+  $('dl-pessoas').replaceChildren(...opcoes);
+  $('b-conjuge').value = rotuloDe(m?.conjugeId);
+  $('b-pai-1').value = rotuloDe(m?.paisIds?.[0]);
+  $('b-pai-2').value = rotuloDe(m?.paisIds?.[1]);
 }
 
+/** Id da pessoa escolhida num campo de família; erro se o texto não for da lista. */
+function pessoaDoCampo(id, nomeCampo) {
+  const texto = $(id).value.trim();
+  if (!texto) return null;
+  const achado = pessoasPorRotulo.get(texto);
+  if (!achado) {
+    mostrarSecao('familia');
+    $(id).focus();
+    throw new Error(`${nomeCampo}: escolha um nome da lista (digite parte do nome e clique na pessoa).`);
+  }
+  return achado;
+}
+
+function avisoConjuge(m) {
+  const aviso = $('b-conjuge-aviso');
+  const id = pessoasPorRotulo.get($('b-conjuge').value.trim());
+  const escolhido = id && membros.find((x) => x.id === id);
+  const atualDele = escolhido && escolhido.conjugeId && escolhido.conjugeId !== m?.id
+    ? membros.find((x) => x.id === escolhido.conjugeId) : null;
+  aviso.hidden = !atualDele;
+  aviso.textContent = atualDele
+    ? `${escolhido.nome} está ligado(a) a ${atualDele.nome} como cônjuge. Ao salvar, esse vínculo será desfeito.` : '';
+  return atualDele ? { escolhido, atualDele } : null;
+}
+
+/** Outra pessoa com o mesmo nome (sem acento/maiúsculas): aviso com link para a ficha. */
+function avisoDuplicado(campoNome, avisoEl, idAtual, fechar) {
+  const nome = normalizado(campoNome.value);
+  const igual = nome.length >= 3 && membros.find((x) => x.id !== idAtual && normalizado(x.nome) === nome);
+  avisoEl.hidden = !igual;
+  avisoEl.replaceChildren(...(igual ? [
+    `Já existe ${igual.nome} (${aniversarioDe(igual)}). `,
+    el('button', { class: 'link', type: 'button', onclick: () => { if (fechar()) abrirFicha(igual.id); } }, 'Abrir a ficha'),
+  ] : []));
+}
+
+// Abas do formulário: um campo inválido numa aba escondida leva até ela.
+function mostrarSecao(nome) {
+  for (const b of document.querySelectorAll('#form-membro .abas-form button')) b.setAttribute('aria-selected', String(b.dataset.secao === nome));
+  for (const p of document.querySelectorAll('#form-membro [role=tabpanel]')) p.hidden = p.dataset.secao !== nome;
+}
+for (const b of document.querySelectorAll('#form-membro .abas-form button')) b.addEventListener('click', () => mostrarSecao(b.dataset.secao));
+$('form-membro').addEventListener('invalid', (e) => {
+  const painel = e.target.closest('[role=tabpanel]');
+  if (!painel) return;
+  $('aba-b-' + painel.dataset.secao).classList.add('com-erro');
+  if (painel.hidden) {
+    mostrarSecao(painel.dataset.secao);
+    requestAnimationFrame(() => e.target.reportValidity());
+  }
+}, true);
+$('form-membro').addEventListener('input', (e) => {
+  const painel = e.target.closest('[role=tabpanel]');
+  if (painel && !painel.querySelector(':invalid')) $('aba-b-' + painel.dataset.secao).classList.remove('com-erro');
+});
+
+// Alterações não salvas: Cancelar e Esc perguntam antes de descartar.
+let estadoInicialForm = '';
+const estadoForm = () => JSON.stringify([...$('form-membro').querySelectorAll('input:not([type=file]), select, textarea')]
+  .map((c) => c.value)) + (fotoPendente ? '+foto' : '') + (removerFoto ? '-foto' : '');
+function fecharFormulario() {
+  if (estadoForm() !== estadoInicialForm && !confirm('Descartar as alterações feitas nesta ficha?')) return false;
+  $('dlg-membro').close();
+  return true;
+}
+$('cancelar-membro').addEventListener('click', fecharFormulario);
+$('dlg-membro').addEventListener('cancel', (e) => {
+  e.preventDefault();
+  fecharFormulario();
+});
+
+let membroEmEdicao = null; // o registro que o formulário edita (vira o criado depois do primeiro salvar)
+$('b-nome').addEventListener('input', () => avisoDuplicado($('b-nome'), $('b-nome-aviso'), membroEmEdicao?.id, fecharFormulario));
+$('b-conjuge').addEventListener('input', () => avisoConjuge(membroEmEdicao));
+
 function editarMembro(m) {
-  const novo = !m;
-  $('titulo-membro').textContent = novo ? 'Novo membro' : 'Editar: ' + m.nome;
-  $('b-ano').max = new Date().getFullYear();
-  montarSelectsFamilia(m);
+  membroEmEdicao = m;
+  $('titulo-membro').textContent = m ? 'Editar: ' + m.nome : 'Nova pessoa';
+  mostrarSecao('pessoal');
+  for (const b of document.querySelectorAll('#form-membro .abas-form button')) b.classList.remove('com-erro');
+  for (const c of $('form-membro').querySelectorAll('input, select, textarea')) c.setCustomValidity('');
+  montarPessoas(m);
   $('b-nome').value = m ? m.nome : '';
-  $('b-dia').value = m ? m.dia : '';
-  $('b-mes').value = m ? m.mes : '';
-  $('b-ano').value = m?.ano || '';
+  $('b-aniversario').value = m ? aniversarioDe(m) : '';
   $('b-sexo').value = m?.sexo || '';
   garantirOpcao($('b-estado-civil'), m?.estadoCivil);
-  $('b-telefone').value = m?.telefone || '';
-  $('b-whatsapp').value = m?.whatsapp || '';
+  $('b-telefone').value = m?.telefone ? mascaraTelefone(m.telefone) : '';
+  $('b-whatsapp').value = m?.whatsapp ? mascaraTelefone(m.whatsapp) : '';
   $('b-email').value = m?.email || '';
-  $('b-cep').value = m?.cep || '';
+  $('b-cep').value = m?.cep ? mascaraCep(m.cep) : '';
+  $('b-cep-aviso').textContent = '';
   $('b-rua').value = m?.rua || '';
   $('b-numero').value = m?.numero || '';
   $('b-complemento').value = m?.complemento || '';
   $('b-bairro').value = m?.bairro || '';
   $('b-cidade').value = m?.cidade || '';
   garantirOpcao($('b-uf'), m?.estado);
-  $('b-cpf').value = m?.cpf || '';
+  $('b-cpf').value = m?.cpf ? mascaraCpf(m.cpf) : '';
   $('b-rg').value = m?.rg || '';
-  $('b-status').value = m ? m.status : 'membro';
+  $('b-consentimento').value = m?.consentimentoEm || '';
+  $('b-consentimento').max = hojeIso();
+  $('b-status').value = m ? statusValido(m.status) : 'membro';
   $('b-chegada').value = m?.dataChegada || '';
   $('b-batismo').value = m?.dataBatismo || '';
   $('b-membresia').value = m?.dataMembresia || '';
   $('b-ministerios').value = (m?.ministerios || []).join(', ');
   $('b-funcao').value = m?.funcao || '';
+  $('b-como-conheceu').value = m?.comoConheceu || '';
   $('b-emerg-nome').value = m?.emergenciaNome || '';
-  $('b-emerg-telefone').value = m?.emergenciaTelefone || '';
+  $('b-emerg-telefone').value = m?.emergenciaTelefone ? mascaraTelefone(m.emergenciaTelefone) : '';
   $('b-emerg-vinculo').value = m?.emergenciaVinculo || '';
   $('b-observacoes').value = m?.observacoes || '';
+  $('b-nome-aviso').hidden = true;
+  avisoConjuge(m);
 
   // Foto: prévia da atual (se houver) ou iniciais; a escolha nova aparece na hora.
   fotoPendente = null;
@@ -1004,46 +1324,72 @@ function editarMembro(m) {
         }
       }).catch(() => {});
   }
+  estadoInicialForm = estadoForm();
 
   abrirDialogo($('dlg-membro'), $('erro-membro'), async () => {
+    const atual = membroEmEdicao;
+    const aniversario = lerAniversario($('b-aniversario').value);
+    if (!aniversario) {
+      mostrarSecao('pessoal');
+      throw new Error('Aniversário: use dd/mm ou dd/mm/aaaa com uma data que exista.');
+    }
+    if (soDigitos($('b-cpf').value) && !cpfValido($('b-cpf').value)) {
+      mostrarSecao('pessoal');
+      throw new Error('CPF inválido: confira os números.');
+    }
+    const conjugeId = pessoaDoCampo('b-conjuge', 'Cônjuge');
+    const paisIds = [...new Set([pessoaDoCampo('b-pai-1', 'Pai/mãe'), pessoaDoCampo('b-pai-2', 'Pai/mãe')].filter(Boolean))];
+    const troca = conjugeId !== (atual?.conjugeId || null) ? avisoConjuge(atual) : null;
+    if (troca && !confirm(`${troca.escolhido.nome} hoje é cônjuge de ${troca.atualDele.nome}. Desfazer esse vínculo e ligar a esta pessoa?`)) {
+      mostrarSecao('familia');
+      throw new Error('Cônjuge não alterado. Escolha outra pessoa ou confirme a troca.');
+    }
+    const texto = (id) => $(id).value.trim() || null;
     const dados = {
       nome: $('b-nome').value.trim(),
-      dia: Number($('b-dia').value),
-      mes: Number($('b-mes').value),
-      ano: $('b-ano').value ? Number($('b-ano').value) : null,
+      dia: aniversario.dia,
+      mes: aniversario.mes,
+      ano: aniversario.ano,
       sexo: $('b-sexo').value || null,
       estadoCivil: $('b-estado-civil').value || null,
-      cpf: $('b-cpf').value.trim() || null,
-      rg: $('b-rg').value.trim() || null,
-      telefone: $('b-telefone').value.trim() || null,
-      whatsapp: $('b-whatsapp').value.trim() || null,
-      email: $('b-email').value.trim() || null,
-      cep: $('b-cep').value.trim() || null,
-      rua: $('b-rua').value.trim() || null,
-      numero: $('b-numero').value.trim() || null,
-      complemento: $('b-complemento').value.trim() || null,
-      bairro: $('b-bairro').value.trim() || null,
-      cidade: $('b-cidade').value.trim() || null,
+      cpf: soDigitos($('b-cpf').value) || null,
+      rg: texto('b-rg'),
+      telefone: texto('b-telefone'),
+      whatsapp: texto('b-whatsapp'),
+      email: texto('b-email'),
+      cep: soDigitos($('b-cep').value) || null,
+      rua: texto('b-rua'),
+      numero: texto('b-numero'),
+      complemento: texto('b-complemento'),
+      bairro: texto('b-bairro'),
+      cidade: texto('b-cidade'),
       estado: $('b-uf').value || null,
       status: $('b-status').value,
       dataChegada: $('b-chegada').value || null,
       dataBatismo: $('b-batismo').value || null,
       dataMembresia: $('b-membresia').value || null,
+      consentimentoEm: $('b-consentimento').value || null,
       ministerios: $('b-ministerios').value.split(',').map((s) => s.trim()).filter(Boolean),
-      funcao: $('b-funcao').value.trim() || null,
-      conjugeId: $('b-conjuge').value || null,
-      paisIds: [...new Set([$('b-pai-1').value, $('b-pai-2').value].filter(Boolean))],
-      emergenciaNome: $('b-emerg-nome').value.trim() || null,
-      emergenciaTelefone: $('b-emerg-telefone').value.trim() || null,
-      emergenciaVinculo: $('b-emerg-vinculo').value.trim() || null,
-      observacoes: $('b-observacoes').value.trim() || null,
+      funcao: texto('b-funcao'),
+      comoConheceu: texto('b-como-conheceu'),
+      conjugeId,
+      paisIds,
+      emergenciaNome: texto('b-emerg-nome'),
+      emergenciaTelefone: texto('b-emerg-telefone'),
+      emergenciaVinculo: texto('b-emerg-vinculo'),
+      observacoes: texto('b-observacoes'),
     };
-    const salvo = m ? await api('PUT', '/api/membros/' + m.id, dados) : await api('POST', '/api/membros', dados);
+    const salvo = atual ? await api('PUT', '/api/membros/' + atual.id, dados) : await api('POST', '/api/membros', dados);
+    // Daqui em diante o formulário edita o registro salvo: se a foto falhar, salvar de novo não duplica a pessoa.
+    membroEmEdicao = salvo;
+    $('titulo-membro').textContent = 'Editar: ' + salvo.nome;
     if (fotoPendente) {
       await api('POST', '/api/membros/' + salvo.id + '/foto', fotoPendente,
         { bruto: true, tipo: fotoPendente.type || 'application/octet-stream' });
-    } else if (removerFoto && m && m.foto) {
-      await api('DELETE', '/api/membros/' + m.id + '/foto');
+      fotoPendente = null;
+    } else if (removerFoto && atual && atual.foto) {
+      await api('DELETE', '/api/membros/' + atual.id + '/foto');
+      removerFoto = false;
     }
     await carregarMembros();
   });
@@ -1073,26 +1419,86 @@ $('b-remover-foto').addEventListener('click', () => {
 });
 
 async function excluirMembro(m) {
-  if (!confirm(`Excluir ${m.nome}? A foto e os vínculos de família também saem.`)) return;
+  if (!confirm(`Excluir ${m.nome}? A foto e os vínculos de família também saem.`)) return false;
   try {
     await api('DELETE', '/api/membros/' + m.id);
     await carregarMembros();
+    return true;
   } catch (e) {
     mensagem($('resultado-membros'), e.message, false);
+    return false;
   }
 }
 
+// ----- Novo visitante (cadastro rápido) -----
+
+$('novo-visitante').addEventListener('click', () => {
+  for (const id of ['v-nome', 'v-aniversario', 'v-telefone', 'v-como-conheceu']) $(id).value = '';
+  $('v-consentimento').checked = false;
+  $('v-nome-aviso').hidden = true;
+  let criado = null; // segundo clique em Cadastrar (ex.: após erro de rede) atualiza em vez de duplicar
+  abrirDialogo($('dlg-visitante'), $('erro-visitante'), async () => {
+    const aniversario = lerAniversario($('v-aniversario').value);
+    if (!aniversario) throw new Error('Aniversário: use dd/mm (o ano é opcional) com uma data que exista.');
+    const telefone = $('v-telefone').value.trim() || null;
+    const dados = {
+      nome: $('v-nome').value.trim(),
+      dia: aniversario.dia,
+      mes: aniversario.mes,
+      ano: aniversario.ano,
+      telefone,
+      whatsapp: telefone && soDigitos(telefone).length === 11 ? telefone : null,
+      comoConheceu: $('v-como-conheceu').value.trim() || null,
+      status: 'visitante',
+      dataChegada: hojeIso(),
+      consentimentoEm: $('v-consentimento').checked ? hojeIso() : null,
+    };
+    criado = criado ? await api('PUT', '/api/membros/' + criado.id, dados) : await api('POST', '/api/membros', dados);
+    await carregarMembros();
+    mensagem($('resultado-membros'), `${criado.nome} cadastrado(a) como visitante.`);
+  });
+});
+$('v-nome').addEventListener('input', () => avisoDuplicado($('v-nome'), $('v-nome-aviso'), null, () => { $('dlg-visitante').close(); return true; }));
+
 // Filtros (só re-renderiza, sem buscar de novo).
-for (const id of ['busca-membro', 'filtro-status-membro', 'filtro-ministerio-membro', 'filtro-aniversariantes']) {
+for (const id of ['busca-membro', 'filtro-status-membro', 'filtro-ministerio-membro', 'filtro-aniversariantes', 'filtro-sem-consentimento']) {
   $(id).addEventListener('input', renderMembros);
   $(id).addEventListener('change', renderMembros);
 }
 
 // ----- Importar -----
 
+const CABECALHO_MODELO = 'Nome;Aniversário;Sexo;Estado civil;CPF;RG;Telefone;WhatsApp;E-mail;CEP;Rua;Número;Complemento;Bairro;Cidade;UF;'
+  + 'Status;Data de chegada;Data de batismo;Data de membresia;Ministérios;Função;Como conheceu;Consentimento;Observações';
+const EXEMPLO_MODELO = 'Ana Souza;05/03/1990;F;Casada;111.444.777-35;;(11) 98888-7777;(11) 98888-7777;ana@exemplo.com;01310-100;'
+  + 'Av. Paulista;1000;;Bela Vista;São Paulo;SP;Congregada;10/02/2024;14/06/2015;;Louvor|Infantil;Líder;Convite de amigo;10/02/2024;';
+
 $('abrir-importar-membros').addEventListener('click', () => {
   mensagem($('resultado-importacao'), '');
   $('dlg-importar').showModal();
+});
+
+/** Lê o .csv em UTF-8; se vier do Excel em Windows-1252 (acentos quebrados), relê nessa codificação. */
+async function lerArquivoCsv(arquivo) {
+  const bytes = await arquivo.arrayBuffer();
+  let texto = new TextDecoder('utf-8').decode(bytes);
+  if (texto.includes('�')) texto = new TextDecoder('windows-1252').decode(bytes);
+  return texto.replace(/^﻿/, '');
+}
+async function carregarArquivoCsv(arquivo) {
+  if (!arquivo) return;
+  if (arquivo.size > 2 * 1024 * 1024) {
+    mensagem($('resultado-importacao'), 'Arquivo grande demais (máximo 2 MB).', false);
+    return;
+  }
+  $('csv-membros').value = await lerArquivoCsv(arquivo);
+  mensagem($('resultado-importacao'), `"${arquivo.name}" carregado. Confira as linhas e clique em Importar.`);
+}
+$('arquivo-csv').addEventListener('change', (e) => carregarArquivoCsv(e.target.files[0]));
+$('dlg-importar').addEventListener('dragover', (e) => e.preventDefault());
+$('dlg-importar').addEventListener('drop', (e) => {
+  e.preventDefault();
+  carregarArquivoCsv(e.dataTransfer.files[0]);
 });
 
 $('form-importar').addEventListener('submit', async (e) => {
@@ -1101,12 +1507,13 @@ $('form-importar').addEventListener('submit', async (e) => {
   const saida = $('resultado-importacao');
   try {
     const r = await api('POST', '/api/membros/importar', $('csv-membros').value);
-    const partes = [`${r.importados} membro(s) importado(s).`];
+    const partes = [`${r.importados} pessoa(s) importada(s).`];
     if (r.linhasComErro && r.linhasComErro.length) partes.push(`Linhas com erro: ${r.linhasComErro.join(', ')}.`);
     for (const d of r.detalhes || []) partes.push(d);
-    mensagem(saida, partes.join('\n'), !(r.linhasComErro || []).length);
+    mensagem(saida, partes.join('\n'), !(r.linhasComErro || []).length && !(r.detalhes || []).length);
     if (r.importados) {
       $('csv-membros').value = '';
+      $('arquivo-csv').value = '';
       await carregarMembros();
       if (!(r.linhasComErro || []).length && !(r.detalhes || []).length) $('dlg-importar').close();
     }
@@ -1116,41 +1523,54 @@ $('form-importar').addEventListener('submit', async (e) => {
 });
 
 $('modelo-csv').addEventListener('click', () => {
-  $('csv-membros').value =
-    'Nome;Aniversário;Sexo;Estado civil;CPF;Telefone;WhatsApp;E-mail;Status;Data de batismo;Ministérios;Função;Cidade;UF\n'
-    + 'Ana Souza;05/03/1990;F;Casada;111.444.777-35;(11) 98888-7777;;ana@exemplo.com;Congregado;14/06/2015;Louvor|Infantil;Líder;São Paulo;SP\n'
-    + 'Bruno Lima;05/11;;;;;;;;;;;;\n';
+  $('csv-membros').value = CABECALHO_MODELO + '\n' + EXEMPLO_MODELO + '\n';
+});
+$('baixar-modelo-csv').addEventListener('click', () => {
+  const blob = new Blob(['﻿' + CABECALHO_MODELO + '\r\n' + EXEMPLO_MODELO + '\r\n'], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: 'modelo-membros.csv' });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 });
 
 // ----- Exportar CSV / Imprimir -----
 
 $('exportar-membros').addEventListener('click', () => {
+  const f = filtrosMembros();
   const qs = new URLSearchParams();
-  const status = $('filtro-status-membro').value;
-  if (status) qs.set('status', status);
-  if ($('filtro-ministerio-membro').value) qs.set('ministerio', $('filtro-ministerio-membro').value);
-  if ($('filtro-aniversariantes').checked) qs.set('aniversariantes', 'mes');
-  baixarArquivo('/api/membros/exportar' + (qs.toString() ? '?' + qs.toString() : ''), 'membros.csv');
+  if (f.busca) qs.set('busca', f.busca);
+  if (f.status) qs.set('status', f.status);
+  if (f.ministerio) qs.set('ministerio', f.ministerio);
+  if (f.aniversariantes) qs.set('aniversariantes', 'mes');
+  if (f.semConsentimento) qs.set('semConsentimento', '1');
+  if (f.novas) qs.set('novasDias', '90');
+  baixarArquivo('/api/membros/exportar' + (qs.toString() ? '?' + qs.toString() : ''), 'membros.csv')
+    .catch((e) => mensagem($('resultado-membros'), e.message, false));
 });
 
 $('imprimir-membros').addEventListener('click', () => {
   const lista = membrosFiltrados();
   if (!lista.length) return;
+  const f = filtrosMembros();
   const filtros = [];
-  const st = $('filtro-status-membro').value;
-  if (st === 'ativos') filtros.push('ativos');
-  else if (st) filtros.push(((STATUS_MEMBRO[st] || STATUS_MEMBRO.membro)[0]).toLowerCase() + 's');
-  if ($('filtro-ministerio-membro').value) filtros.push($('filtro-ministerio-membro').value);
-  if ($('filtro-aniversariantes').checked) filtros.push('aniversariantes do mês');
+  if (f.status === 'ativos') filtros.push('ativos');
+  else if (f.status) filtros.push(STATUS_MEMBRO[f.status][0].toLowerCase() + 's');
+  if (f.ministerio) filtros.push(f.ministerio);
+  if (f.aniversariantes) filtros.push('aniversariantes do mês');
+  if (f.semConsentimento) filtros.push('sem autorização LGPD');
+  if (f.novas) filtros.push('novas em 90 dias');
+  if (f.busca) filtros.push('"' + f.busca + '"');
   const linha = (m) => el('tr', {},
     el('td', {}, m.nome),
     el('td', {}, aniversarioDe(m)),
     el('td', {}, idadeDe(m) != null ? String(idadeDe(m)) : ''),
-    el('td', {}, (STATUS_MEMBRO[m.status] || STATUS_MEMBRO.membro)[0]),
-    el('td', {}, [m.telefone, m.whatsapp].filter(Boolean).join(' / ')),
+    el('td', {}, rotuloStatus(m.status, m.sexo)),
+    el('td', {}, [m.telefone, m.whatsapp && m.whatsapp !== m.telefone ? m.whatsapp : null].filter(Boolean).join(' / ')),
     el('td', {}, m.email || ''),
     el('td', {}, [...(m.ministerios || []), m.funcao].filter(Boolean).join(' · ')),
-    el('td', {}, [m.cidade, m.uf].filter(Boolean).join('/')));
+    el('td', {}, [m.cidade, m.estado].filter(Boolean).join('/')));
   $('impressao-membros').replaceChildren(
     el('h1', {}, 'Cadastro de membros' + (filtros.length ? ' — ' + filtros.join(', ') : '')),
     el('p', {}, new Date().toLocaleDateString('pt-BR') + ' · ' + lista.length + ' pessoa(s)'),

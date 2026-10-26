@@ -251,6 +251,44 @@ void main() {
       final doMes = utf8.decode(mesBytes as List<int>);
       expect(doMes, contains('Ana Souza'));
       expect(doMes, isNot(contains('Bruno')));
+
+      // Busca (sem acento, como na tela) e quem falta autorizar (LGPD).
+      await criar({'nome': 'José Araújo', 'dia': 3, 'mes': outroMes, 'consentimentoEm': '01/02/2024'});
+      final (_, buscaBytes) = await chamar('GET', '/api/membros/exportar?busca=jose%20araujo');
+      final achados = utf8.decode(buscaBytes as List<int>);
+      expect(achados, contains('José Araújo'));
+      expect(achados, contains('01/02/2024'));
+      expect(achados, isNot(contains('Ana Souza')));
+      final (_, semBytes) = await chamar('GET', '/api/membros/exportar?semConsentimento=1');
+      final sem = utf8.decode(semBytes as List<int>);
+      expect(sem, contains('Ana Souza'));
+      expect(sem, isNot(contains('José Araújo')));
+      final (_, novasBytes) = await chamar('GET', '/api/membros/exportar?novasDias=90');
+      expect(utf8.decode(novasBytes as List<int>), contains('Zeca'));
+    });
+
+    test('escolher como cônjuge alguém já casado desfaz o vínculo antigo', () async {
+      final ana = await criar({'nome': 'Ana', 'dia': 5, 'mes': 3});
+      final bruno = await criar({'nome': 'Bruno', 'dia': 10, 'mes': 4, 'conjugeId': ana['id']});
+      final carlos = await criar({'nome': 'Carlos', 'dia': 15, 'mes': 5});
+
+      // Carlos passa a ser cônjuge de Ana: Bruno não pode continuar apontando para ela.
+      await chamar('PUT', '/api/membros/${carlos['id']}', json: {'conjugeId': ana['id']});
+      final lista = (await chamar('GET', '/api/membros')).$2 as List;
+      Map porId(Object? id) => lista.firstWhere((m) => m['id'] == id) as Map;
+      expect(porId(ana['id'])['conjugeId'], carlos['id']);
+      expect(porId(carlos['id'])['conjugeId'], ana['id']);
+      expect(porId(bruno['id']).containsKey('conjugeId'), isFalse);
+    });
+
+    test('visitante rápido guarda como conheceu e a autorização (LGPD)', () async {
+      final v = await criar({
+        'nome': 'Rita', 'dia': 7, 'mes': 8, 'status': 'visitante',
+        'comoConheceu': 'Convite de amigo', 'consentimentoEm': '2026-10-26',
+      });
+      expect(v['comoConheceu'], 'Convite de amigo');
+      expect(v['consentimentoEm'], '2026-10-26');
+      expect((await chamar('POST', '/api/membros', json: {'nome': 'X', 'dia': 1, 'mes': 1, 'consentimentoEm': '31/02/2026'})).$1, 400);
     });
 
     test('importar: formato antigo, CSV com cabeçalho e avisos de CPF', () async {
