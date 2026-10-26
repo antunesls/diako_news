@@ -342,7 +342,7 @@ async function carregarAgenda() {
       itens.push(el('h3', { style: 'font-size:15px;margin:16px 0 4px;color:var(--suave)' }, e.dia));
     }
     itens.push(el('div', { class: 'item' },
-      el('div', { class: 'faixa', style: 'background:#5C6BC0' }),
+      el('div', { class: 'faixa', style: 'background:var(--primaria)' }),
       el('div', { class: 'conteudo' },
         el('div', { class: 'titulo' }, e.titulo, el('span', { class: 'etiqueta' }, e.horario)),
         e.local ? el('div', { class: 'sub' }, e.local) : null,
@@ -449,7 +449,7 @@ async function carregarStatus() {
   estado = await api('GET', '/api/estado');
   const linha = (rotulo, valor, ok) => el('div', { class: 'status-linha' },
     el('span', {}, rotulo),
-    el('strong', {}, ok === undefined ? null : el('span', { class: 'ponto', style: 'background:' + (ok ? '#1e7d3a' : '#b3261e') }), valor));
+    el('strong', {}, ok === undefined ? null : el('span', { class: 'ponto', style: 'background:' + (ok ? 'var(--ok)' : 'var(--perigo)') }), valor));
   $('status-linhas').replaceChildren(
     estado.modo === 'agente'
       ? linha('PC da igreja (agente)', estado.agenteConectado ? 'Conectado' + (estado.agenteVersao ? ' · ' + estado.agenteVersao : '') : 'Desconectado' + (estado.agenteVistoEm ? ' · visto ' + dataCurta(estado.agenteVistoEm) : ''), estado.agenteConectado)

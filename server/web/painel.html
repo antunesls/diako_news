@@ -4,40 +4,40 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Painel — Diako News</title>
-<link rel="stylesheet" href="/estilo.css">
+<link rel="stylesheet" href="/estilo.css?v=3">
 <style>
   .topo {
     display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
-    padding: 12px 20px; background: var(--superficie); border-bottom: 1px solid #e3e1ea;
+    padding: 14px max(20px, calc((100% - 1060px) / 2)); background: var(--superficie); border-bottom: 1px solid var(--linha);
   }
   .topo img { height: 40px; width: auto; }
   .topo .espaco { flex: 1; }
-  nav.abas { display: flex; flex-wrap: wrap; gap: 4px; padding: 12px 20px 0; max-width: 1100px; margin: 0 auto; }
+  nav.abas { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 max(20px, calc((100% - 1060px) / 2)); background: var(--superficie); border-bottom: 1px solid var(--linha); }
   nav.abas button {
-    min-height: 44px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent;
+    min-height: 48px; padding: 0 14px; border: 0; border-bottom: 3px solid transparent;
     background: none; font-weight: 600; color: var(--suave); cursor: pointer;
   }
   nav.abas button[aria-selected=true] { color: var(--primaria); border-bottom-color: var(--primaria); }
   .badge { display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 4px; border-radius: 11px; background: var(--perigo); color: #fff; font-size: 13px; line-height: 22px; text-align: center; }
-  main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
   .barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
   .barra .espaco { flex: 1; }
   .lista { display: flex; flex-direction: column; gap: 8px; }
-  .item { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; background: var(--superficie); border: 1px solid #e3e1ea; border-radius: var(--raio); }
+  .item { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; background: var(--superficie); border: 1px solid var(--linha); border-radius: var(--raio); }
   .item .faixa { width: 6px; align-self: stretch; border-radius: 3px; }
   .item .conteudo { flex: 1 1 260px; min-width: 0; }
   .item .titulo { font-weight: 600; }
   .item .sub { color: var(--suave); font-size: 14px; white-space: pre-line; }
   .item .acoes { display: flex; flex-wrap: wrap; gap: 6px; }
-  .etiqueta { display: inline-block; padding: 0 8px; border-radius: 10px; background: #ecebf1; font-size: 12px; font-weight: 600; color: var(--suave); margin-left: 6px; }
+  .etiqueta { display: inline-block; padding: 0 8px; border-radius: 10px; background: var(--neutro); font-size: 12px; font-weight: 600; color: var(--suave); margin-left: 6px; }
   .vazio { color: var(--suave); text-align: center; padding: 32px; }
   .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-  .cartaz { background: var(--superficie); border: 1px solid #e3e1ea; border-radius: var(--raio); overflow: hidden; }
+  .cartaz { background: var(--superficie); border: 1px solid var(--linha); border-radius: var(--raio); overflow: hidden; }
   .cartaz img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #222; display: block; }
   .cartaz div { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
   .cartaz code { font-size: 13px; word-break: break-all; }
   .duas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-  .status-linha { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; }
+  .status-linha { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--linha); }
   .ponto { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 6px; }
   dialog { border: 0; border-radius: 16px; padding: 24px; width: min(560px, calc(100vw - 32px)); }
   dialog::backdrop { background: rgba(0,0,0,.45); }
@@ -45,7 +45,7 @@
   #login { max-width: 380px; margin: 10vh auto 0; padding: 0 16px; text-align: center; }
   #login img { width: 260px; max-width: 80%; margin-bottom: 24px; }
   #login form { text-align: left; }
-  .qr { width: 100%; max-width: 320px; border: 1px solid #e3e1ea; border-radius: 8px; }
+  .qr { width: 100%; max-width: 320px; border: 1px solid var(--linha); border-radius: 8px; }
 </style>
 </head>
 <body>

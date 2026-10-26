@@ -4,22 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Caixa de mensagens — Diako News</title>
-<link rel="stylesheet" href="/estilo.css">
-<style>
-  main { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
-  header { text-align: center; margin-bottom: 20px; }
-  header img { width: min(320px, 85%); }
-  h1 { text-align: center; font-size: 24px; }
-  .intro { text-align: center; color: var(--suave); }
-  #enviar { width: 100%; min-height: 52px; }
-  #obrigado { text-align: center; }
-</style>
+<link rel="stylesheet" href="/estilo.css?v=3">
 </head>
-<body><main>
+<body class="publico"><main>
   <header><img src="/logo.png" alt="Diako News"></header>
   <section id="formulario">
+    <p class="sobretitulo">Queremos ouvir você</p>
     <h1>Caixa de dúvidas, sugestões e críticas</h1>
-    <p class="intro">Queremos ouvir você. Sua mensagem será vista apenas pela equipe responsável.</p>
+    <p class="intro">Sua mensagem será vista apenas pela equipe responsável.</p>
     <form id="form" class="cartao">
       <div class="campo"><label for="tipo">Tipo de mensagem</label>
         <select id="tipo" required><option value="">Selecione</option><option value="duvida">Dúvida</option><option value="sugestao">Sugestão</option><option value="critica">Crítica</option></select></div>
