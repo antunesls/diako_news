@@ -8,6 +8,9 @@ Type=simple
 User=diako
 Group=diako
 WorkingDirectory=/opt/diako-news
+# Horário de Brasília (-3): datas do cadastro, backup das 03:00 e agenda no fuso da igreja,
+# mesmo com o container em UTC. Igreja em outro fuso: troque aqui (ex.: America/Manaus).
+Environment=TZ=America/Sao_Paulo
 ExecStart=/opt/diako-news/diako_server /opt/diako-news/config.json
 Restart=always
 RestartSec=3
