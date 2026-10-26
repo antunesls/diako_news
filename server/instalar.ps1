@@ -1,7 +1,9 @@
-﻿# Instala o servidor Diako News no PC do Holyrics.
-# Execute como administrador, de dentro da pasta descompactada:
-#   powershell -ExecutionPolicy Bypass -File .\instalar.ps1
+﻿# Instala o Diako News no PC do Holyrics. Execute como administrador, de dentro da pasta descompactada:
+#   powershell -ExecutionPolicy Bypass -File .\instalar.ps1               # servidor completo neste PC
+#   powershell -ExecutionPolicy Bypass -File .\instalar.ps1 -Modo agente  # servidor na internet: só o agente
 param(
+    [ValidateSet('servidor', 'agente')]
+    [string]$Modo = 'servidor',
     [string]$Destino = 'C:\DiakoNews'
 )
 $ErrorActionPreference = 'Stop'
@@ -11,6 +13,48 @@ $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 if (-not $admin) {
     Write-Host 'Abra o PowerShell como administrador e rode o instalador de novo.' -ForegroundColor Red
     exit 1
+}
+
+function Registrar-Tarefa([string]$Nome, [string]$Exe, [string]$Config, [string]$Log, [string]$Descricao) {
+    $comando = "& '$Exe' '$Config' *>> '$Log'"
+    $acao = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command `"$comando`"" -WorkingDirectory $Destino
+    $gatilho = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+    $opcoes = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) `
+        -RestartCount 10 -RestartInterval (New-TimeSpan -Minutes 1)
+    Register-ScheduledTask -TaskName $Nome -Action $acao -Trigger $gatilho -Settings $opcoes -Description $Descricao -Force | Out-Null
+    Start-ScheduledTask -TaskName $Nome
+}
+
+if ($Modo -eq 'agente') {
+    # O servidor está na internet: aqui roda só o agente, que conecta para fora (nenhuma porta é aberta).
+    Get-ScheduledTask -TaskName 'Diako News Agente' -ErrorAction SilentlyContinue | Stop-ScheduledTask
+    Get-Process diako_agente -ErrorAction SilentlyContinue | Stop-Process -Force
+
+    Write-Host "Copiando o agente para $Destino ..."
+    New-Item -ItemType Directory -Force $Destino | Out-Null
+    Copy-Item (Join-Path $origem 'diako_agente.exe') $Destino -Force
+    Copy-Item (Join-Path $origem 'agente.example.json') $Destino -Force
+
+    $config = Join-Path $Destino 'agente.json'
+    if (-not (Test-Path $config)) {
+        Copy-Item (Join-Path $Destino 'agente.example.json') $config
+        Write-Host ''
+        Write-Host 'Preencha o agente.json que vai abrir agora: endereço do servidor, chave do agente,' -ForegroundColor Yellow
+        Write-Host 'token do Holyrics e pasta de imagens do Holyrics. Salve e feche o Bloco de Notas.' -ForegroundColor Yellow
+        Start-Process notepad.exe $config -Wait
+    }
+
+    Write-Host 'Criando a tarefa que inicia o agente junto com o Windows ...'
+    $log = Join-Path $Destino 'agente.log'
+    Registrar-Tarefa 'Diako News Agente' (Join-Path $Destino 'diako_agente.exe') $config $log `
+        'Agente do Diako News: liga o servidor na internet ao Holyrics deste PC'
+    Start-Sleep -Seconds 4
+    Write-Host ''
+    Write-Host 'Pronto! Últimas linhas do log do agente:' -ForegroundColor Green
+    if (Test-Path $log) { Get-Content $log -Tail 8 }
+    Write-Host ''
+    Write-Host "Confira no painel (aba Status) se aparece 'PC da igreja (agente): Conectado'. Log: $log"
+    exit 0
 }
 
 # Para uma versão já em execução antes de copiar o .exe.
@@ -41,16 +85,9 @@ Get-NetFirewallRule -DisplayName 'Diako News' -ErrorAction SilentlyContinue | Re
 New-NetFirewallRule -DisplayName 'Diako News' -Direction Inbound -Protocol TCP -LocalPort $porta -Profile Private -Action Allow | Out-Null
 
 Write-Host 'Criando a tarefa que inicia o servidor junto com o Windows ...'
-$exe = Join-Path $Destino 'diako_server.exe'
 $log = Join-Path $Destino 'servidor.log'
-$comando = "& '$exe' '$config' *>> '$log'"
-$acao = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command `"$comando`"" -WorkingDirectory $Destino
-$gatilho = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
-$opcoes = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) `
-    -RestartCount 10 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName 'Diako News' -Action $acao -Trigger $gatilho -Settings $opcoes `
-    -Description 'Servidor do Diako News (recados e motivos de oração para o Holyrics)' -Force | Out-Null
-Start-ScheduledTask -TaskName 'Diako News'
+Registrar-Tarefa 'Diako News' (Join-Path $Destino 'diako_server.exe') $config $log `
+    'Servidor do Diako News (recados e motivos de oração para o Holyrics)'
 
 Start-Sleep -Seconds 3
 $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))' } | Select-Object -First 1).IPAddress

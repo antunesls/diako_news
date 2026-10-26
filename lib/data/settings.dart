@@ -6,7 +6,7 @@ class AppSettings extends ChangeNotifier {
 
   final SharedPreferences _prefs;
 
-  /// Endereço do servidor Diako News no PC do Holyrics (ex: http://192.168.0.10:8080).
+  /// Endereço do servidor Diako News (ex: https://diako.minhaigreja.com.br ou http://192.168.0.10:8080).
   String get servidor => _prefs.getString('servidor') ?? '';
 
   /// Token de sessão recebido no login.

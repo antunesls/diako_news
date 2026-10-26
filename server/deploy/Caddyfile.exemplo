@@ -1,0 +1,6 @@
+# /etc/caddy/Caddyfile — troque pelo seu domínio. O Caddy obtém e renova o HTTPS sozinho
+# (o domínio precisa apontar para o IP público e as portas 80 e 443 precisam estar liberadas).
+diako.minhaigreja.com.br {
+	encode gzip
+	reverse_proxy 127.0.0.1:8080
+}

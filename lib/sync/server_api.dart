@@ -26,17 +26,23 @@ class ServidorConfig {
   final String sessao;
 }
 
-/// "192.168.0.10" -> "http://192.168.0.10:8080"; remove a barra final.
+/// Completa o endereço digitado:
+/// - com esquema (http:// ou https://): mantém como está;
+/// - IP, "localhost", nome sem domínio ou com porta: http:// (+ :8080 se faltar a porta);
+/// - domínio (ex: diako.minhaigreja.com.br): https://, sem porta.
 String normalizarServidor(String entrada) {
   var s = entrada.trim();
-  if (s.isEmpty) return '';
-  if (!s.contains('://')) s = 'http://$s';
   while (s.endsWith('/')) {
     s = s.substring(0, s.length - 1);
   }
-  final uri = Uri.tryParse(s);
-  if (uri != null && !uri.hasPort) s = uri.replace(port: 8080).toString();
-  return s;
+  if (s.isEmpty || s.contains('://')) return s;
+  final uri = Uri.tryParse('http://$s');
+  if (uri == null) return 'http://$s';
+  final host = uri.host;
+  final ehRedeLocal = RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(host) || host == 'localhost' || !host.contains('.');
+  if (uri.hasPort) return 'http://$s';
+  if (ehRedeLocal) return uri.replace(port: 8080).toString();
+  return 'https://$s';
 }
 
 class Cartaz {
@@ -134,7 +140,7 @@ class ServerApi {
     try {
       resp = await http.Response.fromStream(await _http.send(req).timeout(timeout));
     } on TimeoutException {
-      throw ServidorException('O servidor não respondeu. O PC do Holyrics está ligado e na mesma rede?');
+      throw ServidorException('O servidor não respondeu. Verifique a internet do tablet e se o servidor está no ar.');
     } catch (_) {
       throw ServidorException('Não foi possível conectar ao servidor em $base.');
     }

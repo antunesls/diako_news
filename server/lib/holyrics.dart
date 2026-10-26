@@ -30,23 +30,49 @@ class RespostaHolyrics {
   final String corpo;
 }
 
-/// Encaminha chamadas para a API Server do Holyrics na mesma máquina.
-class HolyricsProxy {
-  HolyricsProxy({required this.host, required this.porta, required this.token, http.Client? cliente})
+/// Caminho até o Holyrics: direto (mesma rede) ou pelo agente instalado no PC da igreja.
+abstract class PonteHolyrics {
+  Future<RespostaHolyrics> chamar(String acao, String corpoJson);
+
+  /// true se o Holyrics respondeu "ok" ao GetCPInfo.
+  Future<bool> conectado() async {
+    final r = await chamar('GetCPInfo', '{}');
+    try {
+      return (jsonDecode(r.corpo) as Map)['status'] == 'ok';
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+/// Resposta de erro no mesmo formato do Holyrics, para o app tratar igual.
+RespostaHolyrics erroHolyrics(String msg) => RespostaHolyrics(200, jsonEncode({'status': 'error', 'error': msg}));
+
+/// Chama a API Server do Holyrics por HTTP (servidor ou agente na mesma rede do Holyrics).
+class HolyricsDireto extends PonteHolyrics {
+  HolyricsDireto({required this.host, required this.porta, required this.token, http.Client? cliente})
       : _http = cliente ?? http.Client();
 
-  final String host;
-  final int porta;
-  final String token;
+  String host;
+  int porta;
+  String token;
   final http.Client _http;
+
+  /// Aplica novos dados de conexão (alterados pela página de administração).
+  void atualizar({required String host, required int porta, required String token}) {
+    this.host = host;
+    this.porta = porta;
+    this.token = token;
+  }
 
   static const timeout = Duration(seconds: 5);
 
   bool get configurado => token.isNotEmpty;
 
+  @override
   Future<RespostaHolyrics> chamar(String acao, String corpoJson) async {
     if (!configurado) {
-      return _erro('Configure o token do Holyrics no config.json do servidor.');
+      return _erro('Configure o token do Holyrics no config.json.');
     }
     final uri = Uri(scheme: 'http', host: host, port: porta, path: '/api/$acao', queryParameters: {'token': token});
     try {
@@ -62,16 +88,5 @@ class HolyricsProxy {
     }
   }
 
-  /// true se o Holyrics respondeu "ok" ao GetCPInfo.
-  Future<bool> conectado() async {
-    final r = await chamar('GetCPInfo', '{}');
-    try {
-      return (jsonDecode(r.corpo) as Map)['status'] == 'ok';
-    } catch (_) {
-      return false;
-    }
-  }
-
-  // Mesmo formato do Holyrics, para o app tratar igual.
-  RespostaHolyrics _erro(String msg) => RespostaHolyrics(200, jsonEncode({'status': 'error', 'error': msg}));
+  RespostaHolyrics _erro(String msg) => erroHolyrics(msg);
 }

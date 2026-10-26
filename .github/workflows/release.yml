@@ -32,6 +32,21 @@ jobs:
           path: server/dist/DiakoServer-*.zip
           if-no-files-found: error
 
+  servidor-linux:
+    name: Servidor (Linux / LXC)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - name: Testar, compilar e empacotar
+        working-directory: server
+        run: bash empacotar-linux.sh "${GITHUB_REF_NAME#v}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: servidor-linux
+          path: server/dist/DiakoServer-linux-x64-*.tar.gz
+          if-no-files-found: error
+
   app:
     name: App Android
     runs-on: ubuntu-latest
@@ -76,7 +91,7 @@ jobs:
 
   publicar:
     name: Publicar release
-    needs: [servidor, app]
+    needs: [servidor, servidor-linux, app]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -86,9 +101,15 @@ jobs:
         with:
           files: |
             DiakoServer-*.zip
+            DiakoServer-linux-x64-*.tar.gz
             DiakoNews-*.apk
           generate_release_notes: true
           body: |
             ## Como instalar
-            - **Servidor (PC do Holyrics):** baixe o `DiakoServer-*.zip`, descompacte e rode `instalar.ps1` como administrador. Ao atualizar, o `config.json` e os dados são mantidos. Detalhes no [LEIA-ME do servidor](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/server/LEIA-ME.md).
-            - **Tablet:** baixe o `DiakoNews-*.apk` no tablet e abra para instalar (permita "instalar apps desconhecidos" se o Android pedir).
+            **Servidor na internet (LXC/VPS):** baixe o `DiakoServer-linux-x64-*.tar.gz` no servidor e siga o [guia de hospedagem](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/HOSPEDAGEM.md). No PC da igreja, use o `DiakoServer-*.zip` e rode `instalar.ps1 -Modo agente`.
+
+            **Servidor no próprio PC do Holyrics:** baixe o `DiakoServer-*.zip`, descompacte e rode `instalar.ps1` como administrador. Detalhes no [LEIA-ME do servidor](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/server/LEIA-ME.md).
+
+            **Tablet:** baixe o `DiakoNews-*.apk` no tablet e abra para instalar (permita "instalar apps desconhecidos" se o Android pedir).
+
+            Ao atualizar, `config.json`, `agente.json` e os dados são mantidos.

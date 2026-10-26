@@ -1,0 +1,317 @@
+'use strict';
+// Página de administração. Utilitários (api, el, $, mensagem...) em comum.js.
+
+let cfg = {};
+let chaveAgenteVisivel = false;
+
+// ---------- Login ----------
+
+function sair() {
+  if (token) fetch('/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
+  token = null;
+  localStorage.removeItem('diako_token');
+  $('app').hidden = true;
+  $('login').hidden = false;
+  $('senha-login').focus();
+}
+
+$('form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const erro = $('erro-login');
+  erro.hidden = true;
+  const r = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ senha: $('senha-login').value }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    erro.textContent = j.erro || 'Não foi possível entrar.';
+    erro.hidden = false;
+    return;
+  }
+  token = j.token;
+  localStorage.setItem('diako_token', token);
+  $('senha-login').value = '';
+  iniciar();
+});
+
+$('sair').addEventListener('click', sair);
+
+/** Pergunta antes de ações que não têm volta. */
+function confirmar(titulo, texto, rotulo = 'Confirmar') {
+  $('titulo-confirmar').textContent = titulo;
+  $('texto-confirmar').textContent = texto;
+  $('botao-confirmar').textContent = rotulo;
+  const dlg = $('dlg-confirmar');
+  return new Promise((ok) => {
+    dlg.onclose = () => ok(dlg.returnValue === 'ok');
+    dlg.showModal();
+  });
+}
+
+/** Envia um formulário de configurações e mostra o resultado em [saida]. */
+async function salvar(campos, saida) {
+  try {
+    cfg = await api('PUT', '/api/admin/configuracoes', campos);
+    preencher();
+    mensagem(saida, 'Salvo.');
+  } catch (err) {
+    mensagem(saida, err.message, false);
+  }
+}
+
+const valor = (id) => $(id).value.trim();
+const numero = (id) => Number($(id).value);
+
+// ---------- Carregar ----------
+
+async function carregar() {
+  cfg = await api('GET', '/api/admin/configuracoes');
+  preencher();
+  await carregarBackups();
+}
+
+function preencher() {
+  for (const id of ['nomeIgreja', 'urlPublica', 'pedidoTitulo', 'pedidoIntro', 'pedidoObrigado', 'holyricsHost',
+    'holyricsPorta', 'motivosPorSlide', 'segundosPorSlide', 'diasRespondidas', 'temaPadrao', 'horaBackup', 'backupsManter']) {
+    if ($(id) && document.activeElement !== $(id)) $(id).value = cfg[id] ?? '';
+  }
+  $('urlPublica').placeholder = cfg.urlDetectada || '';
+  $('dica-url').textContent = cfg.urlPublica
+    ? 'O QR code aponta para ' + cfg.urlPublica + '/oracao'
+    : 'Vazio: usa o endereço da rede local (' + cfg.urlDetectada + '). Preencha se o site está na internet.';
+
+  // Mural
+  const base = cfg.urlPublica || cfg.urlDetectada;
+  const link = base + '/mural' + (cfg.chaveMural ? '?chave=' + encodeURIComponent(cfg.chaveMural) : '');
+  $('link-mural').textContent = link;
+  $('estado-mural').textContent = cfg.chaveMural ? 'Protegido com chave.' : 'Aberto: qualquer pessoa com o endereço vê o mural.';
+  $('desativar-chave-mural').disabled = !cfg.chaveMural;
+
+  // Holyrics
+  const agente = cfg.modo === 'agente';
+  $('holyrics-local').hidden = agente;
+  $('holyrics-agente').hidden = !agente;
+  $('holyricsToken').value = '';
+  $('holyricsToken').placeholder = cfg.holyricsTokenDefinido ? '•••••••• (deixe em branco para manter)' : 'Cole o token do Holyrics';
+  $('dica-token').textContent = cfg.holyricsTokenDefinido ? 'Token definido.' : 'Token ainda não definido: os comandos de projeção não vão funcionar.';
+  $('chave-agente').textContent = chaveAgenteVisivel ? (cfg.chaveAgente || '') : '••••••••••••';
+  $('mostrar-chave-agente').textContent = chaveAgenteVisivel ? 'Ocultar' : 'Mostrar';
+
+  // Backup e sessões
+  $('pasta-backup').textContent = 'Pasta dos backups no servidor: ' + cfg.pastaBackup;
+  $('qtd-sessoes').textContent = cfg.sessoes === 1 ? '1 aparelho conectado (este).' : cfg.sessoes + ' aparelhos conectados (incluindo este).';
+  $('senhaNova').minLength = cfg.senhaMinima || 6;
+  $('senhaNova').placeholder = 'Mínimo de ' + (cfg.senhaMinima || 6) + ' caracteres';
+}
+
+// ---------- Igreja, projeção, Holyrics ----------
+
+$('form-igreja').addEventListener('submit', (e) => {
+  e.preventDefault();
+  salvar({
+    nomeIgreja: valor('nomeIgreja'),
+    urlPublica: valor('urlPublica'),
+    pedidoTitulo: valor('pedidoTitulo'),
+    pedidoIntro: valor('pedidoIntro'),
+    pedidoObrigado: valor('pedidoObrigado'),
+  }, $('res-igreja'));
+});
+
+$('form-projecao').addEventListener('submit', (e) => {
+  e.preventDefault();
+  salvar({
+    motivosPorSlide: numero('motivosPorSlide'),
+    segundosPorSlide: numero('segundosPorSlide'),
+    diasRespondidas: numero('diasRespondidas'),
+    temaPadrao: valor('temaPadrao'),
+  }, $('res-projecao'));
+});
+
+$('form-holyrics').addEventListener('submit', (e) => {
+  e.preventDefault();
+  salvar({ holyricsHost: valor('holyricsHost'), holyricsPorta: numero('holyricsPorta'), holyricsToken: valor('holyricsToken') }, $('res-holyrics'));
+});
+
+async function testarHolyrics(saida) {
+  mensagem(saida, 'Testando…');
+  try {
+    const r = await api('POST', '/api/admin/testar-holyrics');
+    mensagem(saida, r.status === 'ok' ? 'Holyrics respondeu: conectado.' : (r.error || 'Sem resposta do Holyrics.'), r.status === 'ok');
+  } catch (err) {
+    mensagem(saida, err.message, false);
+  }
+}
+$('testar-holyrics').addEventListener('click', () => testarHolyrics($('res-holyrics')));
+$('testar-holyrics-agente').addEventListener('click', () => testarHolyrics($('res-agente')));
+
+// ---------- Chaves ----------
+
+async function copiar(texto, saida) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    mensagem(saida, 'Copiado.');
+  } catch {
+    mensagem(saida, 'Não foi possível copiar: selecione e copie manualmente.', false);
+  }
+}
+
+$('copiar-mural').addEventListener('click', () => copiar($('link-mural').textContent, $('res-mural')));
+$('nova-chave-mural').addEventListener('click', async () => {
+  if (!await confirmar('Gerar nova chave do mural?', 'O link atual da TV deixa de funcionar. Depois, abra o novo link na TV.', 'Gerar nova')) return;
+  await api('POST', '/api/admin/chave', { tipo: 'mural' });
+  await carregar();
+  mensagem($('res-mural'), 'Nova chave gerada. Atualize o link na TV.');
+});
+$('desativar-chave-mural').addEventListener('click', async () => {
+  if (!await confirmar('Deixar o mural aberto?', 'Qualquer pessoa com o endereço verá os recados e os motivos de oração públicos.', 'Deixar aberto')) return;
+  await api('POST', '/api/admin/chave', { tipo: 'mural-desativar' });
+  await carregar();
+  mensagem($('res-mural'), 'Mural aberto, sem chave.');
+});
+
+$('mostrar-chave-agente').addEventListener('click', () => {
+  chaveAgenteVisivel = !chaveAgenteVisivel;
+  preencher();
+});
+$('copiar-chave-agente').addEventListener('click', () => copiar(cfg.chaveAgente || '', $('res-agente')));
+$('nova-chave-agente').addEventListener('click', async () => {
+  if (!await confirmar('Gerar nova chave do agente?', 'O agente do PC da igreja é desconectado agora e só volta depois que a chave nova for colocada no agente.json.', 'Gerar nova')) return;
+  await api('POST', '/api/admin/chave', { tipo: 'agente' });
+  chaveAgenteVisivel = true;
+  await carregar();
+  mensagem($('res-agente'), 'Nova chave gerada. Copie e atualize o agente.json no PC da igreja.');
+});
+
+// ---------- Backup ----------
+
+$('form-backup').addEventListener('submit', (e) => {
+  e.preventDefault();
+  salvar({ horaBackup: valor('horaBackup'), backupsManter: numero('backupsManter') }, $('res-backup'));
+});
+
+$('baixar-agora').addEventListener('click', async () => {
+  try {
+    mensagem($('res-backup'), 'Gerando…');
+    await baixarArquivo('/api/backups/agora/download', 'diako-backup.zip');
+    mensagem($('res-backup'), 'Backup baixado.');
+  } catch (err) {
+    mensagem($('res-backup'), err.message, false);
+  }
+});
+
+$('gravar-agora').addEventListener('click', async () => {
+  try {
+    const r = await api('POST', '/api/backup');
+    mensagem($('res-backup'), 'Gravado: ' + r.nome);
+    await carregarBackups();
+  } catch (err) {
+    mensagem($('res-backup'), err.message, false);
+  }
+});
+
+async function carregarBackups() {
+  const r = await api('GET', '/api/backups');
+  const linhas = r.backups.map((b) => el('tr', {},
+    el('td', {}, el('div', { style: 'font-weight:500' }, b.nome), el('div', { class: 'dica' }, dataCurta(b.criado))),
+    el('td', {}, tamanhoLegivel(b.tamanho)),
+    el('td', { class: 'acoes-tabela' },
+      botao('Baixar', () => baixarArquivo('/api/backups/' + encodeURIComponent(b.nome) + '/download', b.nome)
+        .catch((err) => mensagem($('res-backup'), err.message, false))),
+      botao('Restaurar', () => restaurarDaLista(b.nome)),
+      botao('Excluir', async () => {
+        if (!await confirmar('Excluir backup?', b.nome, 'Excluir')) return;
+        await api('DELETE', '/api/backups/' + encodeURIComponent(b.nome));
+        await carregarBackups();
+      }, 'perigo pequeno'))));
+  $('lista-backups').replaceChildren(...(linhas.length ? linhas : [el('tr', {}, el('td', { colspan: '3', class: 'dica' }, 'Nenhum backup ainda.'))]));
+}
+
+function descreverRestauracao(r) {
+  const c = r.colecoes || {};
+  return `Restaurado: ${c.recados ?? 0} recado(s), ${c.motivos ?? 0} motivo(s), ${c.membros ?? 0} membro(s), ` +
+    `${r.cartazes} cartaz(es)${r.configuracoes ? ' e configurações' : ''}. Backup de segurança: ${r.backupSeguranca}.`;
+}
+
+const avisoRestaurar = 'Os recados, motivos de oração, aniversariantes, histórico e cartazes atuais serão substituídos pelos do backup. ' +
+  'Antes, um backup de segurança do estado atual é gravado no servidor.';
+
+async function restaurarDaLista(nome) {
+  if (!await confirmar('Restaurar ' + nome + '?', avisoRestaurar, 'Restaurar')) return;
+  const saida = $('res-restaurar');
+  try {
+    mensagem(saida, 'Restaurando…');
+    const r = await api('POST', '/api/backups/' + encodeURIComponent(nome) + '/restaurar', { configuracoes: $('restaurar-config').checked });
+    mensagem(saida, descreverRestauracao(r));
+    await carregar();
+  } catch (err) {
+    mensagem(saida, err.message, false);
+  }
+  saida.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+$('restaurar-arquivo').addEventListener('click', async () => {
+  const saida = $('res-restaurar');
+  const arquivo = $('arquivo-restaurar').files[0];
+  if (!arquivo) {
+    mensagem(saida, 'Escolha o arquivo .zip do backup.', false);
+    return;
+  }
+  if (!await confirmar('Restaurar ' + arquivo.name + '?', avisoRestaurar, 'Restaurar')) return;
+  try {
+    mensagem(saida, 'Enviando e restaurando…');
+    const q = $('restaurar-config').checked ? '?configuracoes=1' : '';
+    const r = await api('POST', '/api/backups/restaurar' + q, arquivo, { bruto: true, tipo: 'application/zip' });
+    mensagem(saida, descreverRestauracao(r));
+    $('arquivo-restaurar').value = '';
+    await carregar();
+  } catch (err) {
+    mensagem(saida, err.message, false);
+  }
+});
+
+// ---------- Senha e sessões ----------
+
+$('form-senha').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const saida = $('res-senha');
+  if ($('senhaNova').value !== $('senhaConfirma').value) {
+    mensagem(saida, 'A nova senha e a confirmação não são iguais.', false);
+    return;
+  }
+  try {
+    const r = await api('POST', '/api/admin/senha', {
+      atual: $('senhaAtual').value,
+      nova: $('senhaNova').value,
+      encerrarSessoes: $('encerrarSessoes').checked,
+    });
+    e.target.reset();
+    mensagem(saida, 'Senha trocada.' + (r.sessoesEncerradas ? ` ${r.sessoesEncerradas} aparelho(s) desconectado(s).` : ''));
+    await carregar();
+  } catch (err) {
+    mensagem(saida, err.message, false);
+  }
+});
+
+$('encerrar-sessoes').addEventListener('click', async () => {
+  if (!await confirmar('Desconectar os outros aparelhos?', 'O tablet e outros navegadores precisarão entrar de novo com a senha.', 'Desconectar')) return;
+  const r = await api('POST', '/api/admin/sessoes/encerrar');
+  mensagem($('res-sessoes'), r.sessoesEncerradas + ' aparelho(s) desconectado(s).');
+  await carregar();
+});
+
+// ---------- Início ----------
+
+async function iniciar() {
+  $('login').hidden = true;
+  $('app').hidden = false;
+  try {
+    await carregar();
+  } catch (err) {
+    if (token) mensagem($('res-igreja'), 'Não foi possível carregar as configurações: ' + err.message, false);
+  }
+}
+
+if (token) iniciar();
+else sair();

@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'package:diako_server/agente_hub.dart';
 import 'package:diako_server/app.dart';
 import 'package:diako_server/auth.dart';
 import 'package:diako_server/backup.dart';
 import 'package:diako_server/cartazes.dart';
 import 'package:diako_server/config.dart';
+import 'package:diako_server/configuracoes.dart';
 import 'package:diako_server/historico.dart';
 import 'package:diako_server/holyrics.dart';
 import 'package:diako_server/qr_oracao.dart';
@@ -30,61 +32,84 @@ Future<void> main(List<String> args) async {
 
   final store = Store(config.pastaDados);
   await store.carregar();
-  final auth = Auth(senha: config.senhaAdmin, pastaDados: config.pastaDados);
+
+  // Configurações editáveis pelo painel (/admin); o config.json vale como padrão.
+  final ip = await ipLocal() ?? '127.0.0.1';
+  final cfg = await Configuracoes.carregar(config, urlDetectada: 'http://$ip:${config.porta}');
+  final auth = Auth(conferirSenha: cfg.conferirSenha, pastaDados: config.pastaDados);
   await auth.carregar();
 
-  final ip = await ipLocal() ?? '127.0.0.1';
-  final base = config.urlPublica.isNotEmpty ? config.urlPublica : 'http://$ip:${config.porta}';
-  final urlOracao = '$base/oracao';
-  await gravarQr(config.pastaCartazes, urlOracao);
+  final base = cfg.urlBase;
+  await gravarQr(config.pastaCartazes, cfg.urlOracao);
 
   final backup = Backup(
     pastaDados: config.pastaDados,
     pastaDestino: config.pastaBackup,
-    horario: config.horaBackup,
-    configSemSegredos: {
-      'porta': config.porta,
-      'holyrics': {'host': config.holyricsHost, 'porta': config.holyricsPorta},
-      'pastaImagensHolyrics': config.pastaImagensHolyrics,
-      'pastaBackup': config.pastaBackup,
-      'horaBackup': config.horaBackup,
-      'urlPublica': config.urlPublica,
-    },
+    pastaCartazes: config.pastaCartazes,
+    horario: () => cfg.horaBackup,
+    manter: () => cfg.backupsManter,
+    configuracoes: cfg.publicas,
   )..agendar();
+
+  final modoAgente = config.modoHolyrics == ModoHolyrics.agente;
+  final agente = modoAgente ? HolyricsViaAgente() : null;
+  final online = modoAgente || config.confiarProxy;
 
   final servidor = Servidor(
     store: store,
     auth: auth,
-    holyrics: HolyricsProxy(host: config.holyricsHost, porta: config.holyricsPorta, token: config.holyricsToken),
+    holyrics: agente ?? HolyricsDireto(host: cfg.holyricsHost, porta: cfg.holyricsPorta, token: cfg.holyricsToken),
     cartazes: Cartazes(config.pastaCartazes),
     backup: backup,
     pastaWeb: config.pastaWeb,
-    urlOracao: urlOracao,
+    urlOracao: cfg.urlOracao,
     cartazesNoHolyrics: config.pastaImagensHolyrics.isNotEmpty,
     historico: Historico(config.pastaDados),
     versao: versao,
+    agente: agente,
+    confiarProxy: config.confiarProxy,
+    cfg: cfg,
+    senhaMinima: online ? 10 : 6,
+    restauracao: Restauracao(
+      store: store,
+      backup: backup,
+      pastaDados: config.pastaDados,
+      pastaCartazes: config.pastaCartazes,
+      aplicarConfiguracoes: (dados) async {
+        await cfg.restaurarPublicas(dados);
+        await gravarQr(config.pastaCartazes, cfg.urlOracao);
+        store.avisar('cartazes');
+      },
+    ),
   );
 
-  final http = await io.serve(servidor.handler, InternetAddress.anyIPv4, config.porta);
+  final http = await io.serve(servidor.handler, config.endereco, config.porta);
+  final mural = cfg.chaveMural.isEmpty ? '$base/mural' : '$base/mural?chave=${cfg.chaveMural}';
   stdout.writeln('''
-Diako News $versao rodando.
+Diako News $versao rodando em ${config.endereco}:${config.porta}.
   Painel:              $base/painel
-  Pedidos de oração:   $urlOracao
-  Mural (TV):          $base/mural
+  Pedidos de oração:   ${cfg.urlOracao}
+  Mural (TV):          $mural
   No tablet, use o endereço: $base
+  Holyrics:            ${modoAgente ? 'pelo agente no PC da igreja (aguardando conexão)' : 'direto em ${cfg.holyricsHost}:${cfg.holyricsPorta}'}
   Cartazes e QR em:    ${config.pastaCartazes}
-  Backup:              ${backup.configurado ? '${config.pastaBackup} às ${config.horaBackup}' : 'desativado (defina pastaBackup)'}
+  Backup:              ${backup.pastaDestino} às ${cfg.horaBackup}
+  Administração:       $base/admin
 ''');
-  if (config.holyricsToken.isEmpty) {
+  if (!modoAgente && cfg.holyricsToken.isEmpty) {
     stdout.writeln('Atenção: token do Holyrics vazio. Os comandos de projeção não vão funcionar.');
   }
 
-  ProcessSignal.sigint.watch().listen((_) async {
+  Future<void> encerrar() async {
     backup.parar();
     await http.close();
     await store.fechar();
     exit(0);
-  });
+  }
+
+  ProcessSignal.sigint.watch().listen((_) => encerrar());
+  // systemd para o serviço com SIGTERM (não existe no Windows).
+  if (!Platform.isWindows) ProcessSignal.sigterm.watch().listen((_) => encerrar());
 }
 
 String _configPadrao() {

@@ -15,10 +15,12 @@ Remove-Item (Join-Path $PSScriptRoot 'dist') -Recurse -Force -ErrorAction Silent
 New-Item -ItemType Directory -Force $saida | Out-Null
 
 dart compile exe "-DVERSAO=$Versao" bin\diako_server.dart -o (Join-Path $saida 'diako_server.exe')
-if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar.' }
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar o servidor.' }
+dart compile exe "-DVERSAO=$Versao" bin\diako_agente.dart -o (Join-Path $saida 'diako_agente.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar o agente.' }
 
 Copy-Item web $saida -Recurse
-Copy-Item config.example.json, instalar.ps1, LEIA-ME.md $saida
+Copy-Item config.example.json, agente.example.json, instalar.ps1, LEIA-ME.md $saida
 $zip = Join-Path $PSScriptRoot "dist\DiakoServer-$Versao.zip"
 Compress-Archive -Path $saida -DestinationPath $zip -Force
 Write-Host "Pacote gerado: $zip" -ForegroundColor Green

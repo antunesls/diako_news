@@ -36,7 +36,7 @@ Future<Servidor> criar({DateTime? agora, LimiteTaxa? limitePedidos}) async {
   File(p.join(web.path, 'oracao.html')).writeAsStringSync('<h1>oracao</h1>');
   File(p.join(web.path, 'painel.html')).writeAsStringSync('<h1>painel</h1>');
   chamadasHolyrics = [];
-  final holyrics = HolyricsProxy(
+  final holyrics = HolyricsDireto(
     host: '127.0.0.1',
     porta: 8091,
     token: 'tk',
@@ -50,7 +50,7 @@ Future<Servidor> criar({DateTime? agora, LimiteTaxa? limitePedidos}) async {
     auth: auth,
     holyrics: holyrics,
     cartazes: Cartazes(p.join(tmp.path, 'imagens', 'Diako')),
-    backup: Backup(pastaDados: dados, pastaDestino: p.join(tmp.path, 'backup'), horario: '03:00', configSemSegredos: {'porta': 8080}),
+    backup: Backup(pastaDados: dados, pastaDestino: p.join(tmp.path, 'backup')),
     pastaWeb: web.path,
     urlOracao: 'http://192.168.0.10:8080/oracao',
     cartazesNoHolyrics: true,
@@ -274,7 +274,7 @@ void main() {
     });
 
     test('Holyrics fora do ar vira erro no formato do Holyrics', () async {
-      final proxy = HolyricsProxy(host: 'h', porta: 1, token: 't', cliente: MockClient((_) async => throw const SocketException('x')));
+      final proxy = HolyricsDireto(host: 'h', porta: 1, token: 't', cliente: MockClient((_) async => throw const SocketException('x')));
       final r = await proxy.chamar('GetCPInfo', '{}');
       expect(jsonDecode(r.corpo)['status'], 'error');
       expect(await proxy.conectado(), isFalse);
@@ -287,9 +287,8 @@ void main() {
       final b = Backup(
         pastaDados: p.join(tmp.path, 'data'),
         pastaDestino: p.join(tmp.path, 'backup'),
-        horario: '03:00',
-        configSemSegredos: {'porta': 8080},
-        manter: 3,
+        manter: () => 3,
+        configuracoes: () => {'nomeIgreja': 'Teste'},
       );
       for (var d = 1; d <= 5; d++) {
         await b.executar(agora: DateTime(2026, 10, d));
@@ -300,7 +299,8 @@ void main() {
       final zip = ZipDecoder().decodeBytes(File(p.join(tmp.path, 'backup', arquivos.last)).readAsBytesSync());
       final recados = zip.findFile('data/recados.json')!;
       expect(utf8.decode(recados.content), contains('No backup'));
-      expect(zip.findFile('config-sem-senhas.json'), isNotNull);
+      expect(zip.findFile('configuracoes.json'), isNotNull);
+      expect(zip.findFile('manifest.json'), isNotNull);
       expect(zip.files.any((f) => f.name.contains('sessoes')), isFalse);
       expect(await b.ultimo(), DateTime(2026, 10, 5));
     });

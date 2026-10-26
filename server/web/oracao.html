@@ -22,8 +22,8 @@
   <header><img src="/logo.png" alt="Igreja Diakonia Tulipas"></header>
 
   <section id="formulario">
-    <h1>Pedido de oração</h1>
-    <p class="intro">Conte para nós como podemos orar por você. O pastor recebe todos os pedidos.</p>
+    <h1 id="titulo">Pedido de oração</h1>
+    <p class="intro" id="intro">Conte para nós como podemos orar por você. O pastor recebe todos os pedidos.</p>
 
     <form id="form" class="cartao" novalidate>
       <div class="campo">
@@ -73,7 +73,7 @@
 
   <section id="obrigado" class="cartao" hidden>
     <h2>Recebemos seu pedido 🙏</h2>
-    <p>Estaremos orando por você.</p>
+    <p id="obrigado-texto">Estaremos orando por você.</p>
     <button type="button" class="botao secundario" id="outro">Enviar outro pedido</button>
   </section>
 </main>
@@ -85,6 +85,16 @@
   const enviar = document.getElementById('enviar');
 
   motivo.addEventListener('input', () => { contador.textContent = motivo.value.length + '/500'; });
+
+  // Textos configurados na página de administração.
+  fetch('/api/public/site').then((r) => r.ok ? r.json() : null).then((s) => {
+    if (!s) return;
+    if (s.pedidoTitulo) document.getElementById('titulo').textContent = s.pedidoTitulo;
+    document.getElementById('intro').textContent = s.pedidoIntro || '';
+    document.getElementById('intro').hidden = !s.pedidoIntro;
+    if (s.pedidoObrigado) document.getElementById('obrigado-texto').textContent = s.pedidoObrigado;
+    if (s.nomeIgreja) document.title = (s.pedidoTitulo || 'Pedido de oração') + ' — ' + s.nomeIgreja;
+  }).catch(() => {});
 
   function mostrarErro(msg) {
     erro.textContent = msg;
@@ -124,7 +134,7 @@
       document.getElementById('formulario').hidden = true;
       document.getElementById('obrigado').hidden = false;
     } catch (err) {
-      mostrarErro(err.message === 'Failed to fetch' ? 'Sem conexão com o servidor da igreja. Verifique se está no Wi-Fi da igreja.' : err.message);
+      mostrarErro(err.message === 'Failed to fetch' ? 'Sem conexão com o servidor. Verifique sua internet e tente de novo.' : err.message);
     } finally {
       enviar.disabled = false;
       enviar.textContent = 'Enviar pedido';

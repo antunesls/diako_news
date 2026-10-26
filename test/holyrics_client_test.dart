@@ -25,7 +25,21 @@ void main() {
       expect(normalizarServidor('192.168.0.10'), 'http://192.168.0.10:8080');
       expect(normalizarServidor(' 192.168.0.10:9000/ '), 'http://192.168.0.10:9000');
       expect(normalizarServidor('http://pc-igreja:8080'), 'http://pc-igreja:8080');
+      expect(normalizarServidor('pc-igreja'), 'http://pc-igreja:8080');
+      expect(normalizarServidor('localhost'), 'http://localhost:8080');
       expect(normalizarServidor(''), '');
+    });
+
+    test('domínio vira https sem porta', () {
+      expect(normalizarServidor('diako.minhaigreja.com.br'), 'https://diako.minhaigreja.com.br');
+      expect(normalizarServidor('diako.minhaigreja.com.br/'), 'https://diako.minhaigreja.com.br');
+      expect(normalizarServidor('https://diako.minhaigreja.com.br'), 'https://diako.minhaigreja.com.br');
+      expect(normalizarServidor('diako.minhaigreja.com.br:8443'), 'http://diako.minhaigreja.com.br:8443');
+    });
+
+    test('WebSocket usa wss com https', () {
+      final api = ServerApi(() => const ServidorConfig(base: 'https://diako.minhaigreja.com.br', sessao: 's'));
+      expect(api.wsUri().toString(), 'wss://diako.minhaigreja.com.br/ws?token=s');
     });
   });
 

@@ -1,0 +1,10 @@
+{
+  "servidor": "https://diako.minhaigreja.com.br",
+  "chaveAgente": "COLE AQUI A CHAVE MOSTRADA NA INSTALAÇÃO DO SERVIDOR",
+  "holyrics": {
+    "host": "127.0.0.1",
+    "porta": 8091,
+    "token": "TOKEN DO HOLYRICS"
+  },
+  "pastaImagensHolyrics": "C:\\caminho\\da\\pasta\\de\\imagens\\do\\Holyrics"
+}

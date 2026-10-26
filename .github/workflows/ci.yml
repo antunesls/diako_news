@@ -24,6 +24,15 @@ jobs:
           dart pub get
           dart analyze --fatal-infos
           dart test
+      - name: Compilar servidor e agente (Linux)
+        working-directory: server
+        run: |
+          dart compile exe bin/diako_server.dart -o /tmp/diako_server
+          dart compile exe bin/diako_agente.dart -o /tmp/diako_agente
+      - name: Verificar scripts de instalação
+        run: |
+          for f in server/deploy/instalar-lxc.sh server/empacotar-linux.sh tool/ci/*.sh; do bash -n "$f"; done
+          shellcheck -S warning server/deploy/instalar-lxc.sh server/empacotar-linux.sh
 
   app:
     name: App Android

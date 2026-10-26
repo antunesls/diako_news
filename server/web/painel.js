@@ -1,78 +1,10 @@
 'use strict';
 
-// ---------- Utilitários ----------
-
-let token = localStorage.getItem('diako_token');
-
-async function api(metodo, caminho, corpo, { bruto = false, tipo } = {}) {
-  const headers = { Authorization: 'Bearer ' + token };
-  let body;
-  if (bruto) {
-    body = corpo;
-    if (tipo) headers['Content-Type'] = tipo;
-  } else if (corpo !== undefined) {
-    body = typeof corpo === 'string' ? corpo : JSON.stringify(corpo);
-    headers['Content-Type'] = typeof corpo === 'string' ? 'text/plain; charset=utf-8' : 'application/json';
-  }
-  const r = await fetch(caminho, { method: metodo, headers, body });
-  if (r.status === 401) {
-    sair();
-    throw new Error('Sessão expirada. Entre novamente.');
-  }
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.erro || 'Erro ' + r.status);
-  return j;
-}
-
-/** Cria elementos sem innerHTML (o conteúdo vem de usuários). */
-function el(tag, props = {}, ...filhos) {
-  const e = document.createElement(tag);
-  for (const [k, v] of Object.entries(props)) {
-    if (v === undefined || v === null || v === false) continue;
-    if (k === 'class') e.className = v;
-    else if (k === 'style') e.style.cssText = v;
-    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
-    else e.setAttribute(k, v === true ? '' : v);
-  }
-  for (const f of filhos.flat()) if (f !== null && f !== undefined && f !== false) e.append(f);
-  return e;
-}
-
-const $ = (id) => document.getElementById(id);
-const botao = (texto, onclick, classe = 'secundario pequeno') => el('button', { class: 'botao ' + classe, type: 'button', onclick }, texto);
-
-function mensagem(alvo, texto, ok = true) {
-  alvo.textContent = texto;
-  alvo.className = ok ? 'sucesso' : 'erro';
-}
-
-function dataCurta(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
-    d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
+// Utilitários (api, el, $, botao, mensagem, abrirDialogo...) ficam em comum.js.
 
 const CATEGORIAS = { aviso: ['Aviso', '#42A5F5'], evento: ['Evento', '#66BB6A'], aniversario: ['Aniversário', '#FFA726'] };
 const TIPOS = { saude: 'Saúde', familia: 'Família', trabalho: 'Trabalho', gratidao: 'Gratidão', outro: 'Outro' };
 const ORIGENS = { site: 'pelo site', app: 'pelo tablet', painel: 'pelo painel' };
-
-/** Abre um <dialog>; [salvar] devolve uma mensagem de erro ou nada. */
-function abrirDialogo(dialogo, erroEl, salvar) {
-  erroEl.hidden = true;
-  const form = dialogo.querySelector('form');
-  form.onsubmit = async (e) => {
-    if (e.submitter && e.submitter.value === 'cancelar') return;
-    e.preventDefault();
-    try {
-      await salvar();
-      dialogo.close();
-    } catch (err) {
-      erroEl.textContent = err.message;
-      erroEl.hidden = false;
-    }
-  };
-  dialogo.showModal();
-}
 
 // ---------- Login ----------
 
@@ -439,6 +371,9 @@ async function carregarStatus() {
     el('span', {}, rotulo),
     el('strong', {}, ok === undefined ? null : el('span', { class: 'ponto', style: 'background:' + (ok ? '#1e7d3a' : '#b3261e') }), valor));
   $('status-linhas').replaceChildren(
+    estado.modo === 'agente'
+      ? linha('PC da igreja (agente)', estado.agenteConectado ? 'Conectado' + (estado.agenteVersao ? ' · ' + estado.agenteVersao : '') : 'Desconectado' + (estado.agenteVistoEm ? ' · visto ' + dataCurta(estado.agenteVistoEm) : ''), estado.agenteConectado)
+      : null,
     linha('Holyrics', estado.holyricsConectado ? 'Conectado' : 'Sem conexão', estado.holyricsConectado),
     linha('Cartazes no Holyrics', estado.cartazesNoHolyrics ? 'Sim' : 'Não configurado', estado.cartazesNoHolyrics),
     linha('Backup', estado.backupConfigurado ? (estado.ultimoBackup ? 'Último: ' + dataCurta(estado.ultimoBackup) : 'Ainda não feito') : 'Desativado', estado.backupConfigurado),
@@ -446,7 +381,8 @@ async function carregarStatus() {
     linha('Versão do servidor', estado.versao));
   $('link-oracao').textContent = estado.urlOracao;
   $('link-oracao').href = estado.urlOracao;
-  const urlMural = estado.urlOracao.replace(/\/oracao$/, '/mural');
+  const urlMural = estado.urlOracao.replace(/\/oracao$/, '/mural') +
+    (estado.chaveMural ? '?chave=' + encodeURIComponent(estado.chaveMural) : '');
   $('link-mural').textContent = urlMural;
   $('link-mural').href = urlMural;
   $('backup-agora').disabled = !estado.backupConfigurado;

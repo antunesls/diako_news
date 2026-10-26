@@ -80,7 +80,7 @@ _25/10 a 31/10_
 🙌 *Orações respondidas*
 • Ana — Emprego — Contratada!
 
-Pedidos de oração (no Wi-Fi da igreja): http://192.168.0.10:8080/oracao''');
+Pedidos de oração: http://192.168.0.10:8080/oracao''');
     });
 
     test('semana vazia tem só o cabeçalho', () {

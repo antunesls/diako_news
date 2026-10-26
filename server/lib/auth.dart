@@ -8,9 +8,12 @@ import 'package:shelf/shelf.dart';
 /// Login por senha única do administrador, com sessões persistidas em data/sessoes.json
 /// (o tablet não precisa logar de novo quando o servidor reinicia).
 class Auth {
-  Auth({required this.senha, required String pastaDados}) : _arquivo = File(p.join(pastaDados, 'sessoes.json'));
+  /// Use [senha] (fixa) ou [conferirSenha] (ex: Configuracoes.conferirSenha, que permite trocar pelo painel).
+  Auth({String? senha, bool Function(String)? conferirSenha, required String pastaDados})
+      : _conferir = conferirSenha ?? ((s) => iguaisSeguro(s, senha ?? '')),
+        _arquivo = File(p.join(pastaDados, 'sessoes.json'));
 
-  final String senha;
+  final bool Function(String) _conferir;
   final File _arquivo;
   final Map<String, DateTime> _sessoes = {};
   final _tentativas = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 1));
@@ -31,7 +34,7 @@ class Auth {
   /// Lança [LimiteExcedido] após muitas tentativas do mesmo IP.
   Future<String?> login(String senhaInformada, String ip) async {
     if (!_tentativas.permitir(ip)) throw LimiteExcedido();
-    if (!_iguais(senhaInformada, senha)) return null;
+    if (!_conferir(senhaInformada)) return null;
     final bytes = List<int>.generate(32, (_) => _rng.nextInt(256));
     final token = base64Url.encode(bytes).replaceAll('=', '');
     _sessoes[token] = DateTime.now().add(validade);
@@ -42,6 +45,20 @@ class Auth {
   Future<void> logout(String token) async {
     if (_sessoes.remove(token) != null) await _salvar();
   }
+
+  /// Aparelhos conectados (sessões válidas).
+  int get quantidade => _sessoes.values.where((d) => d.isAfter(DateTime.now())).length;
+
+  /// Desconecta todos os aparelhos, menos a sessão [manter] (quem pediu). Retorna quantos saíram.
+  Future<int> encerrarOutras(String? manter) async {
+    final antes = _sessoes.length;
+    _sessoes.removeWhere((t, _) => t != manter);
+    await _salvar();
+    return antes - _sessoes.length;
+  }
+
+  /// Confere a senha sem criar sessão (ex: para trocar a senha).
+  bool conferir(String senha) => _conferir(senha);
 
   bool valido(String? token) {
     if (token == null) return false;
@@ -67,16 +84,21 @@ class Auth {
     await tmp.rename(_arquivo.path);
   }
 
-  // Comparação em tempo constante.
-  static bool _iguais(String a, String b) {
-    final x = utf8.encode(a), y = utf8.encode(b);
-    var diff = x.length ^ y.length;
-    for (var i = 0; i < min(x.length, y.length); i++) {
-      diff |= x[i] ^ y[i];
-    }
-    return diff == 0;
-  }
 }
+
+/// Compara segredos em tempo constante.
+bool iguaisSeguro(String a, String b) {
+  final x = utf8.encode(a), y = utf8.encode(b);
+  var diff = x.length ^ y.length;
+  for (var i = 0; i < min(x.length, y.length); i++) {
+    diff |= x[i] ^ y[i];
+  }
+  return diff == 0;
+}
+
+/// Gera um segredo aleatório em base64url (ex: chave do agente e do mural).
+String gerarSegredo([int bytes = 24]) =>
+    base64Url.encode(List<int>.generate(bytes, (_) => _rng.nextInt(256))).replaceAll('=', '');
 
 final _rng = Random.secure();
 
@@ -103,8 +125,13 @@ class LimiteTaxa {
   }
 }
 
-/// IP de quem fez a requisição.
-String ipDe(Request req) {
+/// IP de quem fez a requisição. Atrás de um proxy reverso (Caddy) de confiança,
+/// usa o primeiro endereço do X-Forwarded-For, que é o do visitante.
+String ipDe(Request req, {bool confiarProxy = false}) {
+  if (confiarProxy) {
+    final xff = req.headers['x-forwarded-for'];
+    if (xff != null && xff.trim().isNotEmpty) return xff.split(',').first.trim();
+  }
   final info = req.context['shelf.io.connection_info'];
   return info is HttpConnectionInfo ? info.remoteAddress.address : 'desconhecido';
 }

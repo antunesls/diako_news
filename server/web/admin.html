@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administração — Diako News</title>
+<link rel="stylesheet" href="/estilo.css">
+<style>
+  .topo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 20px; background: var(--superficie); border-bottom: 1px solid #e3e1ea; }
+  .topo img { height: 40px; width: auto; }
+  .topo h1 { font-size: 18px; margin: 0; }
+  .topo .espaco { flex: 1; }
+  .layout { max-width: 1100px; margin: 0 auto; padding: 20px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  nav.secoes { flex: 0 0 220px; position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; }
+  nav.secoes a { padding: 10px 14px; border-radius: 8px; color: var(--texto); text-decoration: none; font-weight: 500; }
+  nav.secoes a:hover { background: var(--primaria-suave); }
+  main { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+  .cartao h2 { font-size: 19px; margin-bottom: 4px; }
+  .cartao > .dica { margin: 0 0 16px; }
+  .grade2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 16px; }
+  .acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+  .chave { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .chave code { flex: 1 1 260px; min-width: 0; padding: 10px 12px; border-radius: 8px; background: #f0eff5; word-break: break-all; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  th { color: var(--suave); font-weight: 600; }
+  td.acoes-tabela { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+  .tabela-rolagem { overflow-x: auto; }
+  .aviso { padding: 12px 14px; border-radius: 8px; background: #fff4e5; color: #6b3d00; font-size: 14px; margin-bottom: 12px; }
+  #login { max-width: 380px; margin: 10vh auto 0; padding: 0 16px; text-align: center; }
+  #login img { width: 260px; max-width: 80%; margin-bottom: 24px; }
+  #login form { text-align: left; }
+  @media (max-width: 760px) { nav.secoes { position: static; flex-basis: 100%; flex-direction: row; flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+
+<section id="login" hidden>
+  <img src="/logo.png" alt="Igreja Diakonia Tulipas">
+  <form id="form-login" class="cartao">
+    <h1 style="font-size:20px">Administração</h1>
+    <div class="campo">
+      <label for="senha-login">Senha</label>
+      <input type="password" id="senha-login" autocomplete="current-password" required>
+    </div>
+    <p id="erro-login" class="erro" role="alert" hidden></p>
+    <button class="botao" style="width:100%">Entrar</button>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header class="topo">
+    <img src="/logo.png" alt="Igreja Diakonia Tulipas">
+    <h1>Administração</h1>
+    <span class="espaco"></span>
+    <a class="botao secundario pequeno" href="/painel">Voltar ao painel</a>
+    <button class="botao secundario pequeno" id="sair">Sair</button>
+  </header>
+
+  <div class="layout">
+    <nav class="secoes" aria-label="Seções">
+      <a href="#igreja">Igreja e site</a>
+      <a href="#mural">Mural</a>
+      <a href="#holyrics">Holyrics</a>
+      <a href="#projecao">Projeção</a>
+      <a href="#backup">Backup e restauração</a>
+      <a href="#seguranca">Senha e aparelhos</a>
+    </nav>
+
+    <main>
+      <section class="cartao" id="igreja">
+        <h2>Igreja e site</h2>
+        <p class="dica">Nome usado no resumo da semana e textos do formulário de pedidos de oração.</p>
+        <form id="form-igreja">
+          <div class="campo"><label for="nomeIgreja">Nome da igreja</label><input type="text" id="nomeIgreja" maxlength="80" required></div>
+          <div class="campo">
+            <label for="urlPublica">Endereço público do site <span class="dica">(vai no QR code)</span></label>
+            <input type="text" id="urlPublica" maxlength="200" placeholder="">
+            <span class="dica" id="dica-url"></span>
+          </div>
+          <div class="campo"><label for="pedidoTitulo">Título do formulário de pedidos</label><input type="text" id="pedidoTitulo" maxlength="80" required></div>
+          <div class="campo"><label for="pedidoIntro">Texto de apresentação</label><textarea id="pedidoIntro" maxlength="300" style="min-height:70px"></textarea></div>
+          <div class="campo"><label for="pedidoObrigado">Mensagem depois de enviar</label><textarea id="pedidoObrigado" maxlength="300" style="min-height:70px"></textarea></div>
+          <div class="acoes"><button class="botao">Salvar</button><a class="botao secundario" href="/oracao" target="_blank">Ver formulário</a><span id="res-igreja" role="status"></span></div>
+        </form>
+      </section>
+
+      <section class="cartao" id="mural">
+        <h2>Mural da recepção</h2>
+        <p class="dica">Com chave, o mural só abre pelo link com <code>?chave=</code>. Gere uma nova se o link vazar.</p>
+        <p id="estado-mural"></p>
+        <div class="chave"><code id="link-mural"></code><button class="botao secundario pequeno" type="button" id="copiar-mural">Copiar</button></div>
+        <div class="acoes">
+          <button class="botao secundario" type="button" id="nova-chave-mural">Gerar nova chave</button>
+          <button class="botao secundario" type="button" id="desativar-chave-mural">Deixar aberto (sem chave)</button>
+          <span id="res-mural" role="status"></span>
+        </div>
+      </section>
+
+      <section class="cartao" id="holyrics">
+        <h2>Holyrics</h2>
+        <div id="holyrics-local" hidden>
+          <p class="dica">O servidor fala direto com a API Server do Holyrics (Arquivo › Configurações › API Server).</p>
+          <form id="form-holyrics">
+            <div class="grade2">
+              <div class="campo"><label for="holyricsHost">Endereço</label><input type="text" id="holyricsHost" maxlength="100" required></div>
+              <div class="campo"><label for="holyricsPorta">Porta</label><input type="number" id="holyricsPorta" min="1" max="65535" required></div>
+            </div>
+            <div class="campo">
+              <label for="holyricsToken">Token</label>
+              <input type="password" id="holyricsToken" maxlength="200" autocomplete="off">
+              <span class="dica" id="dica-token"></span>
+            </div>
+            <div class="acoes"><button class="botao">Salvar</button><button class="botao secundario" type="button" id="testar-holyrics">Testar conexão</button><span id="res-holyrics" role="status"></span></div>
+          </form>
+        </div>
+        <div id="holyrics-agente" hidden>
+          <p class="dica">O servidor está na internet. O agente instalado no PC da igreja leva os comandos ao Holyrics; o token do Holyrics fica no <code>agente.json</code> daquele PC.</p>
+          <label>Chave do agente <span class="dica">(vai no agente.json do PC da igreja)</span></label>
+          <div class="chave"><code id="chave-agente">••••••••••••</code>
+            <button class="botao secundario pequeno" type="button" id="mostrar-chave-agente">Mostrar</button>
+            <button class="botao secundario pequeno" type="button" id="copiar-chave-agente">Copiar</button>
+          </div>
+          <div class="aviso">Gerar uma nova chave desconecta o agente na hora. Depois, atualize o <code>agente.json</code> no PC da igreja e reinicie o agente.</div>
+          <div class="acoes"><button class="botao secundario" type="button" id="nova-chave-agente">Gerar nova chave</button><button class="botao secundario" type="button" id="testar-holyrics-agente">Testar conexão</button><span id="res-agente" role="status"></span></div>
+        </div>
+      </section>
+
+      <section class="cartao" id="projecao">
+        <h2>Projeção padrão</h2>
+        <p class="dica">Usada pelo painel e pelo mural. O tablet tem os próprios ajustes em Configurações.</p>
+        <form id="form-projecao">
+          <div class="grade2">
+            <div class="campo"><label for="motivosPorSlide">Motivos de oração por slide</label><input type="number" id="motivosPorSlide" min="1" max="8" required></div>
+            <div class="campo"><label for="segundosPorSlide">Segundos por slide</label><input type="number" id="segundosPorSlide" min="3" max="120" required></div>
+            <div class="campo"><label for="diasRespondidas">Orações respondidas dos últimos (dias)</label><input type="number" id="diasRespondidas" min="1" max="365" required></div>
+            <div class="campo"><label for="temaPadrao">Tema do Holyrics <span class="dica">(opcional)</span></label><input type="text" id="temaPadrao" maxlength="80"></div>
+          </div>
+          <div class="acoes"><button class="botao">Salvar</button><span id="res-projecao" role="status"></span></div>
+        </form>
+      </section>
+
+      <section class="cartao" id="backup">
+        <h2>Backup e restauração</h2>
+        <p class="dica">O backup inclui recados, motivos, aniversariantes, histórico, cartazes e configurações (sem senha, token nem chave do agente).</p>
+        <form id="form-backup">
+          <div class="grade2">
+            <div class="campo"><label for="horaBackup">Backup automático todo dia às</label><input type="time" id="horaBackup" required></div>
+            <div class="campo"><label for="backupsManter">Quantos backups manter</label><input type="number" id="backupsManter" min="1" max="365" required></div>
+          </div>
+          <p class="dica" id="pasta-backup"></p>
+          <div class="acoes">
+            <button class="botao">Salvar agenda</button>
+            <button class="botao secundario" type="button" id="baixar-agora">Baixar backup agora</button>
+            <button class="botao secundario" type="button" id="gravar-agora">Gravar backup no servidor</button>
+            <span id="res-backup" role="status"></span>
+          </div>
+        </form>
+
+        <h3 style="font-size:16px;margin-top:24px">Backups no servidor</h3>
+        <div class="tabela-rolagem">
+          <table>
+            <thead><tr><th>Arquivo</th><th>Tamanho</th><th><span class="escondido">Ações</span></th></tr></thead>
+            <tbody id="lista-backups"></tbody>
+          </table>
+        </div>
+
+        <h3 style="font-size:16px;margin-top:24px">Restaurar de um arquivo</h3>
+        <p class="dica">Use um .zip baixado daqui (deste ou de outro servidor Diako News). Antes de restaurar, um backup de segurança do estado atual é gravado.</p>
+        <div class="campo"><label for="arquivo-restaurar">Arquivo de backup (.zip)</label><input type="file" id="arquivo-restaurar" accept=".zip,application/zip"></div>
+        <div class="campo"><label class="marcar"><input type="checkbox" id="restaurar-config"><span>Restaurar também as configurações (nome, textos, endereço público, projeção, agenda)</span></label></div>
+        <div class="acoes"><button class="botao perigo" type="button" id="restaurar-arquivo">Restaurar arquivo</button><span id="res-restaurar" role="status"></span></div>
+      </section>
+
+      <section class="cartao" id="seguranca">
+        <h2>Senha e aparelhos</h2>
+        <p class="dica">A mesma senha é usada no painel, nesta página e no app do tablet.</p>
+        <form id="form-senha">
+          <div class="campo"><label for="senhaAtual">Senha atual</label><input type="password" id="senhaAtual" autocomplete="current-password" required></div>
+          <div class="grade2">
+            <div class="campo"><label for="senhaNova">Nova senha</label><input type="password" id="senhaNova" autocomplete="new-password" required></div>
+            <div class="campo"><label for="senhaConfirma">Repita a nova senha</label><input type="password" id="senhaConfirma" autocomplete="new-password" required></div>
+          </div>
+          <div class="campo"><label class="marcar"><input type="checkbox" id="encerrarSessoes" checked><span>Desconectar os outros aparelhos (tablet e outros navegadores precisarão entrar de novo)</span></label></div>
+          <div class="acoes"><button class="botao">Trocar senha</button><span id="res-senha" role="status"></span></div>
+        </form>
+        <h3 style="font-size:16px;margin-top:24px">Aparelhos conectados</h3>
+        <p id="qtd-sessoes"></p>
+        <div class="acoes"><button class="botao secundario" type="button" id="encerrar-sessoes">Desconectar todos os outros aparelhos</button><span id="res-sessoes" role="status"></span></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<dialog id="dlg-confirmar">
+  <form method="dialog">
+    <h2 style="font-size:20px" id="titulo-confirmar">Confirmar</h2>
+    <p id="texto-confirmar"></p>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="botao secundario" value="cancelar">Cancelar</button>
+      <button class="botao perigo" value="ok" id="botao-confirmar">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/comum.js"></script>
+<script src="/admin.js"></script>
+</body>
+</html>

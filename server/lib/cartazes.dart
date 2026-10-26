@@ -14,6 +14,15 @@ class Cartazes {
   static const tamanhoMaximo = 10 * 1024 * 1024;
   static const extensoes = {'.jpg', '.jpeg', '.png'};
 
+  /// Nome simples de imagem, sem pastas nem caminhos (seguro para gravar na pasta de cartazes).
+  static bool nomeValido(String nome) =>
+      nome.isNotEmpty &&
+      nome == p.basename(nome) &&
+      !nome.startsWith('.') &&
+      !nome.contains('\\') &&
+      !nome.contains('/') &&
+      extensoes.contains(p.extension(nome).toLowerCase());
+
   Future<List<({String nome, int tamanho, DateTime modificado})>> listar() async {
     final dir = Directory(pasta);
     if (!await dir.exists()) return [];

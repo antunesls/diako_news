@@ -49,7 +49,7 @@ String montarResumoSemanal({
   if (urlPedidos != null && urlPedidos.isNotEmpty) {
     b
       ..writeln()
-      ..writeln('Pedidos de oração (no Wi-Fi da igreja): $urlPedidos');
+      ..writeln('Pedidos de oração: $urlPedidos');
   }
   return b.toString().trimRight();
 }

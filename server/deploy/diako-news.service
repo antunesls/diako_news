@@ -1,0 +1,16 @@
+[Unit]
+Description=Diako News (recados e motivos de oração para o Holyrics)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=diako
+Group=diako
+WorkingDirectory=/opt/diako-news
+ExecStart=/opt/diako-news/diako_server /opt/diako-news/config.json
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

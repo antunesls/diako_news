@@ -120,8 +120,8 @@ class _SettingsPageState extends State<SettingsPage> {
             Text('Servidor da igreja', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              'O endereço e a senha aparecem no PC do Holyrics quando o servidor Diako News é instalado '
-              '(ex: 192.168.0.10:8080). O tablet precisa estar no Wi-Fi da igreja.',
+              'O endereço e a senha são definidos na instalação do servidor Diako News '
+              '(ex: diako.minhaigreja.com.br ou 192.168.0.10:8080).',
               style: TextStyle(color: esquema.outline),
             ),
             const SizedBox(height: 16),

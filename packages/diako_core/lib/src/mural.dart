@@ -74,7 +74,7 @@ List<SlideMural> montarMural({
   }
 
   if (urlQr != null) {
-    slides.add(SlideMural.qr('Deixe seu pedido de oração', 'Aponte a câmera do celular (Wi-Fi da igreja)', urlQr));
+    slides.add(SlideMural.qr('Deixe seu pedido de oração', 'Aponte a câmera do celular', urlQr));
   }
   return slides;
 }

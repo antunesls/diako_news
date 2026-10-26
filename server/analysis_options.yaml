@@ -1,0 +1,4 @@
+# Análise própria deste pacote (o analysis_options.yaml da raiz exclui esta pasta).
+analyzer:
+  language:
+    strict-casts: false

@@ -11,10 +11,12 @@ import 'package:shelf_static/shelf_static.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'agente_hub.dart';
 import 'auth.dart';
 import 'backup.dart';
 import 'cartazes.dart';
 import 'config.dart';
+import 'configuracoes.dart';
 import 'historico.dart';
 import 'holyrics.dart';
 import 'qr_oracao.dart';
@@ -29,24 +31,58 @@ class Servidor {
     required this.cartazes,
     required this.backup,
     required this.pastaWeb,
-    required this.urlOracao,
+    required String urlOracao,
     required this.cartazesNoHolyrics,
     required this.historico,
     this.versao = 'dev',
+    this.agente,
+    String chaveAgente = '',
+    String chaveMural = '',
+    this.confiarProxy = false,
+    this.cfg,
+    this.restauracao,
+    this.senhaMinima = 6,
     DateTime Function()? relogio,
     LimiteTaxa? limitePedidos,
-  })  : _agora = relogio ?? DateTime.now,
-        _limitePedidos = limitePedidos ?? LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
+  })  : _urlOracaoFixa = urlOracao,
+        _chaveAgenteFixa = chaveAgente,
+        _chaveMuralFixa = chaveMural,
+        _agora = relogio ?? DateTime.now,
+        _limitePedidos = limitePedidos ?? LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10)) {
+    // No modo agente, cada mudança nos cartazes é copiada para o PC da igreja.
+    if (agente != null) {
+      store.mudancas.where((t) => t == 'cartazes').listen((_) => agente!.pedirSincronizacao());
+    }
+  }
 
   final Historico historico;
   final String versao;
   final Store store;
   final Auth auth;
-  final HolyricsProxy holyrics;
+  final PonteHolyrics holyrics;
+
+  /// Presente no modo agente (servidor na internet).
+  final HolyricsViaAgente? agente;
+  final bool confiarProxy;
   final Cartazes cartazes;
   final Backup backup;
   final String pastaWeb;
-  final String urlOracao;
+
+  /// Configurações editáveis pela página /admin. Sem elas, valem os valores fixos do construtor.
+  final Configuracoes? cfg;
+  final Restauracao? restauracao;
+
+  /// Tamanho mínimo da senha ao trocar pelo painel (10 quando o servidor está na internet).
+  final int senhaMinima;
+
+  final String _urlOracaoFixa;
+  final String _chaveAgenteFixa;
+  final String _chaveMuralFixa;
+
+  String get urlOracao => cfg?.urlOracao ?? _urlOracaoFixa;
+  String get chaveAgente => cfg?.chaveAgente ?? _chaveAgenteFixa;
+  String get chaveMural => cfg?.chaveMural ?? _chaveMuralFixa;
+  String get nomeIgreja => cfg?.nomeIgreja ?? Configuracoes.nomeIgrejaPadrao;
 
   /// false quando "pastaImagensHolyrics" não foi configurada (cartazes ficam em data/cartazes).
   final bool cartazesNoHolyrics;
@@ -61,8 +97,12 @@ class Servidor {
       ..get('/', (Request _) => Response.found('/painel'))
       ..get('/oracao', (Request _) => _pagina('oracao.html'))
       ..get('/painel', (Request _) => _pagina('painel.html'))
-      ..get('/mural', (Request _) => _pagina('mural.html'))
-      ..get('/api/public/mural', _mural)
+      ..get('/mural', (Request req) => _chaveMuralOk(req) ? _pagina('mural.html') : _semChaveMural())
+      ..get('/api/public/mural', (Request req) => _chaveMuralOk(req) ? _mural(req) : _semChaveMural())
+      // Agente do PC da igreja (modo agente)
+      ..get('/agente/ws', _agenteWs)
+      ..get('/agente/cartazes', _agenteListarCartazes)
+      ..get('/agente/cartazes/<nome>', _agenteBaixarCartaz)
       ..get('/qr-oracao.png', (Request _) => _arquivo(File(p.join(cartazes.pasta, arquivoQr))))
       ..get('/cartazes/<nome>', (Request _, String nome) => _arquivo(cartazes.arquivo(nome)))
       ..post('/api/login', _login)
@@ -97,15 +137,49 @@ class Servidor {
       ..get('/api/historico', _historico)
       ..get('/api/resumo-semanal', _resumoSemanal)
       ..post('/api/backup', _backupAgora)
+      ..get('/api/backups', _listarBackups)
+      ..get('/api/backups/agora/download', _baixarBackupAgora)
+      ..get('/api/backups/<nome>/download', _baixarBackup)
+      ..delete('/api/backups/<nome>', _excluirBackup)
+      ..post('/api/backups/restaurar', _restaurarDeArquivo)
+      ..post('/api/backups/<nome>/restaurar', _restaurarDaLista)
+      // Administração
+      ..get('/admin', (Request _) => _pagina('admin.html'))
+      ..get('/api/public/site', _site)
+      ..get('/api/admin/configuracoes', _adminConfiguracoes)
+      ..put('/api/admin/configuracoes', _adminSalvar)
+      ..post('/api/admin/chave', _adminNovaChave)
+      ..post('/api/admin/senha', _adminSenha)
+      ..post('/api/admin/sessoes/encerrar', _adminEncerrarSessoes)
+      ..post('/api/admin/testar-holyrics', _adminTestarHolyrics)
       ..get('/ws', webSocketHandler(_conectarWs));
 
     final estaticos = createStaticHandler(pastaWeb);
     final cascata = Cascade().add(r.call).add(estaticos).handler;
     return const Pipeline()
+        .addMiddleware(_cabecalhosSeguranca)
         .addMiddleware(_tratarErros)
         .addMiddleware(auth.middleware(_rotaPublica))
         .addHandler(cascata);
   }
+
+  String _ip(Request req) => ipDe(req, confiarProxy: confiarProxy);
+
+  bool _chaveMuralOk(Request req) =>
+      chaveMural.isEmpty || iguaisSeguro(req.url.queryParameters['chave'] ?? '', chaveMural);
+
+  static Response _semChaveMural() =>
+      Response.forbidden('Mural protegido: use o link com a chave (aba Status do painel).',
+          headers: {'content-type': 'text/plain; charset=utf-8'});
+
+  static Middleware get _cabecalhosSeguranca => (inner) => (req) async {
+        final r = await inner(req);
+        return r.change(headers: {
+          'x-content-type-options': 'nosniff',
+          'referrer-policy': 'same-origin',
+          'content-security-policy': "frame-ancestors 'none'",
+        });
+      };
 
   static bool _rotaPublica(Request req) {
     final caminho = req.url.path;
@@ -119,7 +193,7 @@ class Servidor {
   Future<Response> _login(Request req) async {
     final corpo = await _corpo(req);
     try {
-      final token = await auth.login(corpo['senha'] as String? ?? '', ipDe(req));
+      final token = await auth.login(corpo['senha'] as String? ?? '', _ip(req));
       if (token == null) return _erro(401, 'Senha incorreta.');
       return _json({'token': token});
     } on LimiteExcedido {
@@ -143,7 +217,12 @@ class Servidor {
       'holyricsConectado': await holyrics.conectado(),
       'urlOracao': urlOracao,
       'qrHolyrics': qrHolyrics,
-      'cartazesNoHolyrics': cartazesNoHolyrics,
+      'cartazesNoHolyrics': agente != null ? agente!.agenteConectado : cartazesNoHolyrics,
+      'modo': agente != null ? 'agente' : 'local',
+      'agenteConectado': agente?.agenteConectado,
+      'agenteVistoEm': agente?.vistoEm?.toIso8601String(),
+      'agenteVersao': agente?.versaoAgente,
+      'chaveMural': chaveMural.isEmpty ? null : chaveMural,
       'backupConfigurado': backup.configurado,
       'ultimoBackup': ultimo?.toIso8601String(),
       'aguardandoAprovacao':
@@ -264,7 +343,7 @@ class Servidor {
     final corpo = await _corpo(req);
     // Campo escondido: só robôs preenchem. Responde "ok" para não dar pista.
     if ((corpo['website'] as String? ?? '').isNotEmpty) return _json({'ok': true});
-    if (!_limitePedidos.permitir(ipDe(req))) {
+    if (!_limitePedidos.permitir(_ip(req))) {
       return _erro(429, 'Você enviou vários pedidos seguidos. Tente novamente em alguns minutos.');
     }
     String texto(String campo) => (corpo[campo] as String? ?? '').trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -400,11 +479,12 @@ class Servidor {
   /// Corpo opcional: {"tema": "...", "segundos": 10, "porSlide": 3, "dias": 30}
   Future<Response> _projetarRespondidas(Request req) async {
     final corpo = await _corpo(req);
-    final respondidas = oracoesRespondidas(_motivos(), _agora(), dias: (corpo['dias'] as num?)?.toInt() ?? 30);
-    if (respondidas.isEmpty) return _erro(400, 'Nenhuma oração respondida (pública) nos últimos dias.');
+    final dias = (corpo['dias'] as num?)?.toInt() ?? cfg?.diasRespondidas ?? 30;
+    final respondidas = oracoesRespondidas(_motivos(), _agora(), dias: dias);
+    if (respondidas.isEmpty) return _erro(400, 'Nenhuma oração respondida (pública) nos últimos $dias dias.');
     final slides = montarSlidesGratidao(respondidas, porSlide: (corpo['porSlide'] as num?)?.toInt() ?? 3);
-    final segundos = (corpo['segundos'] as num?)?.toInt() ?? 10;
-    final tema = corpo['tema'] as String? ?? '';
+    final segundos = (corpo['segundos'] as num?)?.toInt() ?? cfg?.segundosPorSlide ?? 10;
+    final tema = corpo['tema'] as String? ?? cfg?.temaPadrao ?? '';
     return _chamarHolyrics(
       'ShowQuickPresentation',
       jsonEncode({
@@ -426,6 +506,7 @@ class Servidor {
           motivos: _motivos(),
           membros: _membros(),
           agora: _agora(),
+          igreja: nomeIgreja,
           urlPedidos: urlOracao,
         ),
       });
@@ -443,14 +524,170 @@ class Servidor {
         return cartazes.arquivo(nome)?.existsSync() == true ? '/cartazes/${Uri.encodeComponent(nome)}' : null;
       },
       urlQr: '/qr-oracao.png',
+      motivosPorSlide: cfg?.motivosPorSlide ?? 5,
     );
     return _json({'atualizado': _agora().toIso8601String(), 'slides': [for (final s in slides) s.toJson()]});
   }
 
+  /// Textos públicos do site (formulário de pedidos).
+  Response _site(Request _) => _json({
+        'nomeIgreja': nomeIgreja,
+        'pedidoTitulo': cfg?.pedidoTitulo ?? 'Pedido de oração',
+        'pedidoIntro': cfg?.pedidoIntro ?? '',
+        'pedidoObrigado': cfg?.pedidoObrigado ?? 'Estaremos orando por você.',
+      });
+
+  // ---------- Backup e restauração ----------
+
   Future<Response> _backupAgora(Request _) async {
-    if (!backup.configurado) return _erro(400, 'Defina "pastaBackup" no config.json do servidor.');
-    final f = await backup.executar();
-    return _json({'arquivo': f.path});
+    final f = await backup.executar(sufixo: '');
+    return _json({'arquivo': f.path, 'nome': p.basename(f.path)});
+  }
+
+  Future<Response> _listarBackups(Request _) async {
+    final lista = await backup.listar();
+    return _json({
+      'pasta': backup.pastaDestino,
+      'horario': backup.horario,
+      'ultimo': (await backup.ultimo())?.toIso8601String(),
+      'backups': [
+        for (final b in lista) {'nome': b.nome, 'tamanho': b.tamanho, 'criado': b.criado.toIso8601String()},
+      ],
+    });
+  }
+
+  /// Gera um backup na hora e devolve o .zip para download (sem gravar no servidor).
+  Future<Response> _baixarBackupAgora(Request _) async {
+    final agora = _agora();
+    final bytes = await backup.gerarZip(agora: agora);
+    final nome = 'diako-backup-${agora.toIso8601String().substring(0, 19).replaceAll(':', '')}.zip';
+    return _zip(bytes, nome);
+  }
+
+  Response _baixarBackup(Request _, String nome) {
+    final f = backup.arquivo(Uri.decodeComponent(nome));
+    if (f == null) return _erro(404, 'Backup não encontrado.');
+    return _zip(f.readAsBytesSync(), p.basename(f.path));
+  }
+
+  Future<Response> _excluirBackup(Request _, String nome) async {
+    if (!await backup.excluir(Uri.decodeComponent(nome))) return _erro(404, 'Backup não encontrado.');
+    return _json({'ok': true});
+  }
+
+  /// Restaura um backup da lista do servidor. Corpo: {"configuracoes": true|false}
+  Future<Response> _restaurarDaLista(Request req, String nome) async {
+    final f = backup.arquivo(Uri.decodeComponent(nome));
+    if (f == null) return _erro(404, 'Backup não encontrado.');
+    final corpo = await _corpo(req);
+    return _restaurar(await f.readAsBytes(), configuracoes: corpo['configuracoes'] == true);
+  }
+
+  /// Restaura um .zip enviado. Corpo: bytes; ?configuracoes=1 para restaurar também as configurações.
+  Future<Response> _restaurarDeArquivo(Request req) async {
+    final bytes = await _lerBytes(req, Restauracao.tamanhoMaximo);
+    if (bytes == null) return _erro(413, 'Arquivo grande demais.');
+    return _restaurar(bytes, configuracoes: req.url.queryParameters['configuracoes'] == '1');
+  }
+
+  Future<Response> _restaurar(List<int> bytes, {required bool configuracoes}) async {
+    final r = restauracao;
+    if (r == null) return _erro(501, 'Restauração indisponível.');
+    try {
+      final resumo = await r.restaurar(bytes, configuracoes: configuracoes);
+      return _json(resumo.toJson());
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  static Response _zip(List<int> bytes, String nome) => Response.ok(bytes, headers: {
+        'content-type': 'application/zip',
+        'content-disposition': 'attachment; filename="$nome"',
+        'cache-control': 'no-store',
+      });
+
+  // ---------- Administração ----------
+
+  Future<Response> _adminConfiguracoes(Request _) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    return _json({
+      ...c.publicas(),
+      'modo': agente != null ? 'agente' : 'local',
+      'chaveAgente': agente != null ? c.chaveAgente : null,
+      'urlDetectada': c.urlDetectada,
+      'pastaBackup': backup.pastaDestino,
+      'sessoes': auth.quantidade,
+      'senhaMinima': senhaMinima,
+    });
+  }
+
+  /// Corpo: os campos a alterar (ver Configuracoes.atualizar).
+  Future<Response> _adminSalvar(Request req) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    final corpo = await _corpo(req);
+    final urlAntes = c.urlOracao;
+    try {
+      await c.atualizar(corpo);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+    // Holyrics direto: aplica a nova conexão sem reiniciar.
+    final h = holyrics;
+    if (h is HolyricsDireto) h.atualizar(host: c.holyricsHost, porta: c.holyricsPorta, token: c.holyricsToken);
+    // Endereço público mudou: refaz o QR (e o agente o copia para o PC da igreja).
+    if (c.urlOracao != urlAntes) {
+      await gravarQr(cartazes.pasta, c.urlOracao);
+      store.avisar('cartazes');
+    }
+    return _adminConfiguracoes(req);
+  }
+
+  /// Corpo: {"tipo": "mural" | "mural-desativar" | "agente"}
+  Future<Response> _adminNovaChave(Request req) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    final tipo = (await _corpo(req))['tipo'];
+    switch (tipo) {
+      case 'mural':
+        return _json({'chaveMural': await c.novaChaveMural()});
+      case 'mural-desativar':
+        await c.novaChaveMural(desativar: true);
+        return _json({'chaveMural': null});
+      case 'agente':
+        if (agente == null) return _erro(400, 'O servidor não está no modo agente.');
+        final nova = await c.novaChaveAgente();
+        agente!.desconectar(); // o agente antigo perde o acesso na hora
+        return _json({'chaveAgente': nova});
+    }
+    return _erro(400, 'Tipo de chave inválido.');
+  }
+
+  /// Corpo: {"atual": "...", "nova": "...", "encerrarSessoes": true}
+  Future<Response> _adminSenha(Request req) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    final corpo = await _corpo(req);
+    if (!auth.conferir(corpo['atual'] as String? ?? '')) return _erro(403, 'Senha atual incorreta.');
+    try {
+      await c.trocarSenha(corpo['nova'] as String? ?? '', minimo: senhaMinima);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+    final saiu = corpo['encerrarSessoes'] == false ? 0 : await auth.encerrarOutras(Auth.tokenDe(req));
+    return _json({'ok': true, 'sessoesEncerradas': saiu});
+  }
+
+  Future<Response> _adminEncerrarSessoes(Request req) async {
+    final saiu = await auth.encerrarOutras(Auth.tokenDe(req));
+    return _json({'sessoesEncerradas': saiu});
+  }
+
+  Future<Response> _adminTestarHolyrics(Request _) async {
+    final r = await holyrics.chamar('GetCPInfo', '{}');
+    return Response.ok(r.corpo, headers: jsonHeaders);
   }
 
   void _conectarWs(WebSocketChannel canal, String? _) {
@@ -458,6 +695,42 @@ class Servidor {
       canal.sink.add(jsonEncode({'tipo': tipo, 'versoes': store.versoes}));
     });
     canal.stream.listen((_) {}, onDone: sub.cancel, onError: (_) => sub.cancel());
+  }
+
+  // ---------- Agente do PC da igreja ----------
+
+  bool _chaveAgenteOk(Request req) =>
+      agente != null && chaveAgente.isNotEmpty && iguaisSeguro(req.url.queryParameters['chave'] ?? '', chaveAgente);
+
+  static Response get _agenteNegado => _erro(401, 'Chave do agente inválida.');
+
+  FutureOr<Response> _agenteWs(Request req) {
+    if (!_chaveAgenteOk(req)) return _agenteNegado;
+    return webSocketHandler((WebSocketChannel canal, String? _) => agente!.conectar(canal),
+        pingInterval: const Duration(seconds: 25))(req);
+  }
+
+  /// Cartazes e QR que o agente deve manter na pasta de imagens do Holyrics.
+  Future<Response> _agenteListarCartazes(Request req) async {
+    if (!_chaveAgenteOk(req)) return _agenteNegado;
+    final dir = Directory(cartazes.pasta);
+    final lista = <Map<String, dynamic>>[];
+    if (await dir.exists()) {
+      await for (final e in dir.list()) {
+        if (e is! File || !Cartazes.extensoes.contains(p.extension(e.path).toLowerCase())) continue;
+        final s = await e.stat();
+        lista.add({'nome': p.basename(e.path), 'tamanho': s.size, 'modificado': s.modified.toUtc().toIso8601String()});
+      }
+    }
+    return _json(lista);
+  }
+
+  Future<Response> _agenteBaixarCartaz(Request req, String nome) async {
+    if (!_chaveAgenteOk(req)) return _agenteNegado;
+    nome = Uri.decodeComponent(nome);
+    // O QR não é um "cartaz" para o painel, mas o agente precisa dele.
+    final f = nome == arquivoQr ? File(p.join(cartazes.pasta, arquivoQr)) : cartazes.arquivo(nome);
+    return _arquivo(f);
   }
 
   // ---------- Utilitários ----------

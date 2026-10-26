@@ -12,7 +12,7 @@ No painel também ficam o **resumo da semana para o WhatsApp** e o **histórico*
 
 | Pasta | O que é |
 |---|---|
-| `server/` | Servidor que roda no PC do Holyrics: guarda os dados, tem o site de pedidos de oração e o painel, e comanda o Holyrics. Instalação em [`server/LEIA-ME.md`](server/LEIA-ME.md). |
+| `server/` | Servidor: guarda os dados, tem o site de pedidos de oração, o painel e o mural, e comanda o Holyrics. Roda no PC do Holyrics ([`server/LEIA-ME.md`](server/LEIA-ME.md)) ou na internet, num LXC/VPS, com um agente no PC da igreja ([`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md)). |
 | `lib/` | App Android (Flutter) do tablet do pastor. |
 | `packages/diako_core/` | Modelos e regras usados pelo app e pelo servidor (recados, motivos, slides, aniversariantes). |
 
@@ -26,8 +26,9 @@ No painel também ficam o **resumo da semana para o WhatsApp** e o **histórico*
 - Contagem regressiva no telão e no palco, além de mensagem no painel de comunicação.
 - **Sincronização ao vivo** com o servidor. Sem conexão, o app mostra a última cópia salva e bloqueia a edição.
 
-## 1. Instalar o servidor no PC do Holyrics
-Siga o [`server/LEIA-ME.md`](server/LEIA-ME.md). No fim, ele mostra o **endereço** (ex: `http://192.168.0.10:8080`) e você define a **senha**.
+## 1. Instalar o servidor
+- **No PC do Holyrics** (só na rede da igreja): siga o [`server/LEIA-ME.md`](server/LEIA-ME.md). No fim, ele mostra o **endereço** (ex: `http://192.168.0.10:8080`) e você define a **senha**.
+- **Na internet** (LXC/VPS + agente no PC da igreja, acesso de qualquer lugar): siga o [`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md). O endereço será o seu domínio (ex: `diako.minhaigreja.com.br`).
 
 ## 2. Instalar as ferramentas (uma vez, no seu PC)
 1. Instale o [Flutter](https://docs.flutter.dev/get-started/install/windows/mobile) e o Android Studio, depois rode `flutter doctor` até ficar tudo verde.

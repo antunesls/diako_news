@@ -87,6 +87,12 @@ class Store {
     return _fila;
   }
 
+  /// Troca a coleção inteira (restauração de backup).
+  Future<void> substituir(String colecao, List<Map<String, dynamic>> docs) {
+    _colecoes[colecao] = [for (final d in docs) Map<String, dynamic>.from(d)];
+    return _persistir(colecao);
+  }
+
   /// Avisa uma mudança que não é de coleção (ex: "cartazes").
   void avisar(String tipo) => _mudancas.add(tipo);
 
