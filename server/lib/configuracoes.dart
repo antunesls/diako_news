@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'agenda_google_api.dart';
 import 'auth.dart';
 import 'config.dart';
+import 'lgpd.dart';
 import 'pagina_inicial.dart';
 
 /// Configurações que o administrador altera pelo painel (/admin), gravadas em data/configuracoes.json.
@@ -69,6 +70,9 @@ class Configuracoes {
       'siteInstagram': '',
       'siteYoutube': '',
       'siteWhatsapp': '',
+      'termoLgpdTexto': '', // vazio: termo padrão (termoLgpdPadrao)
+      'termoLgpdVersao': 1,
+      'visitanteQrAtivo': true,
     };
     if (await arquivo.exists()) {
       var texto = await arquivo.readAsString();
@@ -88,6 +92,18 @@ class Configuracoes {
   String get urlBase => urlPublica.isNotEmpty ? urlPublica : urlDetectada;
   String get urlOracao => '$urlBase/oracao';
   String get urlMensagens => '$urlBase/mensagens';
+  String get urlVisitante => '$urlBase/visitante';
+  String get urlAutorizar => '$urlBase/autorizar';
+
+  /// Termo de autorização (LGPD) mostrado no link, na recepção e no termo impresso.
+  String get termoLgpdTexto => _s('termoLgpdTexto').isEmpty ? termoLgpdPadrao(nomeIgreja) : _s('termoLgpdTexto');
+  bool get termoLgpdPersonalizado => _s('termoLgpdTexto').isNotEmpty;
+
+  /// Sobe a cada mudança do texto: cada autorização guarda a versão que a pessoa leu.
+  int get termoLgpdVersao => _i('termoLgpdVersao', 1);
+
+  /// Cadastro de visitante pelo QR code da recepção (/visitante).
+  bool get visitanteQrAtivo => _valores['visitanteQrAtivo'] as bool? ?? true;
   String get pedidoTitulo => _s('pedidoTitulo');
   String get pedidoIntro => _s('pedidoIntro');
   String get pedidoObrigado => _s('pedidoObrigado');
@@ -268,6 +284,18 @@ class Configuracoes {
             throw FormatException('E-mail inválido em "$k".');
           }
           novos[k] = v;
+        case 'termoLgpdTexto':
+          // Vazio volta ao termo padrão. Texto diferente vira versão nova: as autorizações
+          // já dadas continuam apontando para a versão que cada pessoa leu.
+          final v = texto(k, 8000);
+          final atual = _s('termoLgpdTexto');
+          if (v != atual && v != (atual.isEmpty ? termoLgpdPadrao(nomeIgreja) : atual)) {
+            novos['termoLgpdVersao'] = termoLgpdVersao + 1;
+          }
+          novos[k] = v == termoLgpdPadrao(nomeIgreja) ? '' : v;
+        case 'visitanteQrAtivo':
+          if (mudancas[k] is! bool) throw const FormatException('"visitanteQrAtivo" deve ser verdadeiro ou falso.');
+          novos[k] = mudancas[k];
         case 'smtpSenha':
           final v = texto(k, 300);
           if (v.isNotEmpty) novos[k] = v;
@@ -287,7 +315,7 @@ class Configuracoes {
       'temaPadrao', 'horaBackup', 'backupsManter', 'agendaMostrarDescricao', 'agendaDiasMural', 'agendaCalendarioId',
       'smtpHost', 'smtpPorta', 'smtpSsl', 'smtpUsuario', 'smtpRemetente', 'smtpDestinatario',
       'siteAtivo', 'siteAgenda', 'sitePix', 'siteGaleria', 'siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade',
-      'siteInstagram', 'siteYoutube', 'siteWhatsapp',
+      'siteInstagram', 'siteYoutube', 'siteWhatsapp', 'termoLgpdTexto', 'termoLgpdVersao', 'visitanteQrAtivo',
     };
     for (final e in dados.entries) {
       if (permitidos.contains(e.key)) _valores[e.key] = e.value;

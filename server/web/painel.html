@@ -177,6 +177,9 @@
     #impressao-membros table { width: 100%; border-collapse: collapse; }
     #impressao-membros th, #impressao-membros td { border: 1px solid #999; padding: 4px 6px; text-align: left; }
     #impressao-membros th { background: #eee; }
+    #impressao-membros .termo-texto { white-space: pre-line; font-size: 12.5px; line-height: 1.5; margin: 12px 0 18px; color: #000; }
+    #impressao-membros .termo-dados { margin: 0 0 6px; color: #000; }
+    #impressao-membros .assinatura { margin-top: 46px; width: 75%; border-top: 1px solid #000; padding-top: 4px; font-size: 12px; }
   }
 </style>
 </head>
@@ -392,6 +395,12 @@
           <p><a id="link-mensagens" href="/mensagens" target="_blank"></a></p>
           <p class="dica">Clique na imagem para baixar e imprimir.</p>
         </div>
+        <div class="cartao" style="text-align:center" id="cartao-qr-visitante">
+          <h2 style="font-size:18px">QR code do cadastro de visitante</h2>
+          <a href="/qr-visitante.png" download="qr-visitante.png"><img class="qr" src="/qr-visitante.png" alt="QR code para o cadastro de visitante"></a>
+          <p><a id="link-visitante" href="/visitante" target="_blank"></a></p>
+          <p class="dica">Deixe impresso na recepção: o visitante se cadastra pelo celular e já autoriza o uso dos dados (LGPD). Clique na imagem para baixar.</p>
+        </div>
         <div class="cartao">
           <h2 style="font-size:18px">Mural da recepção</h2>
           <p>Abra este endereço no navegador da TV (ou de um computador ligado a ela) e toque na tela para ficar em tela cheia:</p>
@@ -522,7 +531,8 @@
         <div class="grade-campos">
           <div class="campo"><label for="b-consentimento">Autorizou o uso dos dados em</label><input type="date" id="b-consentimento"></div>
         </div>
-        <p class="dica" style="margin-top:-8px">Registre a data em que a pessoa (ou o responsável, se for menor) autorizou a igreja a guardar estes dados.</p>
+        <p class="dica" style="margin-top:-8px" id="b-consentimento-dica">Prefira pedir a autorização pela ficha (link pelo WhatsApp ou termo impresso e assinado): fica a prova de que a pessoa concordou.
+          Use esta data só para uma autorização dada fora do sistema.</p>
       </div>
 
       <div role="tabpanel" id="sec-b-contato" aria-labelledby="aba-b-contato" data-secao="contato" hidden>
@@ -635,6 +645,40 @@
   </div>
 </dialog>
 
+<dialog id="dlg-link-lgpd">
+  <div>
+    <h2 style="font-size:20px">Link de autorização</h2>
+    <p id="link-lgpd-intro"></p>
+    <div class="campo"><label for="link-lgpd-url">Link (vale por 7 dias e uma única vez)</label>
+      <input type="text" id="link-lgpd-url" readonly></div>
+    <p class="dica">Gerar outro link desfaz este. O endereço só mostra o nome e partes dos dados da pessoa.</p>
+    <p id="link-lgpd-resultado" role="status"></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" type="button" id="fechar-link-lgpd">Fechar</button>
+      <button class="botao secundario" type="button" id="copiar-link-lgpd">Copiar mensagem</button>
+      <a class="botao" id="whatsapp-link-lgpd" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="dlg-termo">
+  <form method="dialog" id="form-termo">
+    <h2 style="font-size:20px">Anexar termo assinado</h2>
+    <p class="dica" id="termo-intro">Tire uma foto (ou escaneie em PDF) do termo impresso e assinado.</p>
+    <div class="campo"><label for="t-arquivo">Foto ou PDF do termo</label>
+      <input type="file" id="t-arquivo" accept="image/jpeg,image/png,application/pdf" required></div>
+    <div class="grade-campos">
+      <div class="campo"><label for="t-data">Data da assinatura</label><input type="date" id="t-data" required></div>
+      <div class="campo"><label for="t-responsavel">Responsável que assinou <span class="dica">(se menor)</span></label><input type="text" id="t-responsavel" maxlength="100"></div>
+    </div>
+    <p class="erro" id="erro-termo" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Anexar</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlg-importar">
   <form method="dialog" id="form-importar">
     <h2 style="font-size:20px">Importar pessoas</h2>
@@ -661,6 +705,6 @@
 <div id="impressao-membros"></div>
 
 <script src="/comum.js?v=4"></script>
-<script src="/painel.js?v=9"></script>
+<script src="/painel.js?v=10"></script>
 </body>
 </html>

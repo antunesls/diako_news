@@ -25,6 +25,7 @@ import 'holyrics.dart';
 import 'email_mensagens.dart';
 import 'fotos_membros.dart';
 import 'galeria.dart';
+import 'lgpd.dart';
 import 'pagina_inicial.dart';
 import 'permissoes.dart';
 import 'usuarios.dart';
@@ -58,8 +59,10 @@ class Servidor {
     LimiteTaxa? limitePedidos,
     Galeria? galeria,
     FotosMembros? fotosMembros,
+    TermosAssinados? termosAssinados,
   })  : galeria = galeria ?? Galeria(store.pasta),
         fotosMembros = fotosMembros ?? FotosMembros(store.pasta),
+        termosAssinados = termosAssinados ?? TermosAssinados(store.pasta),
         _urlOracaoFixa = urlOracao,
         _chaveAgenteFixa = chaveAgente,
         _chaveMuralFixa = chaveMural,
@@ -87,6 +90,9 @@ class Servidor {
 
   /// Fotos do cadastro de membros (data/fotos-membros) — nunca públicas.
   final FotosMembros fotosMembros;
+
+  /// Termos da LGPD assinados em papel (data/termos-lgpd) — nunca públicos.
+  final TermosAssinados termosAssinados;
   final Backup backup;
   final String pastaWeb;
 
@@ -118,6 +124,8 @@ class Servidor {
   final DateTime Function() _agora;
   final LimiteTaxa _limitePedidos;
   final LimiteTaxa _limiteMensagens = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
+  final LimiteTaxa _limiteLgpd = LimiteTaxa(maximo: 20, janela: const Duration(minutes: 10));
+  final LimiteTaxa _limiteVisitantes = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
 
   /// Caminho do QR para o ShowImage do Holyrics.
   static const qrHolyrics = '${Config.subpastaHolyrics}/$arquivoQr';
@@ -131,6 +139,14 @@ class Servidor {
       ..get('/pix.png', _pngPix)
       ..get('/oracao', (Request _) => _pagina('oracao.html'))
       ..get('/mensagens', (Request _) => _pagina('mensagens.html'))
+      // LGPD: autorização pelo link (token no #, nunca na URL) e cadastro de visitante pelo QR.
+      ..get('/autorizar', (Request _) => _pagina('autorizar.html'))
+      ..get('/visitante', (Request _) => cfg?.visitanteQrAtivo == false ? _paginaDesligada() : _pagina('visitante.html'))
+      ..get('/qr-visitante.png', _qrVisitante)
+      ..post('/api/public/autorizacao', _verAutorizacao)
+      ..post('/api/public/autorizacao/aceitar', _aceitarAutorizacao)
+      ..get('/api/public/visitante', _infoVisitante)
+      ..post('/api/public/visitante', _novoVisitantePublico)
       ..get(ajudaAgenda, (Request _) => _pagina('ajuda-agenda.html'))
       ..get('/ajuda/usuarios', (Request _) => _pagina('ajuda-usuarios.html'))
       // Perfis e permissões (só a descrição da matriz, para a página de ajuda).
@@ -180,8 +196,9 @@ class Servidor {
       ..post('/api/motivos/<id>/aprovar', _aprovarMotivo)
       ..delete('/api/motivos/<id>', _excluirMotivo)
       // Membros / aniversariantes (exportar antes das rotas com <id>)
-      ..get('/api/membros', (Request _) => _json([for (final m in _listaMembros()) m.toJson()]))
+      ..get('/api/membros', (Request _) => _json([for (final m in _listaMembros()) _membroParaPainel(m.toJson())]))
       ..get('/api/membros/exportar', _exportarMembros)
+      ..get('/api/membros/termo-lgpd', (Request _) => _json({'versao': _termo.versao, 'texto': _termo.texto, 'igreja': _termo.igreja}))
       ..post('/api/membros', _criarMembro)
       ..post('/api/membros/importar', _importarMembros)
       ..put('/api/membros/<id>', _atualizarMembro)
@@ -190,6 +207,10 @@ class Servidor {
       ..delete('/api/membros/<id>/foto', _removerFotoMembro)
       ..get('/api/membros/<id>/foto', (Request _, String id) => _fotoMembro(id, miniatura: false))
       ..get('/api/membros/<id>/foto-miniatura', (Request _, String id) => _fotoMembro(id, miniatura: true))
+      ..post('/api/membros/<id>/lgpd/link', _linkLgpd)
+      ..post('/api/membros/<id>/lgpd/termo', _anexarTermo)
+      ..get('/api/membros/<id>/lgpd/termo', _verTermoAssinado)
+      ..post('/api/membros/<id>/lgpd/revogar', _revogarLgpd)
       // Cartazes
       ..get('/api/cartazes', _listarCartazes)
       ..post('/api/cartazes', _enviarCartaz)
@@ -413,6 +434,8 @@ class Servidor {
       'urlOracao': urlOracao,
       'qrHolyrics': qrHolyrics,
       'urlMensagens': cfg?.urlMensagens ?? urlOracao.replaceFirst(RegExp(r'/oracao$'), '/mensagens'),
+      'urlVisitante': '$_urlBase/visitante',
+      'visitanteQrAtivo': cfg?.visitanteQrAtivo ?? true,
       'qrMensagensHolyrics': '${Config.subpastaHolyrics}/$arquivoQrMensagens',
       'mensagensNovas': store.listar('mensagens').where((m) => m['status'] == 'nova').length,
       'cartazesNoHolyrics': agente != null ? agente!.agenteConectado : cartazesNoHolyrics,
@@ -670,9 +693,20 @@ class Servidor {
   /// Membros normalizados: documentos antigos (só nome/dia/mês/ativo) ganham status.
   List<Membro> _listaMembros() => store.listar('membros').map(Membro.fromJson).toList();
 
+  /// O que o painel recebe: sem o hash do link de autorização, só até quando ele vale.
+  Map<String, dynamic> _membroParaPainel(Map<String, dynamic> doc) {
+    final convite = doc['conviteLgpd'] as Map?;
+    final expira = DateTime.tryParse(convite?['expiraEm'] as String? ?? '');
+    return {
+      for (final e in doc.entries)
+        if (e.key != 'conviteLgpd') e.key: e.value,
+      if (expira != null && expira.isAfter(_agora())) 'linkLgpdValidoAte': expira.toIso8601String(),
+    };
+  }
+
   /// Valida o corpo e monta o membro pronto para gravar. [base] é o documento atual
   /// (edição) ou vazio (criação). Lança [FormatException] com a mensagem para o painel.
-  Membro _montarMembro(Map<String, dynamic> corpo, Map<String, dynamic> base, String id) {
+  Membro _montarMembro(Map<String, dynamic> corpo, Map<String, dynamic> base, String id, {String? por}) {
     if (corpo.containsKey('status') && StatusMembro.porNome(corpo['status'] as String?) == null) {
       throw const FormatException('Status inválido.');
     }
@@ -683,12 +717,36 @@ class Servidor {
       }
     }
     final anterior = base.isEmpty ? null : Membro.fromJson(base);
-    // Foto (rotas próprias), histórico e datas de controle são do servidor, não do corpo.
+    // Foto (rotas próprias), histórico, datas de controle e a prova da LGPD são do servidor, não do corpo.
     final editavel = {...corpo}
       ..remove('foto')
       ..remove('historicoStatus')
       ..remove('criadoEm')
-      ..remove('atualizadoEm');
+      ..remove('atualizadoEm')
+      ..remove('consentimentoVia')
+      ..remove('consentimentoRegistro')
+      ..remove('termoAssinado')
+      ..remove('consentimentoRevogado')
+      ..remove('conviteLgpd');
+    // Data da autorização digitada pela secretaria: vale como registro manual, com quem digitou.
+    if (editavel.containsKey('consentimentoEm')) {
+      final nova = Membro.dataDe(editavel['consentimentoEm']);
+      if (nova != anterior?.consentimentoEm) {
+        final via = anterior?.consentimentoVia;
+        if (anterior?.consentimentoEm != null && via != null && via != ViaConsentimento.manual) {
+          throw const FormatException(
+              'Esta autorização foi dada pela própria pessoa (link, termo assinado ou recepção) e não pode ser editada. '
+              'Para desfazer, use "Registrar revogação" na ficha.');
+        }
+        if (nova != null && !Membro.dataIsoValida(nova)) {
+          throw const FormatException('Data da autorização inválida: não pode ser no futuro.');
+        }
+        editavel['consentimentoVia'] = nova == null ? null : ViaConsentimento.manual;
+        editavel['consentimentoRegistro'] = nova == null
+            ? null
+            : {'em': _agora().toUtc().toIso8601String(), if (por != null) 'por': por, 'versaoTermo': _termo.versao};
+      }
+    }
     final m = Membro.fromJson({...base, ...editavel, 'id': id});
     final erro = _validarMembro(m);
     if (erro != null) throw FormatException(erro);
@@ -716,10 +774,10 @@ class Servidor {
 
   Future<Response> _criarMembro(Request req) async {
     try {
-      final m = _montarMembro(await _corpo(req), {}, novoId());
+      final m = _montarMembro(await _corpo(req), {}, novoId(), por: Auth.contaDa(req)?.nome);
       await store.salvar('membros', m.toJson());
       await _sincronizarConjuge(null, m);
-      return _json(m.toJson(), status: 201);
+      return _json(_membroParaPainel(m.toJson()), status: 201);
     } on FormatException catch (e) {
       return _erro(400, e.message);
     }
@@ -729,10 +787,10 @@ class Servidor {
     final atual = store.buscar('membros', id);
     if (atual == null) return _erro(404, 'Membro não encontrado.');
     try {
-      final m = _montarMembro(await _corpo(req), atual, id);
+      final m = _montarMembro(await _corpo(req), atual, id, por: Auth.contaDa(req)?.nome);
       await store.salvar('membros', m.toJson());
       await _sincronizarConjuge(Membro.fromJson(atual), m);
-      return _json(m.toJson());
+      return _json(_membroParaPainel(m.toJson()));
     } on FormatException catch (e) {
       return _erro(400, e.message);
     }
@@ -787,6 +845,7 @@ class Servidor {
     if (docs.isNotEmpty) await store.salvarVarios('membros', docs);
     await store.excluir('membros', id);
     if (m.foto != null) await _apagarFotoMembro(m.foto!);
+    await termosAssinados.excluir(m.termoAssinado);
     return _json({'ok': true});
   }
 
@@ -909,7 +968,7 @@ class Servidor {
       if (antiga != null && antiga.isNotEmpty) await _apagarFotoMembro(antiga);
       final doc = {...atual, 'foto': r.arquivo, 'atualizadoEm': _agora().toIso8601String()};
       await store.salvar('membros', doc);
-      return _json(doc, status: 201);
+      return _json(_membroParaPainel(doc), status: 201);
     } on FormatException catch (e) {
       return _erro(400, e.message);
     }
@@ -924,7 +983,7 @@ class Servidor {
     final doc = {...atual}..remove('foto');
     doc['atualizadoEm'] = _agora().toIso8601String();
     await store.salvar('membros', doc);
-    return _json(doc);
+    return _json(_membroParaPainel(doc));
   }
 
   /// GET /api/membros/<id>/foto (ou /foto-miniatura) — atrás de login, nunca pública.
@@ -938,6 +997,313 @@ class Servidor {
     // A URL muda a cada foto nova (o painel usa ?v=), mas o login é por token: sem cache agressivo.
     return Response.ok(f.openRead(),
         headers: {'content-type': 'image/jpeg', 'cache-control': 'private, no-cache'});
+  }
+
+  // ---------- LGPD: autorização pelo link, termo assinado e cadastro pelo QR ----------
+
+  static const _validadeLinkLgpd = Duration(days: 7);
+
+  /// Termo em vigor (com a versão que vai junto de cada autorização).
+  ({String texto, int versao, String igreja}) get _termo {
+    final c = cfg;
+    if (c == null) {
+      const igreja = Configuracoes.nomeIgrejaPadrao;
+      return (texto: termoLgpdPadrao(igreja), versao: 1, igreja: igreja);
+    }
+    return (texto: c.termoLgpdTexto, versao: c.termoLgpdVersao, igreja: c.nomeIgreja);
+  }
+
+  String get _urlBase => cfg?.urlBase ?? urlOracao.replaceFirst(RegExp(r'/oracao$'), '');
+
+  String _hoje() {
+    final d = _agora();
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  /// De onde veio o aceite (fica na prova): IP e navegador, cortado para caber.
+  Map<String, dynamic> _origem(Request req) {
+    final navegador = req.headers['user-agent'] ?? '';
+    return {'ip': _ip(req), if (navegador.isNotEmpty) 'navegador': navegador.length > 200 ? navegador.substring(0, 200) : navegador};
+  }
+
+  /// POST /api/membros/<id>/lgpd/link — link de uso único (7 dias) para a pessoa autorizar.
+  /// Gerar outro invalida o anterior. O token vai depois do "#" e só o hash fica guardado.
+  Future<Response> _linkLgpd(Request req, String id) async {
+    final atual = store.buscar('membros', id);
+    if (atual == null) return _erro(404, 'Membro não encontrado.');
+    final token = novoTokenLgpd();
+    final agora = _agora();
+    final expira = agora.add(_validadeLinkLgpd);
+    await store.salvar('membros', {
+      ...atual,
+      'conviteLgpd': {
+        'hash': hashTokenLgpd(token),
+        'criadoEm': agora.toIso8601String(),
+        'expiraEm': expira.toUtc().toIso8601String(),
+        if (Auth.contaDa(req)?.nome case final por?) 'por': por,
+      },
+    });
+    return _json({'url': '$_urlBase/autorizar#$token', 'validoAte': expira.toUtc().toIso8601String()}, status: 201);
+  }
+
+  /// Membro dono do token (null: não existe, já foi usado ou outro link foi gerado depois).
+  ({Map<String, dynamic> doc, bool vencido})? _conviteDo(Object? token) {
+    if (token is! String || token.length < 20 || token.length > 100) return null;
+    final hash = hashTokenLgpd(token);
+    for (final doc in store.listar('membros')) {
+      final convite = doc['conviteLgpd'];
+      if (convite is Map && convite['hash'] == hash) {
+        final expira = DateTime.tryParse(convite['expiraEm'] as String? ?? '');
+        return (doc: doc, vencido: expira == null || !expira.isAfter(_agora()));
+      }
+    }
+    return null;
+  }
+
+  Response? _problemaNoConvite(({Map<String, dynamic> doc, bool vencido})? achado) {
+    if (achado == null) {
+      // 410 e não 404: o Cascade trata 404 como "rota inexistente" e a mensagem se perderia.
+      return _erro(410, 'Este link não vale mais: já foi usado ou a secretaria gerou um novo. Peça outro à secretaria da igreja.');
+    }
+    if (achado.vencido) return _erro(410, 'Este link venceu. Peça um novo à secretaria da igreja.');
+    return null;
+  }
+
+  /// O que a pessoa vê antes de autorizar: o termo e quais dados a igreja guarda dela.
+  /// Os valores vão mascarados: o link pode ser repassado sem querer.
+  static List<Map<String, String>> _dadosGuardados(Membro m) {
+    String? fimTelefone(String? t) {
+      final d = (t ?? '').replaceAll(RegExp(r'\D'), '');
+      return d.length < 4 ? null : 'terminado em ${d.substring(d.length - 4)}';
+    }
+
+    String? emailMascarado(String? e) {
+      if (e == null || !e.contains('@')) return null;
+      final [usuario, dominio] = e.split('@');
+      return '${usuario.isEmpty ? '' : usuario[0]}•••@$dominio';
+    }
+
+    final itens = <String, String?>{
+      'Nome': m.nome,
+      'Aniversário': m.aniversario,
+      'Telefone': fimTelefone(m.telefone),
+      'WhatsApp': fimTelefone(m.whatsapp),
+      'E-mail': emailMascarado(m.email),
+      'Endereço': [m.bairro, m.cidade].whereType<String>().join(', ').isEmpty
+          ? (m.rua != null || m.cep != null ? 'cadastrado' : null)
+          : [m.bairro, m.cidade].whereType<String>().join(', '),
+      'CPF': m.cpf == null ? null : 'cadastrado',
+      'RG': m.rg == null ? null : 'cadastrado',
+      'Foto': m.foto == null ? null : 'cadastrada',
+      'Situação na igreja': m.status.nome,
+      'Ministérios': m.ministerios.isEmpty ? null : m.ministerios.join(', '),
+      'Família': m.conjugeId != null || m.paisIds.isNotEmpty ? 'vínculos com outras pessoas cadastradas' : null,
+      'Contato de emergência': m.emergenciaNome == null ? null : 'cadastrado',
+    };
+    return [
+      for (final e in itens.entries)
+        if (e.value != null && e.value!.isNotEmpty) {'rotulo': e.key, 'valor': e.value!},
+    ];
+  }
+
+  /// POST /api/public/autorizacao  {token} — dados da página /autorizar.
+  Future<Response> _verAutorizacao(Request req) async {
+    if (!_limiteLgpd.permitir(_ip(req))) return _erro(429, 'Muitas tentativas. Aguarde alguns minutos.');
+    final achado = _conviteDo((await _corpo(req))['token']);
+    final problema = _problemaNoConvite(achado);
+    if (problema != null) return problema;
+    final m = Membro.fromJson(achado!.doc);
+    final idade = m.idadeEm(_agora());
+    return _json({
+      'igreja': _termo.igreja,
+      'termo': {'versao': _termo.versao, 'texto': _termo.texto},
+      'nome': m.nome,
+      'menor': idade != null && idade < 18,
+      'dados': _dadosGuardados(m),
+      'jaAutorizou': m.consentimentoEm != null,
+    });
+  }
+
+  /// POST /api/public/autorizacao/aceitar  {token, autorizo: true, responsavel?}
+  Future<Response> _aceitarAutorizacao(Request req) async {
+    if (!_limiteLgpd.permitir(_ip(req))) return _erro(429, 'Muitas tentativas. Aguarde alguns minutos.');
+    final corpo = await _corpo(req);
+    final achado = _conviteDo(corpo['token']);
+    final problema = _problemaNoConvite(achado);
+    if (problema != null) return problema;
+    if (corpo['autorizo'] != true) return _erro(400, 'Marque "Li e autorizo" para confirmar.');
+    final m = Membro.fromJson(achado!.doc);
+    final idade = m.idadeEm(_agora());
+    final responsavel = (corpo['responsavel'] as String? ?? '').trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (responsavel.length > 100) return _erro(400, 'Nome do responsável muito longo.');
+    if (idade != null && idade < 18 && responsavel.isEmpty) {
+      return _erro(400, 'Como ${m.nome} tem menos de 18 anos, informe o nome do pai, da mãe ou do responsável que autoriza.');
+    }
+    final atual = store.buscar('membros', m.id)!;
+    await store.salvar('membros', {
+      for (final e in atual.entries)
+        if (e.key != 'conviteLgpd') e.key: e.value, // uso único
+      'consentimentoEm': _hoje(),
+      'consentimentoVia': ViaConsentimento.link,
+      'consentimentoRegistro': {
+        'em': _agora().toUtc().toIso8601String(),
+        'versaoTermo': _termo.versao,
+        ..._origem(req),
+        if (responsavel.isNotEmpty) 'responsavel': responsavel,
+        if ((atual['conviteLgpd'] as Map?)?['por'] case final por?) 'linkGeradoPor': por,
+      },
+      'atualizadoEm': _agora().toIso8601String(),
+    });
+    return _json({'ok': true, 'igreja': _termo.igreja});
+  }
+
+  /// POST /api/membros/<id>/lgpd/termo?data=aaaa-mm-dd&responsavel=  (corpo: foto ou PDF do termo assinado)
+  Future<Response> _anexarTermo(Request req, String id) async {
+    final atual = store.buscar('membros', id);
+    if (atual == null) return _erro(404, 'Membro não encontrado.');
+    final qs = req.url.queryParameters;
+    final data = (qs['data'] ?? '').isEmpty ? _hoje() : Membro.dataDe(qs['data']);
+    if (data == null || !Membro.dataIsoValida(data)) return _erro(400, 'Data da assinatura inválida.');
+    final responsavel = (qs['responsavel'] ?? '').trim();
+    if (responsavel.length > 100) return _erro(400, 'Nome do responsável muito longo.');
+    final versao = int.tryParse(qs['versao'] ?? '') ?? _termo.versao;
+    final tamanho = req.contentLength;
+    if (tamanho != null && tamanho > TermosAssinados.tamanhoMaximo) return _erro(413, 'Arquivo maior que 15 MB.');
+    final bytes = await _lerBytes(req, TermosAssinados.tamanhoMaximo);
+    if (bytes == null) return _erro(413, 'Arquivo maior que 15 MB.');
+    try {
+      final nome = await termosAssinados.salvar(bytes);
+      await termosAssinados.excluir(atual['termoAssinado'] as String?);
+      final doc = {
+        for (final e in atual.entries)
+          if (e.key != 'conviteLgpd') e.key: e.value,
+        'termoAssinado': nome,
+        'consentimentoEm': data,
+        'consentimentoVia': ViaConsentimento.termo,
+        'consentimentoRegistro': {
+          'em': _agora().toUtc().toIso8601String(),
+          'versaoTermo': versao,
+          'dataAssinatura': data,
+          if (Auth.contaDa(req)?.nome case final por?) 'por': por,
+          if (responsavel.isNotEmpty) 'responsavel': responsavel,
+        },
+        'atualizadoEm': _agora().toIso8601String(),
+      };
+      await store.salvar('membros', doc);
+      return _json(_membroParaPainel(doc), status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  /// GET /api/membros/<id>/lgpd/termo — o termo assinado (atrás de login).
+  Response _verTermoAssinado(Request _, String id) {
+    final nome = store.buscar('membros', id)?['termoAssinado'] as String?;
+    final f = nome == null ? null : termosAssinados.arquivo(nome);
+    if (f == null || !f.existsSync()) return _erro(404, 'Nenhum termo assinado anexado.');
+    return Response.ok(f.openRead(), headers: {
+      'content-type': TermosAssinados.tipo(nome!),
+      'content-disposition': 'inline; filename="termo-lgpd.${nome.split('.').last}"',
+      'cache-control': 'private, no-store',
+    });
+  }
+
+  /// POST /api/membros/<id>/lgpd/revogar — a pessoa pediu para retirar a autorização.
+  /// Apaga o termo assinado e guarda só quando foi e quem registrou.
+  Future<Response> _revogarLgpd(Request req, String id) async {
+    final atual = store.buscar('membros', id);
+    if (atual == null) return _erro(404, 'Membro não encontrado.');
+    if (atual['consentimentoEm'] == null) return _erro(400, 'Esta pessoa não tem autorização registrada.');
+    await termosAssinados.excluir(atual['termoAssinado'] as String?);
+    const removidos = {'consentimentoEm', 'consentimentoVia', 'consentimentoRegistro', 'termoAssinado', 'conviteLgpd'};
+    final doc = {
+      for (final e in atual.entries)
+        if (!removidos.contains(e.key)) e.key: e.value,
+      'consentimentoRevogado': {
+        'em': _agora().toUtc().toIso8601String(),
+        if (Auth.contaDa(req)?.nome case final por?) 'por': por,
+        'autorizadoEm': atual['consentimentoEm'],
+        if (atual['consentimentoVia'] != null) 'via': atual['consentimentoVia'],
+      },
+      'atualizadoEm': _agora().toIso8601String(),
+    };
+    await store.salvar('membros', doc);
+    return _json(_membroParaPainel(doc));
+  }
+
+  Response _paginaDesligada() => Response.notFound('O cadastro pela recepção está desligado.',
+      headers: {'content-type': 'text/plain; charset=utf-8'});
+
+  /// GET /api/public/visitante — texto do termo para a página /visitante.
+  Response _infoVisitante(Request _) {
+    if (cfg?.visitanteQrAtivo == false) return _erro(403, 'O cadastro pela recepção está desligado.');
+    return _json({'igreja': _termo.igreja, 'termo': {'versao': _termo.versao, 'texto': _termo.texto}});
+  }
+
+  /// POST /api/public/visitante — a própria pessoa se cadastra pelo QR da recepção e autoriza o termo.
+  /// Corpo: {nome, aniversario: "dd/mm" | "dd/mm/aaaa", telefone?, comoConheceu?, autorizo: true, responsavel?}
+  Future<Response> _novoVisitantePublico(Request req) async {
+    if (cfg?.visitanteQrAtivo == false) return _erro(403, 'O cadastro pela recepção está desligado.');
+    final corpo = await _corpo(req);
+    if ((corpo['website'] as String? ?? '').isNotEmpty) return _json({'ok': true}); // robô
+    if (!_limiteVisitantes.permitir(_ip(req))) {
+      return _erro(429, 'Vários cadastros seguidos deste aparelho. Tente de novo em alguns minutos.');
+    }
+    String texto(String campo) => (corpo[campo] as String? ?? '').trim().replaceAll(RegExp(r'\s+'), ' ');
+    final nome = texto('nome');
+    if (nome.isEmpty) return _erro(400, 'Escreva o seu nome.');
+    final aniv = RegExp(r'^(\d{1,2})/(\d{1,2})(?:/(\d{4}))?$').firstMatch(texto('aniversario'));
+    if (aniv == null) return _erro(400, 'Aniversário: use dia/mês, por exemplo 05/03.');
+    if (corpo['autorizo'] != true) return _erro(400, 'Para enviar, leia e marque a autorização de uso dos dados.');
+    final responsavel = texto('responsavel');
+    final telefone = texto('telefone');
+    final dados = <String, dynamic>{
+      'nome': nome,
+      'dia': int.parse(aniv.group(1)!),
+      'mes': int.parse(aniv.group(2)!),
+      if (aniv.group(3) != null) 'ano': int.parse(aniv.group(3)!),
+      if (telefone.isNotEmpty) 'telefone': telefone,
+      if (telefone.replaceAll(RegExp(r'\D'), '').length == 11) 'whatsapp': telefone,
+      if (texto('comoConheceu').isNotEmpty) 'comoConheceu': texto('comoConheceu'),
+      'status': StatusMembro.visitante.name,
+      'dataChegada': _hoje(),
+    };
+    if (telefone.length > 20 || responsavel.length > 100) return _erro(400, 'Algum campo ficou longo demais.');
+    try {
+      final m = _montarMembro(dados, {}, novoId());
+      final idade = m.idadeEm(_agora());
+      if (idade != null && idade < 18 && responsavel.isEmpty) {
+        return _erro(400, 'Para menores de 18 anos, escreva o nome do pai, da mãe ou do responsável que autoriza.');
+      }
+      await store.salvar('membros', {
+        ...m.toJson(),
+        'consentimentoEm': _hoje(),
+        'consentimentoVia': ViaConsentimento.recepcao,
+        'consentimentoRegistro': {
+          'em': _agora().toUtc().toIso8601String(),
+          'versaoTermo': _termo.versao,
+          ..._origem(req),
+          if (responsavel.isNotEmpty) 'responsavel': responsavel,
+        },
+      });
+      return _json({'ok': true, 'igreja': _termo.igreja}, status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  Uint8List? _qrVisitantePng;
+  String? _qrVisitanteUrl;
+
+  /// QR code da página /visitante, para imprimir e deixar na recepção (gerado na hora).
+  Response _qrVisitante(Request _) {
+    if (cfg?.visitanteQrAtivo == false) return Response.notFound('O cadastro pela recepção está desligado.');
+    final url = '$_urlBase/visitante';
+    if (_qrVisitanteUrl != url) {
+      _qrVisitantePng = gerarPngQr(url, rotulo: 'CADASTRO DE VISITANTE');
+      _qrVisitanteUrl = url;
+    }
+    return Response.ok(_qrVisitantePng, headers: {'content-type': 'image/png', 'cache-control': 'no-cache'});
   }
 
   static String? _validarMembro(Membro m) {
@@ -1511,6 +1877,7 @@ class Servidor {
       'sessoes': auth.quantidade,
       'senhaMinima': senhaMinima,
       'agenda': agenda?.estado(),
+      'termoLgpdEmVigor': c.termoLgpdTexto,
     });
   }
 

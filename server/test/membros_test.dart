@@ -291,6 +291,170 @@ void main() {
       expect((await chamar('POST', '/api/membros', json: {'nome': 'X', 'dia': 1, 'mes': 1, 'consentimentoEm': '31/02/2026'})).$1, 400);
     });
 
+    group('LGPD', () {
+      Future<String> gerarLink(String id) async {
+        final (status, r) = await chamar('POST', '/api/membros/$id/lgpd/link');
+        expect(status, 201);
+        final url = r['url'] as String;
+        expect(url, startsWith('http://192.168.0.10:8080/autorizar#'));
+        return url.split('#').last;
+      }
+
+      Future<Map> membro(Object? id) async =>
+          ((await chamar('GET', '/api/membros')).$2 as List).firstWhere((m) => m['id'] == id) as Map;
+
+      test('link: a pessoa vê os dados mascarados, autoriza uma vez e fica a prova', () async {
+        final ana = await criar({
+          'nome': 'Ana Souza', 'dia': 5, 'mes': 3, 'ano': 1990, 'telefone': '(11) 98888-7777',
+          'email': 'ana@exemplo.com', 'cpf': '11144477735',
+        });
+        final token = await gerarLink(ana['id'] as String);
+        // O painel não recebe o hash do link, só até quando ele vale.
+        final noPainel = await membro(ana['id']);
+        expect(noPainel.containsKey('conviteLgpd'), isFalse);
+        expect(noPainel['linkLgpdValidoAte'], isNotNull);
+
+        final (s1, info) = await chamar('POST', '/api/public/autorizacao', json: {'token': token}, login: false);
+        expect(s1, 200);
+        expect(info['nome'], 'Ana Souza');
+        expect(info['menor'], isFalse);
+        expect(info['termo']['versao'], 1);
+        final dados = {for (final d in info['dados'] as List) d['rotulo']: d['valor']};
+        expect(dados['Telefone'], 'terminado em 7777');
+        expect(dados['E-mail'], 'a•••@exemplo.com');
+        expect(dados['CPF'], 'cadastrado'); // nunca os números
+        expect(jsonEncode(info), isNot(contains('11144477735')));
+
+        expect((await chamar('POST', '/api/public/autorizacao/aceitar', json: {'token': token}, login: false)).$1, 400);
+        final (s2, _) =
+            await chamar('POST', '/api/public/autorizacao/aceitar', json: {'token': token, 'autorizo': true}, login: false);
+        expect(s2, 200);
+        final depois = await membro(ana['id']);
+        expect(depois['consentimentoVia'], 'link');
+        expect(depois['consentimentoEm'], isNotNull);
+        expect(depois['consentimentoRegistro']['versaoTermo'], 1);
+        expect(depois['consentimentoRegistro']['em'], isNotNull);
+        expect(depois.containsKey('linkLgpdValidoAte'), isFalse);
+
+        // Uso único; e a secretaria não consegue "editar" uma autorização dada pela pessoa.
+        expect((await chamar('POST', '/api/public/autorizacao', json: {'token': token}, login: false)).$1, 410);
+        expect((await chamar('PUT', '/api/membros/${ana['id']}', json: {'consentimentoEm': null})).$1, 400);
+        // Outras edições continuam funcionando sem mexer na prova.
+        expect((await chamar('PUT', '/api/membros/${ana['id']}', json: {'funcao': 'Líder'})).$1, 200);
+        expect((await membro(ana['id']))['consentimentoVia'], 'link');
+      });
+
+      test('link: menor precisa do responsável; link vencido ou trocado não vale', () async {
+        final bia = await criar({'nome': 'Bia', 'dia': 1, 'mes': 1, 'ano': DateTime.now().year - 10});
+        final antigo = await gerarLink(bia['id'] as String);
+        final token = await gerarLink(bia['id'] as String); // o novo invalida o antigo
+        expect((await chamar('POST', '/api/public/autorizacao', json: {'token': antigo}, login: false)).$1, 410);
+        expect((await chamar('POST', '/api/public/autorizacao', json: {'token': token}, login: false)).$2['menor'], isTrue);
+        expect((await chamar('POST', '/api/public/autorizacao/aceitar',
+                json: {'token': token, 'autorizo': true}, login: false)).$1, 400);
+        expect((await chamar('POST', '/api/public/autorizacao/aceitar',
+                json: {'token': token, 'autorizo': true, 'responsavel': 'Carla Mãe'}, login: false)).$1, 200);
+        expect((await membro(bia['id']))['consentimentoRegistro']['responsavel'], 'Carla Mãe');
+
+        // Vencido: 410.
+        final caio = await criar({'nome': 'Caio', 'dia': 2, 'mes': 2});
+        final t2 = await gerarLink(caio['id'] as String);
+        final doc = store.buscar('membros', caio['id'] as String)!;
+        await store.salvar('membros', {
+          ...doc,
+          'conviteLgpd': {...doc['conviteLgpd'] as Map, 'expiraEm': DateTime.now().subtract(const Duration(days: 1)).toIso8601String()},
+        });
+        expect((await chamar('POST', '/api/public/autorizacao', json: {'token': t2}, login: false)).$1, 410);
+        expect((await chamar('POST', '/api/public/autorizacao', json: {'token': 'x' * 43}, login: false)).$1, 410);
+      });
+
+      test('termo assinado: anexa, serve só com login, revogar apaga o arquivo', () async {
+        final ana = await criar({'nome': 'Ana', 'dia': 5, 'mes': 3});
+        final id = ana['id'] as String;
+        expect((await chamar('POST', '/api/membros/$id/lgpd/termo', bytes: utf8.encode('não é termo'))).$1, 400);
+        final pdf = utf8.encode('%PDF-1.4\n%termo de teste\n');
+        final (s, r) = await chamar('POST', '/api/membros/$id/lgpd/termo?data=2026-10-20&responsavel=', bytes: pdf);
+        expect(s, 201);
+        expect(r['consentimentoVia'], 'termo');
+        expect(r['consentimentoEm'], '2026-10-20');
+        expect(r['consentimentoRegistro']['dataAssinatura'], '2026-10-20');
+        final arquivo = r['termoAssinado'] as String;
+        expect(File(p.join(pastaDados, 'termos-lgpd', arquivo)).existsSync(), isTrue);
+
+        final (sv, conteudo) = await chamar('GET', '/api/membros/$id/lgpd/termo');
+        expect(sv, 200);
+        expect(utf8.decode(conteudo as List<int>), startsWith('%PDF-'));
+        expect((await chamar('GET', '/api/membros/$id/lgpd/termo', login: false)).$1, 401);
+
+        // Foto do papel também vale (vira JPG sem EXIF).
+        final (sf, rf) = await chamar('POST', '/api/membros/$id/lgpd/termo', bytes: foto(800, 1100));
+        expect(sf, 201);
+        expect(rf['termoAssinado'], endsWith('.jpg'));
+        expect(File(p.join(pastaDados, 'termos-lgpd', arquivo)).existsSync(), isFalse); // o anterior saiu
+
+        final (sr, rr) = await chamar('POST', '/api/membros/$id/lgpd/revogar');
+        expect(sr, 200);
+        expect(rr.containsKey('consentimentoEm'), isFalse);
+        expect(rr.containsKey('termoAssinado'), isFalse);
+        expect(rr['consentimentoRevogado']['via'], 'termo');
+        expect(Directory(p.join(pastaDados, 'termos-lgpd')).listSync(), isEmpty);
+        expect((await chamar('POST', '/api/membros/$id/lgpd/revogar')).$1, 400);
+      });
+
+      test('manual: data digitada registra quem foi; não aceita data futura', () async {
+        final ana = await criar({'nome': 'Ana', 'dia': 5, 'mes': 3, 'consentimentoEm': '2026-01-10'});
+        expect(ana['consentimentoVia'], 'manual');
+        expect(ana['consentimentoRegistro']['versaoTermo'], 1);
+        final futuro = DateTime.now().add(const Duration(days: 30));
+        final dataFutura = '${futuro.year}-${futuro.month.toString().padLeft(2, '0')}-${futuro.day.toString().padLeft(2, '0')}';
+        expect((await chamar('PUT', '/api/membros/${ana['id']}', json: {'consentimentoEm': dataFutura})).$1, 400);
+        final (_, limpo) = await chamar('PUT', '/api/membros/${ana['id']}', json: {'consentimentoEm': null});
+        expect(limpo.containsKey('consentimentoVia'), isFalse);
+        // Campos de prova não entram pelo corpo.
+        final (_, forjado) = await chamar('PUT', '/api/membros/${ana['id']}',
+            json: {'consentimentoVia': 'link', 'consentimentoRegistro': {'em': 'x'}, 'termoAssinado': '0123456789abcdef0123.pdf'});
+        expect(forjado.containsKey('consentimentoVia'), isFalse);
+        expect(forjado.containsKey('termoAssinado'), isFalse);
+      });
+
+      test('recepção (QR): a pessoa se cadastra e autoriza; pode ser desligado no /admin', () async {
+        final (si, info) = await chamar('GET', '/api/public/visitante', login: false);
+        expect(si, 200);
+        expect(info['termo']['texto'], contains('Lei Geral de Proteção de Dados'));
+        const base = {'nome': 'Rita Alves', 'aniversario': '07/08', 'telefone': '(11) 91234-5678', 'comoConheceu': 'Amigos'};
+        expect((await chamar('POST', '/api/public/visitante', json: base, login: false)).$1, 400); // sem autorizar
+        final (s, _) = await chamar('POST', '/api/public/visitante', json: {...base, 'autorizo': true}, login: false);
+        expect(s, 201);
+        final rita = ((await chamar('GET', '/api/membros')).$2 as List).firstWhere((m) => m['nome'] == 'Rita Alves') as Map;
+        expect(rita['status'], 'visitante');
+        expect(rita['whatsapp'], '(11) 91234-5678');
+        expect(rita['consentimentoVia'], 'recepcao');
+        expect(rita['comoConheceu'], 'Amigos');
+
+        final menor = {'nome': 'Léo', 'aniversario': '01/01/${DateTime.now().year - 12}', 'autorizo': true};
+        expect((await chamar('POST', '/api/public/visitante', json: menor, login: false)).$1, 400);
+        expect((await chamar('POST', '/api/public/visitante', json: {...menor, 'responsavel': 'Pai do Léo'}, login: false)).$1, 201);
+
+        expect((await chamar('GET', '/qr-visitante.png', login: false)).$1, 200);
+        expect((await chamar('PUT', '/api/admin/configuracoes', json: {'visitanteQrAtivo': false})).$1, 200);
+        expect((await chamar('POST', '/api/public/visitante', json: {...base, 'autorizo': true}, login: false)).$1, 403);
+        expect((await chamar('GET', '/qr-visitante.png', login: false)).$1, 404);
+      });
+
+      test('mudar o texto do termo cria uma versão nova', () async {
+        final (_, antes) = await chamar('GET', '/api/membros/termo-lgpd');
+        expect(antes['versao'], 1);
+        await chamar('PUT', '/api/admin/configuracoes', json: {'termoLgpdTexto': antes['texto']}); // igual: não muda
+        expect((await chamar('GET', '/api/membros/termo-lgpd')).$2['versao'], 1);
+        await chamar('PUT', '/api/admin/configuracoes', json: {'termoLgpdTexto': 'Autorizo o uso dos meus dados.'});
+        final (_, depois) = await chamar('GET', '/api/membros/termo-lgpd');
+        expect(depois['versao'], 2);
+        expect(depois['texto'], 'Autorizo o uso dos meus dados.');
+        final ana = await criar({'nome': 'Ana', 'dia': 5, 'mes': 3, 'consentimentoEm': '2026-01-10'});
+        expect(ana['consentimentoRegistro']['versaoTermo'], 2);
+      });
+    });
+
     test('importar: formato antigo, CSV com cabeçalho e avisos de CPF', () async {
       // Formato antigo continua valendo.
       final (_, r1) =
@@ -330,11 +494,13 @@ void main() {
     test('backup leva e restaura os membros com as fotos', () async {
       final m = await criar({'nome': 'Ana', 'dia': 5, 'mes': 3, 'status': 'congregado'});
       await chamar('POST', '/api/membros/${m['id']}/foto', bytes: foto(800, 600));
+      await chamar('POST', '/api/membros/${m['id']}/lgpd/termo', bytes: utf8.encode('%PDF-1.4 termo'));
       final (_, zipBytes) = await chamar('GET', '/api/backups/agora/download');
       final zip = ZipDecoder().decodeBytes(zipBytes as List<int>);
       expect(zip.findFile('data/membros.json'), isNotNull);
       final arquivos = [for (final f in zip.files) f.name];
       expect(arquivos.where((n) => n.startsWith('fotos-membros/')).length, 2); // foto + miniatura
+      expect(arquivos.where((n) => n.startsWith('termos-lgpd/')).length, 1);
 
       await chamar('DELETE', '/api/membros/${m['id']}');
       expect(((await chamar('GET', '/api/membros')).$2 as List), isEmpty);
@@ -344,6 +510,8 @@ void main() {
       expect(lista.single['nome'], 'Ana');
       expect(lista.single['status'], 'congregado');
       expect((await chamar('GET', '/api/membros/${m['id']}/foto')).$1, 200);
+      expect((await chamar('GET', '/api/membros/${m['id']}/lgpd/termo')).$1, 200); // o termo voltou junto
+      expect(r['termosLgpd'], 1);
     });
   });
 }

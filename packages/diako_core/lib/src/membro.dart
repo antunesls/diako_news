@@ -27,6 +27,25 @@ enum StatusMembro {
   static StatusMembro legado(bool ativo) => ativo ? StatusMembro.membro : StatusMembro.inativo;
 }
 
+/// Como a pessoa autorizou o uso dos dados (LGPD).
+abstract final class ViaConsentimento {
+  /// A secretaria digitou a data (autorização dada fora do sistema).
+  static const manual = 'manual';
+
+  /// A própria pessoa aceitou pelo link enviado (WhatsApp etc.).
+  static const link = 'link';
+
+  /// Termo impresso, assinado e anexado à ficha.
+  static const termo = 'termo';
+
+  /// A pessoa se cadastrou pelo QR code da recepção e aceitou o termo.
+  static const recepcao = 'recepcao';
+
+  static const todas = [manual, link, termo, recepcao];
+
+  static String? valida(Object? v) => todas.contains(v) ? v as String : null;
+}
+
 /// Uma mudança de status do membro (quando aconteceu e para qual).
 class MudancaStatus {
   MudancaStatus(this.status, this.em);
@@ -76,6 +95,11 @@ class Membro {
     this.observacoes,
     this.comoConheceu,
     this.consentimentoEm,
+    this.consentimentoVia,
+    this.consentimentoRegistro,
+    this.termoAssinado,
+    this.consentimentoRevogado,
+    this.conviteLgpd,
     this.conjugeId,
     this.paisIds = const [],
     this.emergenciaNome,
@@ -131,6 +155,23 @@ class Membro {
 
   /// Data (aaaa-mm-dd) em que a pessoa autorizou o uso dos dados (LGPD).
   String? consentimentoEm;
+
+  /// Como a autorização foi dada: [ViaConsentimento].
+  String? consentimentoVia;
+
+  /// Prova da autorização, gravada só pelo servidor: quando (data e hora), versão do
+  /// termo, quem registrou ou de onde veio (IP/navegador) e o responsável, se menor.
+  Map<String, dynamic>? consentimentoRegistro;
+
+  /// Arquivo do termo assinado (foto ou PDF) em data/termos-lgpd.
+  String? termoAssinado;
+
+  /// Última revogação: {em, por, via}. A pessoa pode autorizar de novo depois.
+  Map<String, dynamic>? consentimentoRevogado;
+
+  /// Link de autorização ativo: {hash, criadoEm, expiraEm, por}. Só o hash do token
+  /// fica guardado; o servidor nunca devolve este campo ao painel.
+  Map<String, dynamic>? conviteLgpd;
 
   /// Id do cônjuge (o servidor mantém o vínculo nos dois lados).
   String? conjugeId;
@@ -227,6 +268,11 @@ class Membro {
         if (!(observacoes ?? '').isEmpty) 'observacoes': observacoes,
         if (!(comoConheceu ?? '').isEmpty) 'comoConheceu': comoConheceu,
         if (consentimentoEm != null) 'consentimentoEm': consentimentoEm,
+        if (consentimentoVia != null) 'consentimentoVia': consentimentoVia,
+        if (consentimentoRegistro != null) 'consentimentoRegistro': consentimentoRegistro,
+        if (!(termoAssinado ?? '').isEmpty) 'termoAssinado': termoAssinado,
+        if (consentimentoRevogado != null) 'consentimentoRevogado': consentimentoRevogado,
+        if (conviteLgpd != null) 'conviteLgpd': conviteLgpd,
         if (conjugeId != null) 'conjugeId': conjugeId,
         if (paisIds.isNotEmpty) 'paisIds': paisIds,
         if (!(emergenciaNome ?? '').isEmpty) 'emergenciaNome': emergenciaNome,
@@ -272,6 +318,11 @@ class Membro {
       observacoes: _texto(j['observacoes']),
       comoConheceu: _texto(j['comoConheceu']),
       consentimentoEm: dataDe(j['consentimentoEm']),
+      consentimentoVia: ViaConsentimento.valida(j['consentimentoVia']),
+      consentimentoRegistro: _mapa(j['consentimentoRegistro']),
+      termoAssinado: _texto(j['termoAssinado']),
+      consentimentoRevogado: _mapa(j['consentimentoRevogado']),
+      conviteLgpd: _mapa(j['conviteLgpd']),
       conjugeId: _texto(j['conjugeId']),
       paisIds: lista(j['paisIds']),
       emergenciaNome: _texto(j['emergenciaNome']),
@@ -286,6 +337,8 @@ class Membro {
   }
 
   static String? _texto(Object? v) => v is String && v.trim().isNotEmpty ? v.trim() : null;
+
+  static Map<String, dynamic>? _mapa(Object? v) => v is Map && v.isNotEmpty ? Map<String, dynamic>.from(v) : null;
 
   /// Mantém 'M' ou 'F', aceitando "masculino"/"feminino".
   static String? _sexo(Object? v) {

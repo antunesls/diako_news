@@ -75,6 +75,7 @@
       <a href="#igreja">Igreja e site</a>
       <a href="#pagina-inicial">Página inicial</a>
       <a href="#mural">Mural</a>
+      <a href="#lgpd">LGPD</a>
       <a href="#holyrics">Holyrics</a>
       <a href="#agenda">Agenda (Google)</a>
       <a href="#email">Avisos por e-mail</a>
@@ -146,6 +147,24 @@
           <button class="botao secundario" type="button" id="desativar-chave-mural">Deixar aberto (sem chave)</button>
           <span id="res-mural" role="status"></span>
         </div>
+      </section>
+
+      <section class="cartao" id="lgpd">
+        <h2>Autorização de dados (LGPD)</h2>
+        <p class="dica">Este texto aparece no link de autorização, no cadastro de visitante pelo QR e no termo impresso.
+          O texto inicial é um modelo: revise com a liderança e, se possível, com alguém da área jurídica.
+          Cada mudança cria uma versão nova; quem já autorizou continua com a versão que leu.</p>
+        <form id="form-lgpd">
+          <div class="campo"><label for="termoLgpdTexto">Texto do termo <span class="dica" id="versao-termo"></span></label>
+            <textarea id="termoLgpdTexto" maxlength="8000" style="min-height:320px"></textarea></div>
+          <div class="campo"><label class="marcar"><input type="checkbox" id="visitanteQrAtivo"><span>Cadastro de visitante pelo QR code da recepção<br>
+            <span class="dica">Ligado, qualquer pessoa com o QR (ou o endereço <code id="link-visitante-admin"></code>) consegue se cadastrar como visitante. O QR para imprimir fica na aba Status do painel.</span></span></label></div>
+          <div class="acoes">
+            <button class="botao" type="submit">Salvar</button>
+            <button class="botao secundario" type="button" id="termo-padrao">Voltar ao texto modelo</button>
+            <span id="res-lgpd" role="status"></span>
+          </div>
+        </form>
       </section>
 
       <section class="cartao" id="holyrics">
@@ -365,6 +384,6 @@
 </dialog>
 
 <script src="/comum.js?v=4"></script>
-<script src="/admin.js?v=6"></script>
+<script src="/admin.js?v=7"></script>
 </body>
 </html>

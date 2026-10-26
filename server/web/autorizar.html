@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Autorização de uso de dados</title>
+<link rel="stylesheet" href="/estilo.css?v=5">
+<style>
+  .termo { white-space: pre-line; max-height: 46vh; overflow: auto; padding: 14px 16px; border: 1px solid var(--linha); border-radius: 12px; background: var(--campo); font-size: 15px; line-height: 1.55; margin-bottom: 18px; }
+  .dados { list-style: none; margin: 0 0 18px; padding: 0; border: 1px solid var(--linha); border-radius: 12px; overflow: hidden; }
+  .dados li { display: flex; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--linha); font-size: 15px; }
+  .dados li:last-child { border-bottom: 0; }
+  .dados .rotulo { width: 42%; flex-shrink: 0; color: var(--suave); }
+  .dados .valor { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  h2 { font-size: 18px; margin-top: 4px; }
+</style>
+</head>
+<body class="publico">
+<main>
+  <header><img src="/logo.png" alt=""></header>
+
+  <section id="carregando" class="cartao"><p>Carregando…</p></section>
+
+  <section id="invalido" class="cartao" hidden>
+    <h2>Não foi possível abrir</h2>
+    <p id="invalido-texto"></p>
+  </section>
+
+  <section id="formulario" hidden>
+    <p class="sobretitulo">Proteção de dados (LGPD)</p>
+    <h1 id="titulo">Autorização de uso de dados</h1>
+    <p class="intro" id="intro"></p>
+
+    <form id="form" class="cartao" novalidate>
+      <h2>Dados que a igreja guarda</h2>
+      <p class="dica" style="margin-top:-6px">Alguns aparecem só em parte, para proteger você caso este link seja repassado.</p>
+      <ul class="dados" id="dados"></ul>
+
+      <h2>Termo <span class="dica" id="versao"></span></h2>
+      <div class="termo" id="termo" tabindex="0" aria-label="Texto do termo"></div>
+
+      <p class="dica" id="ja-autorizou" hidden>Você já tinha autorizado antes. Confirmar de novo registra a data de hoje com o texto atual.</p>
+
+      <div class="campo" id="campo-responsavel">
+        <label for="responsavel" id="rotulo-responsavel">Nome do pai, mãe ou responsável <span class="dica">(se a pessoa tem menos de 18 anos)</span></label>
+        <input type="text" id="responsavel" maxlength="100" autocomplete="name">
+      </div>
+
+      <div class="campo">
+        <label class="marcar">
+          <input type="checkbox" id="autorizo">
+          <span id="texto-autorizo">Li o termo e autorizo o uso dos meus dados.</span>
+        </label>
+      </div>
+
+      <p id="erro" class="erro" role="alert" hidden></p>
+      <button type="submit" class="botao" id="enviar">Confirmar autorização</button>
+    </form>
+  </section>
+
+  <section id="obrigado" class="cartao" hidden>
+    <h2>Autorização registrada</h2>
+    <p id="obrigado-texto">Obrigado! Se quiser mudar ou retirar a autorização, é só falar com a secretaria da igreja.</p>
+  </section>
+</main>
+<script>
+  // O token vem depois do "#": não vai para o servidor no endereço nem aparece em registros de acesso.
+  // Tira o token da barra (print de tela, histórico) e guarda só nesta aba, para sobreviver a um recarregar.
+  let token = decodeURIComponent(location.hash.slice(1));
+  try {
+    if (token) sessionStorage.setItem('diako_autorizar', token);
+    else token = sessionStorage.getItem('diako_autorizar') || '';
+  } catch (e) { /* navegação privada sem armazenamento: segue com o que veio no link */ }
+  history.replaceState(null, '', location.pathname);
+  const $ = (id) => document.getElementById(id);
+  let menor = false;
+
+  function mostrar(id) {
+    for (const s of ['carregando', 'invalido', 'formulario', 'obrigado']) $(s).hidden = s !== id;
+  }
+  function invalido(msg) {
+    $('invalido-texto').textContent = msg;
+    mostrar('invalido');
+  }
+  async function postar(caminho, corpo) {
+    const r = await fetch(caminho, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.erro || 'Não foi possível continuar. Tente novamente.');
+    return j;
+  }
+  const semConexao = (e) => (e.message === 'Failed to fetch' ? 'Sem conexão com o servidor. Verifique sua internet e tente de novo.' : e.message);
+
+  (async () => {
+    if (!token) return invalido('Este endereço está incompleto. Abra o link exatamente como você recebeu.');
+    try {
+      const j = await postar('/api/public/autorizacao', { token });
+      document.title = 'Autorização de uso de dados — ' + j.igreja;
+      $('intro').textContent = `${j.nome}, a ${j.igreja} pede a sua autorização para guardar os seus dados de cadastro. Leia com calma e confirme no fim da página.`;
+      $('dados').replaceChildren(...j.dados.map((d) => {
+        const li = document.createElement('li');
+        const r = document.createElement('span'); r.className = 'rotulo'; r.textContent = d.rotulo;
+        const v = document.createElement('span'); v.className = 'valor'; v.textContent = d.valor;
+        li.append(r, v);
+        return li;
+      }));
+      $('termo').textContent = j.termo.texto;
+      $('versao').textContent = '(versão ' + j.termo.versao + ')';
+      $('ja-autorizou').hidden = !j.jaAutorizou;
+      menor = j.menor;
+      if (menor) {
+        $('rotulo-responsavel').textContent = `Nome do pai, mãe ou responsável por ${j.nome}`;
+        $('responsavel').required = true;
+        $('texto-autorizo').textContent = `Sou responsável por ${j.nome}, li o termo e autorizo o uso dos dados.`;
+      }
+      mostrar('formulario');
+    } catch (e) {
+      invalido(semConexao(e));
+    }
+  })();
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const erro = $('erro');
+    erro.hidden = true;
+    if (menor && !$('responsavel').value.trim()) {
+      erro.textContent = 'Escreva o nome do responsável que autoriza.';
+      erro.hidden = false;
+      $('responsavel').focus();
+      return;
+    }
+    if (!$('autorizo').checked) {
+      erro.textContent = 'Marque a caixa de autorização para confirmar.';
+      erro.hidden = false;
+      return;
+    }
+    $('enviar').disabled = true;
+    $('enviar').textContent = 'Enviando…';
+    try {
+      await postar('/api/public/autorizacao/aceitar', { token, autorizo: true, responsavel: $('responsavel').value.trim() });
+      mostrar('obrigado');
+    } catch (err) {
+      erro.textContent = semConexao(err);
+      erro.hidden = false;
+    } finally {
+      $('enviar').disabled = false;
+      $('enviar').textContent = 'Confirmar autorização';
+    }
+  });
+</script>
+</body>
+</html>

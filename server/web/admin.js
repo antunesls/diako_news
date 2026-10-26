@@ -95,6 +95,12 @@ function preencher() {
   $('estado-mural').textContent = cfg.chaveMural ? 'Protegido com chave.' : 'Aberto: qualquer pessoa com o endereço vê o mural.';
   $('desativar-chave-mural').disabled = !cfg.chaveMural;
 
+  // LGPD
+  if (document.activeElement !== $('termoLgpdTexto')) $('termoLgpdTexto').value = cfg.termoLgpdEmVigor || '';
+  $('versao-termo').textContent = '(versão ' + (cfg.termoLgpdVersao || 1) + (cfg.termoLgpdTexto ? '' : ', texto modelo') + ')';
+  $('visitanteQrAtivo').checked = cfg.visitanteQrAtivo !== false;
+  $('link-visitante-admin').textContent = base + '/visitante';
+
   // Holyrics
   const agente = cfg.modo === 'agente';
   $('holyrics-local').hidden = agente;
@@ -150,6 +156,15 @@ $('form-inicio').addEventListener('submit', (e) => {
     campos[id] = $(id).value.trim();
   }
   salvar(campos, $('res-inicio'));
+});
+
+$('form-lgpd').addEventListener('submit', (e) => {
+  e.preventDefault();
+  salvar({ termoLgpdTexto: $('termoLgpdTexto').value.trim(), visitanteQrAtivo: $('visitanteQrAtivo').checked }, $('res-lgpd'));
+});
+$('termo-padrao').addEventListener('click', () => {
+  if (!confirm('Trocar o texto atual pelo modelo? Isso cria uma versão nova do termo.')) return;
+  salvar({ termoLgpdTexto: '' }, $('res-lgpd'));
 });
 
 $('form-igreja').addEventListener('submit', (e) => {

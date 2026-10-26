@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Seja bem-vindo</title>
+<link rel="stylesheet" href="/estilo.css?v=5">
+<style>
+  .termo { white-space: pre-line; max-height: 34vh; overflow: auto; padding: 12px 14px; border: 1px solid var(--linha); border-radius: 12px; background: var(--campo); font-size: 14.5px; line-height: 1.55; margin-bottom: 14px; }
+  .lado-a-lado { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 0 16px; }
+</style>
+</head>
+<body class="publico">
+<main>
+  <header><img src="/logo.png" alt=""></header>
+
+  <section id="formulario">
+    <p class="sobretitulo">Que bom ter você aqui</p>
+    <h1>Seja bem-vindo!</h1>
+    <p class="intro" id="intro">Deixe seu contato para a igreja conhecer você melhor. Leva menos de um minuto.</p>
+
+    <form id="form" class="cartao" novalidate>
+      <div class="campo">
+        <label for="nome">Seu nome</label>
+        <input type="text" id="nome" maxlength="100" required autocomplete="name">
+      </div>
+      <div class="lado-a-lado">
+        <div class="campo">
+          <label for="aniversario">Aniversário <span class="dica">(dia/mês)</span></label>
+          <input type="text" id="aniversario" inputmode="numeric" maxlength="10" placeholder="05/03" required autocomplete="off">
+        </div>
+        <div class="campo">
+          <label for="telefone">Telefone / WhatsApp <span class="dica">(opcional)</span></label>
+          <input type="tel" id="telefone" maxlength="20" placeholder="(11) 98888-7777" autocomplete="tel">
+        </div>
+      </div>
+      <div class="campo">
+        <label for="comoConheceu">Como conheceu a igreja? <span class="dica">(opcional)</span></label>
+        <input type="text" id="comoConheceu" maxlength="200" list="opcoes-como">
+        <datalist id="opcoes-como"><option value="Convite de amigo ou parente"><option value="Redes sociais"><option value="Passou em frente"><option value="Evento da igreja"></datalist>
+      </div>
+
+      <h2 style="font-size:17px;margin-top:6px">Uso dos seus dados <span class="dica" id="versao"></span></h2>
+      <div class="termo" id="termo" tabindex="0" aria-label="Texto da autorização">Carregando…</div>
+
+      <div class="campo">
+        <label for="responsavel">Nome do pai, mãe ou responsável <span class="dica">(só se você tem menos de 18 anos)</span></label>
+        <input type="text" id="responsavel" maxlength="100">
+      </div>
+      <div class="campo">
+        <label class="marcar">
+          <input type="checkbox" id="autorizo">
+          <span>Li e autorizo a igreja a guardar e usar estes dados como descrito acima.</span>
+        </label>
+      </div>
+
+      <!-- Campo armadilha contra robôs: pessoas não veem nem preenchem. -->
+      <div class="escondido" aria-hidden="true">
+        <label for="website">Não preencha</label>
+        <input type="text" id="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <p id="erro" class="erro" role="alert" hidden></p>
+      <button type="submit" class="botao" id="enviar">Enviar</button>
+    </form>
+  </section>
+
+  <section id="desligado" class="cartao" hidden>
+    <h2>Cadastro indisponível</h2>
+    <p>O cadastro pelo celular está desligado no momento. Fale com a recepção da igreja.</p>
+  </section>
+
+  <section id="obrigado" class="cartao" hidden>
+    <h2>Obrigado!</h2>
+    <p id="obrigado-texto">Recebemos o seu contato. Esperamos ver você de novo em breve.</p>
+    <button type="button" class="botao secundario" id="outro">Cadastrar outra pessoa</button>
+  </section>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const soDigitos = (s) => s.replace(/\D/g, '');
+
+  fetch('/api/public/visitante').then(async (r) => {
+    if (r.status === 403 || r.status === 404) {
+      $('formulario').hidden = true;
+      $('desligado').hidden = false;
+      return;
+    }
+    const j = await r.json();
+    document.title = 'Seja bem-vindo — ' + j.igreja;
+    $('intro').textContent = `Deixe seu contato para a ${j.igreja} conhecer você melhor. Leva menos de um minuto.`;
+    $('termo').textContent = j.termo.texto;
+    $('versao').textContent = '(versão ' + j.termo.versao + ')';
+  }).catch(() => { $('termo').textContent = 'Sem conexão com o servidor. Verifique sua internet e recarregue a página.'; });
+
+  // Máscaras simples: 05/03 e (11) 98888-7777.
+  $('aniversario').addEventListener('input', (e) => {
+    const d = soDigitos(e.target.value).slice(0, 8);
+    e.target.value = [d.slice(0, 2), d.slice(2, 4), d.slice(4)].filter(Boolean).join('/');
+  });
+  $('telefone').addEventListener('input', (e) => {
+    const d = soDigitos(e.target.value).slice(0, 11);
+    if (d.length <= 2) { e.target.value = d.length ? '(' + d : ''; return; }
+    const meio = d.length === 11 ? 7 : 6;
+    e.target.value = '(' + d.slice(0, 2) + ') ' + d.slice(2, meio) + (d.length > meio ? '-' + d.slice(meio) : '');
+  });
+
+  function erro(msg, campo) {
+    $('erro').textContent = msg;
+    $('erro').hidden = !msg;
+    if (campo) campo.focus();
+  }
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    erro('');
+    if (!$('nome').value.trim()) return erro('Escreva o seu nome.', $('nome'));
+    if (!/^\d{2}\/\d{2}(\/\d{4})?$/.test($('aniversario').value)) return erro('Aniversário: use dia/mês, por exemplo 05/03.', $('aniversario'));
+    if (!$('autorizo').checked) return erro('Para enviar, leia e marque a autorização de uso dos dados.', $('autorizo'));
+    $('enviar').disabled = true;
+    $('enviar').textContent = 'Enviando…';
+    try {
+      const r = await fetch('/api/public/visitante', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: $('nome').value, aniversario: $('aniversario').value, telefone: $('telefone').value,
+          comoConheceu: $('comoConheceu').value, responsavel: $('responsavel').value,
+          autorizo: true, website: $('website').value,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || 'Não foi possível enviar. Tente novamente.');
+      $('form').reset();
+      $('formulario').hidden = true;
+      $('obrigado').hidden = false;
+    } catch (err) {
+      erro(err.message === 'Failed to fetch' ? 'Sem conexão com o servidor. Verifique sua internet e tente de novo.' : err.message);
+    } finally {
+      $('enviar').disabled = false;
+      $('enviar').textContent = 'Enviar';
+    }
+  });
+
+  $('outro').addEventListener('click', () => {
+    $('obrigado').hidden = true;
+    $('formulario').hidden = false;
+    $('nome').focus();
+  });
+</script>
+</body>
+</html>

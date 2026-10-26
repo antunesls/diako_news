@@ -1140,14 +1140,171 @@ function abrirFicha(id) {
     filhos.length ? par('Filhos', juntar(filhos.map(linkMembro))) : null,
     par('Emergência', [m.emergenciaNome, m.emergenciaVinculo, m.emergenciaTelefone].filter(Boolean).join(' · ')),
     par('Observações', m.observacoes),
-    par('LGPD', m.consentimentoEm
-      ? 'Autorizou o uso dos dados em ' + dataBr(m.consentimentoEm)
-      : el('span', { class: 'erro' }, 'Sem autorização registrada')),
+    par('LGPD', blocoLgpd(m)),
   ].filter(Boolean));
 
   hidratarFotos($('ficha-conteudo'), { grande: true });
   if (!$('dlg-ficha').open) $('dlg-ficha').showModal();
   $('ficha-conteudo').scrollTop = 0;
+}
+
+// ----- LGPD: autorização pelo link, termo assinado ou recepção -----
+
+const VIA_LGPD = {
+  manual: 'registrada pela secretaria',
+  link: 'pela própria pessoa, no link enviado',
+  termo: 'termo impresso e assinado',
+  recepcao: 'pela própria pessoa, no QR da recepção',
+};
+const dataHoraBr = (iso) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+let termoLgpd = null; // {versao, texto, igreja}, carregado na primeira vez que precisa
+async function carregarTermoLgpd() {
+  if (!termoLgpd) termoLgpd = await api('GET', '/api/membros/termo-lgpd');
+  return termoLgpd;
+}
+
+/** Situação da autorização, a prova registrada e as ações (link, termo, revogação). */
+function blocoLgpd(m) {
+  const reg = m.consentimentoRegistro || {};
+  const linhas = [];
+  if (m.consentimentoEm) {
+    linhas.push(el('div', {}, el('strong', {}, 'Autorizou em ' + dataBr(m.consentimentoEm)),
+      ' — ' + (VIA_LGPD[m.consentimentoVia] || 'registro sem detalhes')));
+    const prova = [
+      reg.em ? 'registrado em ' + dataHoraBr(reg.em) : null,
+      reg.versaoTermo ? 'termo versão ' + reg.versaoTermo : null,
+      reg.por ? 'por ' + reg.por : null,
+      reg.linkGeradoPor ? 'link enviado por ' + reg.linkGeradoPor : null,
+      reg.ip ? 'IP ' + reg.ip : null,
+    ].filter(Boolean);
+    if (prova.length) linhas.push(el('div', { class: 'dica' }, prova.join(' · ')));
+    if (reg.responsavel) linhas.push(el('div', { class: 'dica' }, 'Responsável que autorizou: ' + reg.responsavel));
+  } else {
+    linhas.push(el('div', { class: 'erro' }, 'Sem autorização registrada'));
+  }
+  if (m.consentimentoRevogado) {
+    linhas.push(el('div', { class: 'dica' }, 'Revogada em ' + dataHoraBr(m.consentimentoRevogado.em)
+      + (m.consentimentoRevogado.por ? ' por ' + m.consentimentoRevogado.por : '')));
+  }
+  if (m.linkLgpdValidoAte && !m.consentimentoEm) {
+    linhas.push(el('div', { class: 'dica' }, 'Link enviado, aguardando a pessoa. Vale até ' + dataHoraBr(m.linkLgpdValidoAte) + '.'));
+  }
+  const acoes = el('div', { class: 'contato-rapido' },
+    botao(m.linkLgpdValidoAte ? 'Gerar novo link' : 'Enviar link', () => enviarLinkLgpd(m)),
+    botao('Imprimir termo', () => imprimirTermo(m)),
+    botao(m.termoAssinado ? 'Trocar termo assinado' : 'Anexar termo assinado', () => anexarTermo(m)),
+    m.termoAssinado ? botao('Ver termo assinado', () => verTermoAssinado(m)) : null,
+    m.consentimentoEm ? botao('Registrar revogação', () => revogarLgpd(m), 'perigo pequeno') : null);
+  return el('div', {}, ...linhas, acoes);
+}
+
+/** Recarrega a lista e mostra a ficha atualizada (depois de uma ação da LGPD). */
+async function atualizarFicha(id) {
+  await carregarMembros();
+  if ($('dlg-ficha').open) abrirFicha(id);
+}
+
+let mensagemLinkLgpd = '';
+async function enviarLinkLgpd(m) {
+  try {
+    const [r, termo] = await Promise.all([api('POST', `/api/membros/${m.id}/lgpd/link`), carregarTermoLgpd()]);
+    const primeiroNome = m.nome.trim().split(/\s+/)[0];
+    mensagemLinkLgpd = `Olá, ${primeiroNome}! A ${termo.igreja} pede a sua autorização para guardar os seus dados de cadastro `
+      + `(Lei Geral de Proteção de Dados). Leia e confirme por este link, válido por 7 dias: ${r.url}`;
+    $('link-lgpd-intro').textContent = `Envie para ${m.nome}. A pessoa lê o termo, vê quais dados a igreja guarda e confirma; `
+      + 'a data, a hora e a versão do termo ficam registradas na ficha.';
+    $('link-lgpd-url').value = r.url;
+    $('link-lgpd-resultado').textContent = '';
+    const whatsapp = soDigitos(m.whatsapp || m.telefone);
+    const numero = whatsapp.length === 10 || whatsapp.length === 11 ? '55' + whatsapp : '';
+    $('whatsapp-link-lgpd').href = `https://wa.me/${numero}?text=${encodeURIComponent(mensagemLinkLgpd)}`;
+    $('whatsapp-link-lgpd').textContent = numero ? 'Enviar pelo WhatsApp' : 'Abrir no WhatsApp';
+    $('dlg-link-lgpd').showModal();
+    atualizarFicha(m.id);
+  } catch (e) {
+    mensagem($('resultado-membros'), e.message, false);
+  }
+}
+$('fechar-link-lgpd').addEventListener('click', () => $('dlg-link-lgpd').close());
+$('copiar-link-lgpd').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(mensagemLinkLgpd);
+    mensagem($('link-lgpd-resultado'), 'Mensagem copiada. Cole no WhatsApp ou no e-mail.');
+  } catch (e) {
+    $('link-lgpd-url').select();
+    mensagem($('link-lgpd-resultado'), 'Não deu para copiar sozinho: o link está selecionado, use Ctrl+C.', false);
+  }
+});
+
+async function imprimirTermo(m) {
+  let termo;
+  try {
+    termo = await carregarTermoLgpd();
+  } catch (e) {
+    mensagem($('resultado-membros'), e.message, false);
+    return;
+  }
+  const idade = idadeDe(m);
+  const dados = [
+    'Nome: ' + m.nome,
+    'Data de nascimento: ' + aniversarioDe(m),
+    m.cpf ? 'CPF: ' + mascaraCpf(m.cpf) : null,
+  ].filter(Boolean);
+  $('impressao-membros').replaceChildren(
+    el('h1', {}, 'Termo de autorização de uso de dados pessoais'),
+    el('p', {}, termo.igreja + ' · versão ' + termo.versao + ' do termo'),
+    ...dados.map((d) => el('p', { class: 'termo-dados' }, d)),
+    el('div', { class: 'termo-texto' }, termo.texto),
+    el('p', { class: 'termo-dados' }, 'Local e data: ______________________________, ____/____/________'),
+    el('div', { class: 'assinatura' }, 'Assinatura de ' + m.nome),
+    idade == null || idade < 18
+      ? el('div', { class: 'assinatura' }, 'Nome e assinatura do pai, mãe ou responsável (se menor de 18 anos)')
+      : null);
+  window.print();
+}
+
+function anexarTermo(m) {
+  $('termo-intro').textContent = `Foto ou PDF do termo de ${m.nome}, impresso pelo botão "Imprimir termo" e assinado. `
+    + 'Substitui o termo anexado antes, se houver.';
+  $('t-arquivo').value = '';
+  $('t-data').value = hojeIso();
+  $('t-data').max = hojeIso();
+  $('t-responsavel').value = '';
+  abrirDialogo($('dlg-termo'), $('erro-termo'), async () => {
+    const arquivo = $('t-arquivo').files[0];
+    if (!arquivo) throw new Error('Escolha a foto ou o PDF do termo assinado.');
+    const termo = await carregarTermoLgpd();
+    const qs = new URLSearchParams({ data: $('t-data').value, responsavel: $('t-responsavel').value.trim(), versao: termo.versao });
+    await api('POST', `/api/membros/${m.id}/lgpd/termo?${qs}`, arquivo, { bruto: true, tipo: arquivo.type || 'application/octet-stream' });
+    await atualizarFicha(m.id);
+  });
+}
+
+async function verTermoAssinado(m) {
+  // Abre a aba antes do fetch (senão o navegador bloqueia como pop-up) e depois aponta para o arquivo.
+  const aba = window.open('', '_blank');
+  try {
+    const url = await urlAutenticada(`/api/membros/${m.id}/lgpd/termo?v=${encodeURIComponent(m.termoAssinado)}`);
+    if (!url) throw new Error('Termo assinado não encontrado.');
+    if (aba) aba.location = url;
+    else window.location.assign(url);
+  } catch (e) {
+    if (aba) aba.close();
+    mensagem($('resultado-membros'), e.message, false);
+  }
+}
+
+async function revogarLgpd(m) {
+  if (!confirm(`Registrar que ${m.nome} retirou a autorização de uso dos dados?\n\n`
+    + 'O termo assinado anexado (se houver) será apagado. Os dados do cadastro continuam: '
+    + 'se a pessoa pediu para apagá-los, exclua o cadastro depois.')) return;
+  try {
+    await api('POST', `/api/membros/${m.id}/lgpd/revogar`);
+    await atualizarFicha(m.id);
+  } catch (e) {
+    mensagem($('resultado-membros'), e.message, false);
+  }
 }
 
 $('fechar-ficha').addEventListener('click', () => $('dlg-ficha').close());
@@ -1261,6 +1418,7 @@ $('dlg-membro').addEventListener('cancel', (e) => {
 });
 
 let membroEmEdicao = null; // o registro que o formulário edita (vira o criado depois do primeiro salvar)
+const DICA_CONSENTIMENTO = $('b-consentimento-dica').textContent.replace(/\s+/g, ' ').trim();
 $('b-nome').addEventListener('input', () => avisoDuplicado($('b-nome'), $('b-nome-aviso'), membroEmEdicao?.id, fecharFormulario));
 $('b-conjuge').addEventListener('input', () => avisoConjuge(membroEmEdicao));
 
@@ -1290,6 +1448,12 @@ function editarMembro(m) {
   $('b-rg').value = m?.rg || '';
   $('b-consentimento').value = m?.consentimentoEm || '';
   $('b-consentimento').max = hojeIso();
+  // Autorização dada pela própria pessoa (link, termo, recepção) é prova: não se edita à mão.
+  const viaPropria = m?.consentimentoEm && m.consentimentoVia && m.consentimentoVia !== 'manual';
+  $('b-consentimento').disabled = !!viaPropria;
+  $('b-consentimento-dica').textContent = viaPropria
+    ? `Autorizado ${VIA_LGPD[m.consentimentoVia]}. Não dá para mudar aqui; para desfazer, use "Registrar revogação" na ficha.`
+    : DICA_CONSENTIMENTO;
   $('b-status').value = m ? statusValido(m.status) : 'membro';
   $('b-chegada').value = m?.dataChegada || '';
   $('b-batismo').value = m?.dataBatismo || '';
@@ -1368,7 +1532,8 @@ function editarMembro(m) {
       dataChegada: $('b-chegada').value || null,
       dataBatismo: $('b-batismo').value || null,
       dataMembresia: $('b-membresia').value || null,
-      consentimentoEm: $('b-consentimento').value || null,
+      // Campo bloqueado (autorização da própria pessoa) não vai no corpo: o servidor mantém a prova.
+      consentimentoEm: $('b-consentimento').disabled ? undefined : $('b-consentimento').value || null,
       ministerios: $('b-ministerios').value.split(',').map((s) => s.trim()).filter(Boolean),
       funcao: texto('b-funcao'),
       comoConheceu: texto('b-como-conheceu'),
@@ -1604,6 +1769,11 @@ async function carregarStatus() {
   $('link-oracao').href = estado.urlOracao;
   $('link-mensagens').textContent = estado.urlMensagens;
   $('link-mensagens').href = estado.urlMensagens;
+  $('cartao-qr-visitante').hidden = estado.visitanteQrAtivo === false;
+  if (estado.urlVisitante) {
+    $('link-visitante').textContent = estado.urlVisitante;
+    $('link-visitante').href = estado.urlVisitante;
+  }
   const urlMural = estado.urlOracao.replace(/\/oracao$/, '/mural') +
     (estado.chaveMural ? '?chave=' + encodeURIComponent(estado.chaveMural) : '');
   $('link-mural').textContent = urlMural;

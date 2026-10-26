@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import 'cartazes.dart';
 import 'fotos_membros.dart';
+import 'lgpd.dart';
 import 'galeria.dart';
 import 'qr_oracao.dart';
 import 'store.dart';
@@ -89,6 +90,16 @@ class Backup {
         final nome = p.basename(e.path);
         if (e is File && FotosMembros.nomeValido(nome)) {
           arquivo.add(ArchiveFile.bytes('fotos-membros/$nome', await e.readAsBytes()));
+        }
+      }
+    }
+    // Termos da LGPD assinados: são a prova da autorização, precisam ir junto.
+    final dirTermos = Directory(TermosAssinados(pastaDados).pasta);
+    if (await dirTermos.exists()) {
+      await for (final e in dirTermos.list()) {
+        final nome = p.basename(e.path);
+        if (e is File && TermosAssinados.nomeValido(nome)) {
+          arquivo.add(ArchiveFile.bytes('termos-lgpd/$nome', await e.readAsBytes()));
         }
       }
     }
@@ -184,6 +195,7 @@ class ResumoRestauracao {
   int cartazes = 0;
   int fotosGaleria = 0;
   int fotosMembros = 0;
+  int termosLgpd = 0;
   bool historico = false;
   bool configuracoes = false;
   String? backupSeguranca;
@@ -193,6 +205,7 @@ class ResumoRestauracao {
         'cartazes': cartazes,
         'fotosGaleria': fotosGaleria,
         'fotosMembros': fotosMembros,
+        'termosLgpd': termosLgpd,
         'historico': historico,
         'configuracoes': configuracoes,
         'backupSeguranca': backupSeguranca,
@@ -249,6 +262,10 @@ class Restauracao {
               if (foto != null && foto.isNotEmpty && !FotosMembros.nomeValido(foto)) {
                 throw const FormatException('Foto de membro inválida.');
               }
+              final termo = (doc['termoAssinado'] as String?)?.trim();
+              if (termo != null && termo.isNotEmpty && !TermosAssinados.nomeValido(termo)) {
+                throw const FormatException('Termo assinado inválido.');
+              }
             case 'mensagens':
               final mensagem = Mensagem.fromJson(doc);
               if (!Mensagem.tipos.contains(mensagem.tipo) || !Mensagem.statusValidos.contains(mensagem.status)) {
@@ -292,6 +309,14 @@ class Restauracao {
       temPastaFotosMembros = true;
       final nome = f.name.substring('fotos-membros/'.length);
       if (FotosMembros.nomeValido(nome)) fotosDosMembros[nome] = f.content;
+    }
+    final termos = <String, List<int>>{};
+    var temPastaTermos = false;
+    for (final f in arquivo.files) {
+      if (!f.isFile || !f.name.startsWith('termos-lgpd/')) continue;
+      temPastaTermos = true;
+      final nome = f.name.substring('termos-lgpd/'.length);
+      if (TermosAssinados.nomeValido(nome)) termos[nome] = f.content;
     }
     final historico = arquivo.findFile('data/historico.jsonl');
     Map<String, dynamic>? cfg;
@@ -356,6 +381,18 @@ class Restauracao {
         await File(p.join(dir.path, f.key)).writeAsBytes(f.value, flush: true);
       }
       resumo.fotosMembros = fotosDosMembros.keys.where((k) => !k.endsWith('-m.jpg')).length;
+    }
+    // Termos da LGPD assinados (backups de antes deles mantêm os atuais).
+    if (temPastaTermos) {
+      final dir = Directory(TermosAssinados(pastaDados).pasta);
+      await dir.create(recursive: true);
+      await for (final e in dir.list()) {
+        if (e is File && TermosAssinados.nomeValido(p.basename(e.path))) await e.delete();
+      }
+      for (final f in termos.entries) {
+        await File(p.join(dir.path, f.key)).writeAsBytes(f.value, flush: true);
+      }
+      resumo.termosLgpd = termos.length;
     }
     if (cfg != null && aplicarConfiguracoes != null) {
       await aplicarConfiguracoes!(cfg);
