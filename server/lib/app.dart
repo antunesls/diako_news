@@ -147,6 +147,7 @@ class Servidor {
       ..post('/api/public/autorizacao', _verAutorizacao)
       ..post('/api/public/autorizacao/aceitar', _aceitarAutorizacao)
       ..get('/api/public/visitante', _infoVisitante)
+      ..get('/api/public/termo-lgpd', (Request _) => _json({'versao': _termo.versao, 'texto': _termo.texto, 'igreja': _termo.igreja}))
       ..post('/api/public/visitante', _novoVisitantePublico)
       ..get(ajudaAgenda, (Request _) => _pagina('ajuda-agenda.html'))
       ..get('/ajuda/usuarios', (Request _) => _pagina('ajuda-usuarios.html'))

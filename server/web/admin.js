@@ -99,6 +99,7 @@ function preencher() {
   if (document.activeElement !== $('termoLgpdTexto')) $('termoLgpdTexto').value = cfg.termoLgpdEmVigor || '';
   $('versao-termo').textContent = '(versão ' + (cfg.termoLgpdVersao || 1) + (cfg.termoLgpdTexto ? '' : ', texto modelo') + ')';
   $('visitanteQrAtivo').checked = cfg.visitanteQrAtivo !== false;
+  $('muralBoasVindas').checked = cfg.muralBoasVindas === true;
   $('link-visitante-admin').textContent = base + '/visitante';
 
   // Holyrics
@@ -157,6 +158,8 @@ $('form-inicio').addEventListener('submit', (e) => {
   }
   salvar(campos, $('res-inicio'));
 });
+
+$('muralBoasVindas').addEventListener('change', () => salvar({ muralBoasVindas: $('muralBoasVindas').checked }, $('res-mural')));
 
 $('form-lgpd').addEventListener('submit', (e) => {
   e.preventDefault();

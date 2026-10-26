@@ -236,6 +236,7 @@
         <button type="button" class="indicador" id="ind-eventos" data-ir="agenda"><span>Eventos em 7 dias</span><strong>–</strong><small></small></button>
       </div>
       <div class="cockpit">
+        <section class="cartao" data-permissao="visitantes"><h2>Visitantes de hoje <span class="acoes-ck"><button type="button" class="link" id="ck-acompanhamento" data-permissao="membros">Acompanhamento</button></span></h2><div id="ck-visitantes"></div></section>
         <section class="cartao"><h2>Pedidos para aprovar <button type="button" class="link" data-ir="motivos">Ver todos</button></h2><div id="ck-pedidos"></div></section>
         <section class="cartao"><h2>Próximos eventos <span class="acoes-ck"><button type="button" class="link" id="ck-novo-evento" data-permissao="agendaEditar" hidden>Novo</button><button type="button" class="link" data-ir="agenda">Agenda</button></span></h2><div id="ck-eventos"></div></section>
         <section class="cartao" data-permissao="mensagens"><h2>Mensagens novas <button type="button" class="link" data-ir="mensagens">Abrir</button></h2><div id="ck-mensagens"></div></section>
@@ -404,8 +405,12 @@
         <div class="cartao">
           <h2 style="font-size:18px">Mural da recepção</h2>
           <p>Abra este endereço no navegador da TV (ou de um computador ligado a ela) e toque na tela para ficar em tela cheia:</p>
-          <p><a id="link-mural" href="/mural" target="_blank"></a></p>
+          <p><strong>TV de informações:</strong> <a id="link-mural" href="/mural" target="_blank"></a></p>
           <p class="dica">Mostra recados, cartazes, aniversariantes, motivos de oração públicos, orações respondidas e os QRs de pedidos e mensagens. Nenhum conteúdo da caixa de mensagens aparece no mural.</p>
+          <p><strong>TV de boas-vindas</strong> (logo depois da recepção): <a id="link-mural-boas-vindas" href="/mural" target="_blank"></a></p>
+          <p class="dica">Mostra "Sejam bem-vindos!" com os nomes dos visitantes de hoje que autorizaram ser citados (aparecem segundos depois do cadastro). Sem visitantes, mostra o QR do cadastro.</p>
+          <p><strong>Recepção (celular do obreiro):</strong> <a id="link-recepcao" href="/recepcao" target="_blank"></a></p>
+          <p class="dica">Crie para cada obreiro um usuário com o perfil <em>Recepção</em> em Administração › Usuários. Ele só cadastra visitantes e vê os do dia.</p>
         </div>
       </div>
     </section>
@@ -611,26 +616,25 @@
   </form>
 </dialog>
 
-<dialog id="dlg-visitante">
-  <form method="dialog" id="form-visitante">
+<dialog id="dlg-visitante" class="dialogo-largo">
+  <div class="dialogo-coluna">
     <h2 style="font-size:20px">Novo visitante</h2>
-    <p class="dica">Só o essencial. Os outros dados podem ser completados depois, na ficha.</p>
-    <div class="campo"><label for="v-nome">Nome</label><input type="text" id="v-nome" maxlength="100" required autocomplete="off">
-      <p class="aviso-campo dica" id="v-nome-aviso" hidden></p></div>
-    <div class="grade-campos">
-      <div class="campo"><label for="v-aniversario">Aniversário <span class="dica">(dd/mm)</span></label>
-        <input type="text" id="v-aniversario" inputmode="numeric" maxlength="10" placeholder="05/03" required
-          pattern="\d{2}/\d{2}(/\d{4})?" title="Use dd/mm ou dd/mm/aaaa"></div>
-      <div class="campo"><label for="v-telefone">Telefone / WhatsApp</label><input type="tel" id="v-telefone" maxlength="20" placeholder="(11) 98888-7777"></div>
+    <p class="dica" style="margin-top:-4px">Os outros dados podem ser completados depois, na ficha. Quem já veio antes é reconhecido pelo nome e telefone (ou aniversário).</p>
+    <div class="dialogo-rolagem" id="form-visitante-painel"></div>
+    <div class="dialogo-acoes"><button class="botao secundario" type="button" id="fechar-visitante">Fechar</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlg-acompanhamento" class="dialogo-largo">
+  <div class="dialogo-coluna">
+    <h2 style="font-size:20px">Acompanhamento de visitantes</h2>
+    <div class="chips" role="radiogroup" aria-label="Filtro do acompanhamento" style="margin-bottom:12px">
+      <label><input type="radio" name="filtro-acomp" value="pendentes" checked>A contatar</label>
+      <label><input type="radio" name="filtro-acomp" value="todos">Todos (30 dias)</label>
     </div>
-    <div class="campo"><label for="v-como-conheceu">Como conheceu a igreja</label><input type="text" id="v-como-conheceu" maxlength="200" list="dl-como-conheceu"></div>
-    <label class="marcar campo"><input type="checkbox" id="v-consentimento"><span>A pessoa autorizou a igreja a guardar estes dados (LGPD)</span></label>
-    <p class="erro" id="erro-visitante" hidden></p>
-    <div class="dialogo-acoes">
-      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
-      <button class="botao" value="salvar">Cadastrar visitante</button>
-    </div>
-  </form>
+    <div class="dialogo-rolagem" id="lista-acompanhamento"></div>
+    <div class="dialogo-acoes"><button class="botao secundario" type="button" id="fechar-acompanhamento">Fechar</button></div>
+  </div>
 </dialog>
 
 <dialog id="dlg-ficha" class="dialogo-largo">
@@ -705,6 +709,7 @@
 <div id="impressao-membros"></div>
 
 <script src="/comum.js?v=4"></script>
-<script src="/painel.js?v=10"></script>
+<script src="/form-visitante.js?v=1"></script>
+<script src="/painel.js?v=11"></script>
 </body>
 </html>

@@ -205,7 +205,39 @@ async function carregarInicio() {
         el('span', {}, a.nome),
         a.dias === 0 ? el('strong', { style: 'color:var(--primaria)' }, 'hoje') : el('span', { class: 'dica' }, ddmm(a.data))))
     : [vazioCk('Nenhum aniversariante nos próximos 7 dias.')]));
+
+  if (pode('visitantes')) carregarVisitantesInicio().catch(() => {});
 }
+
+/** Cartão "Visitantes de hoje": quem chegou, quem pode ser citado e o botão do telão. */
+async function carregarVisitantesInicio() {
+  const doDia = (await api('GET', '/api/visitas?desde=' + diaIso(new Date()))).filter((v) => v.data === diaIso(new Date()));
+  const pendentes = doDia.filter((v) => v.mencionar && !v.mencionadaEm);
+  $('ck-visitantes').replaceChildren(...(doDia.length ? [
+    ...doDia.slice().reverse().map((v) => el('div', { class: 'par' },
+      el('span', {}, v.nome, ' ', el('span', { class: 'dica' }, v.primeiraVez ? '· 1ª visita' : '· voltou')),
+      !v.mencionar ? el('span', { class: 'dica' }, 'não citar')
+        : v.mencionadaEm ? el('span', { class: 'dica' }, 'citado ✓')
+          : el('strong', { style: 'color:var(--primaria)' }, 'citar'))),
+    pode('projetar') && pendentes.length
+      ? el('p', { style: 'margin:10px 0 0' }, botao(`Projetar boas-vindas (${pendentes.length})`, async (e) => {
+        e.target.disabled = true;
+        try {
+          const r = await api('POST', '/api/projetar/boas-vindas');
+          if (r.status && r.status !== 'ok') throw new Error(r.error || 'O Holyrics não aceitou.');
+          await carregarVisitantesInicio();
+        } catch (err) {
+          e.target.disabled = false;
+          $('ck-visitantes').append(el('p', { class: 'erro' }, err.message));
+        }
+      }, 'pequeno'))
+      : null,
+  ].filter(Boolean) : [vazioCk('Nenhum visitante cadastrado hoje.')]));
+}
+$('ck-acompanhamento').addEventListener('click', async () => {
+  await carregarMembros();
+  abrirAcompanhamento();
+});
 
 /** O estado consulta o Holyrics e pode demorar; carrega à parte para não segurar o resto. */
 async function carregarSistemaInicio() {
@@ -841,8 +873,7 @@ function linksTelefone(numero, { ligar = true, whatsapp = false } = {}) {
 }
 
 for (const [id, mascara] of [['b-cpf', mascaraCpf], ['b-cep', mascaraCep], ['b-telefone', mascaraTelefone],
-  ['b-whatsapp', mascaraTelefone], ['b-emerg-telefone', mascaraTelefone], ['b-aniversario', mascaraData],
-  ['v-telefone', mascaraTelefone], ['v-aniversario', mascaraData]]) {
+  ['b-whatsapp', mascaraTelefone], ['b-emerg-telefone', mascaraTelefone], ['b-aniversario', mascaraData]]) {
   $(id).addEventListener('input', (e) => {
     const campo = e.target;
     // Só reformata digitando no fim (não atrapalha quem corrige no meio).
@@ -851,7 +882,7 @@ for (const [id, mascara] of [['b-cpf', mascaraCpf], ['b-cep', mascaraCep], ['b-t
   });
 }
 
-for (const id of ['b-aniversario', 'v-aniversario']) {
+for (const id of ['b-aniversario']) {
   $(id).addEventListener('blur', (e) => {
     const campo = e.target;
     if (campo.value && !lerAniversario(campo.value)) {
@@ -921,7 +952,7 @@ $('b-cep').addEventListener('keydown', (e) => {
 // ----- Lista -----
 
 async function carregarMembros() {
-  membros = await api('GET', '/api/membros');
+  [membros] = await Promise.all([api('GET', '/api/membros'), carregarVisitas()]);
   montarFiltroMinisterios();
   renderMembros();
 }
@@ -997,7 +1028,9 @@ function renderComposicao() {
         plural(aniversariantes, 'aniversariante', 'aniversariantes') + ' em ' + agora.toLocaleDateString('pt-BR', { month: 'long' })),
         el('button', { class: 'link', type: 'button', 'aria-pressed': String(soNovas),
           onclick: () => { soNovas = !soNovas; renderMembros(); } },
-        plural(novas, 'nova', 'novas') + ' em 90 dias'))),
+        plural(novas, 'nova', 'novas') + ' em 90 dias'),
+        aContatar().length ? el('button', { class: 'link', type: 'button', onclick: abrirAcompanhamento },
+          plural(aContatar().length, 'visitante a contatar', 'visitantes a contatar')) : null)),
     el('div', { class: 'barra-status', role: 'group', 'aria-label': 'Pessoas por status (clique para filtrar)' },
       ...contagem.filter(([, n]) => n).map(([s, n]) => el('button', {
         type: 'button', class: 'st-' + s, style: 'flex-grow:' + n, title: STATUS_MEMBRO[s][0] + ': ' + n,
@@ -1140,6 +1173,7 @@ function abrirFicha(id) {
     filhos.length ? par('Filhos', juntar(filhos.map(linkMembro))) : null,
     par('Emergência', [m.emergenciaNome, m.emergenciaVinculo, m.emergenciaTelefone].filter(Boolean).join(' · ')),
     par('Observações', m.observacoes),
+    par('Visitas', blocoVisitas(m)),
     par('LGPD', blocoLgpd(m)),
   ].filter(Boolean));
 
@@ -1595,35 +1629,115 @@ async function excluirMembro(m) {
   }
 }
 
-// ----- Novo visitante (cadastro rápido) -----
+// ----- Visitantes: cadastro completo, visitas na ficha e acompanhamento pós-visita -----
 
-$('novo-visitante').addEventListener('click', () => {
-  for (const id of ['v-nome', 'v-aniversario', 'v-telefone', 'v-como-conheceu']) $(id).value = '';
-  $('v-consentimento').checked = false;
-  $('v-nome-aviso').hidden = true;
-  let criado = null; // segundo clique em Cadastrar (ex.: após erro de rede) atualiza em vez de duplicar
-  abrirDialogo($('dlg-visitante'), $('erro-visitante'), async () => {
-    const aniversario = lerAniversario($('v-aniversario').value);
-    if (!aniversario) throw new Error('Aniversário: use dd/mm (o ano é opcional) com uma data que exista.');
-    const telefone = $('v-telefone').value.trim() || null;
-    const dados = {
-      nome: $('v-nome').value.trim(),
-      dia: aniversario.dia,
-      mes: aniversario.mes,
-      ano: aniversario.ano,
-      telefone,
-      whatsapp: telefone && soDigitos(telefone).length === 11 ? telefone : null,
-      comoConheceu: $('v-como-conheceu').value.trim() || null,
-      status: 'visitante',
-      dataChegada: hojeIso(),
-      consentimentoEm: $('v-consentimento').checked ? hojeIso() : null,
-    };
-    criado = criado ? await api('PUT', '/api/membros/' + criado.id, dados) : await api('POST', '/api/membros', dados);
-    await carregarMembros();
-    mensagem($('resultado-membros'), `${criado.nome} cadastrado(a) como visitante.`);
-  });
+let visitas = []; // todas as visitas (para a ficha e o acompanhamento), carregadas junto com os membros
+const INTERESSE_ROTULO = { visitaPastoral: 'Quer visita', oracao: 'Quer oração', batismo: 'Batismo', celula: 'Grupo/célula' };
+const ORIGEM_VISITA = { qr: 'pelo QR', recepcao: 'na recepção', painel: 'pelo painel' };
+const CONTATO_ROTULO = { aContatar: 'A contatar', contatado: 'Contatado', semResposta: 'Sem resposta' };
+const dataVisitaBr = (iso) => iso.split('-').reverse().join('/');
+
+async function carregarVisitas() {
+  visitas = pode('visitantes') ? await api('GET', '/api/visitas?desde=2000-01-01') : [];
+}
+
+/** Visitas dos últimos 30 dias ainda sem contato concluído. */
+function aContatar() {
+  const desde = diaIso(new Date(Date.now() - 30 * 86400000));
+  return visitas.filter((v) => v.data >= desde && (v.contato || 'aContatar') !== 'contatado');
+}
+
+const pilulaInteresse = (i) => el('span', { class: 'pilula st-visitante', style: 'margin-right:4px' }, INTERESSE_ROTULO[i] || i);
+
+/** Linhas da ficha: cada visita com a origem, se foi citada, interesses e o contato. */
+function blocoVisitas(m) {
+  const dela = visitas.filter((v) => v.membroId === m.id);
+  if (!dela.length) return null;
+  return el('div', {}, ...dela.map((v) => el('div', { style: 'margin-bottom:6px' },
+    el('strong', {}, dataVisitaBr(v.data)), ' · ' + (v.primeiraVez ? '1ª visita' : 'voltou') + ' · ' + (ORIGEM_VISITA[v.origem] || '')
+      + (v.registradoPor ? ' (' + v.registradoPor + ')' : '')
+      + ' · ' + (!v.mencionar ? 'não quis ser citado' : v.mencionadaEm ? 'citado no culto' : 'pode ser citado'),
+    (v.interesses || []).length ? el('div', {}, ...v.interesses.map(pilulaInteresse)) : null,
+    v.contato && v.contato !== 'aContatar'
+      ? el('div', { class: 'dica' }, CONTATO_ROTULO[v.contato] + (v.contatoPor ? ' por ' + v.contatoPor : '') + (v.contatoNota ? ': ' + v.contatoNota : ''))
+      : null)));
+}
+
+let formVisitantePainel = null;
+$('novo-visitante').addEventListener('click', async () => {
+  const termo = await carregarTermoLgpd().catch(() => null);
+  if (!formVisitantePainel) {
+    formVisitantePainel = montarFormVisitante($('form-visitante-painel'), {
+      termo,
+      exigirAutorizacao: false,
+      textoAutorizo: 'A pessoa leu (ou ouviu) o termo e autorizou o uso dos dados. Se não autorizou agora, deixe desmarcado e envie o link depois, pela ficha.',
+      textoBotao: 'Cadastrar visitante',
+      enviar: (corpo) => api('POST', '/api/visitas', corpo),
+      async aoConcluir(r) {
+        $('dlg-visitante').close();
+        await carregarMembros();
+        const pessoas = r.pessoas || [];
+        mensagem($('resultado-membros'), (pessoas.length > 1 ? 'Cadastrados: ' : 'Cadastrado: ')
+          + pessoas.map((p) => p.nome + (p.primeiraVez ? '' : ' (voltou)')).join(', ') + '.');
+      },
+    });
+  } else {
+    formVisitantePainel.limpar();
+  }
+  $('dlg-visitante').showModal();
 });
-$('v-nome').addEventListener('input', () => avisoDuplicado($('v-nome'), $('v-nome-aviso'), null, () => { $('dlg-visitante').close(); return true; }));
+$('fechar-visitante').addEventListener('click', () => $('dlg-visitante').close());
+
+// Acompanhamento: quem visitou nos últimos 30 dias e ainda não recebeu contato.
+async function abrirAcompanhamento() {
+  await carregarTermoLgpd().catch(() => null);
+  renderAcompanhamento();
+  if (!$('dlg-acompanhamento').open) $('dlg-acompanhamento').showModal();
+}
+$('fechar-acompanhamento').addEventListener('click', () => $('dlg-acompanhamento').close());
+for (const r of document.querySelectorAll('input[name=filtro-acomp]')) r.addEventListener('change', renderAcompanhamento);
+
+function renderAcompanhamento() {
+  const todos = document.querySelector('input[name=filtro-acomp]:checked').value === 'todos';
+  const desde = diaIso(new Date(Date.now() - 30 * 86400000));
+  const lista = todos ? visitas.filter((v) => v.data >= desde) : aContatar();
+  $('lista-acompanhamento').replaceChildren(...(lista.length ? lista.map(itemAcompanhamento)
+    : [el('p', { class: 'vazio' }, todos ? 'Nenhuma visita nos últimos 30 dias.' : 'Ninguém para contatar.')]));
+}
+
+function itemAcompanhamento(v) {
+  const m = membros.find((x) => x.id === v.membroId);
+  const primeiroNome = v.nome.trim().split(/\s+/)[0];
+  const quando = v.data === diaIso(new Date()) ? 'hoje' : 'no dia ' + dataVisitaBr(v.data).slice(0, 5);
+  const texto = `Olá, ${primeiroNome}! Aqui é da ${termoLgpd ? termoLgpd.igreja : 'igreja'}. Obrigado pela sua visita ${quando}! `
+    + 'Foi uma alegria ter você com a gente. Se precisar de qualquer coisa, é só responder esta mensagem.';
+  const fone = soDigitos(m && (m.whatsapp || m.telefone));
+  const nota = el('input', { type: 'text', maxlength: '500', placeholder: 'Anotação (opcional)', value: v.contatoNota || '',
+    'aria-label': 'Anotação sobre o contato com ' + v.nome, style: 'flex:1;min-width:160px;padding:8px 12px' });
+  const salvar = (status) => async () => {
+    try {
+      await api('PUT', `/api/visitas/${v.id}/contato`, { status, nota: nota.value.trim() });
+      await carregarVisitas();
+      renderAcompanhamento();
+      renderMembros();
+    } catch (e) {
+      mensagem($('resultado-membros'), e.message, false);
+    }
+  };
+  return el('div', { class: 'cartao', style: 'padding:14px 16px;margin-bottom:10px' },
+    el('div', { style: 'display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center' },
+      m ? el('button', { class: 'link', type: 'button', onclick: () => { $('dlg-acompanhamento').close(); abrirFicha(m.id); } }, v.nome)
+        : el('strong', {}, v.nome),
+      el('span', { class: 'dica' }, dataVisitaBr(v.data) + ' · ' + (v.primeiraVez ? '1ª visita' : 'voltou') + ' · ' + (ORIGEM_VISITA[v.origem] || '')),
+      el('span', { class: 'pilula ' + (v.contato === 'contatado' ? 'st-membro' : v.contato === 'semResposta' ? 'st-transferido' : 'st-inativo') },
+        CONTATO_ROTULO[v.contato || 'aContatar'])),
+    (v.interesses || []).length ? el('div', { style: 'margin-top:6px' }, ...v.interesses.map(pilulaInteresse)) : null,
+    el('div', { class: 'contato-rapido' },
+      fone.length >= 10 ? el('a', { href: `https://wa.me/55${fone}?text=${encodeURIComponent(texto)}`, target: '_blank', rel: 'noopener' }, 'WhatsApp com mensagem') : null,
+      fone.length >= 10 ? el('a', { href: 'tel:+55' + fone }, 'Ligar') : el('span', { class: 'dica' }, 'Sem telefone cadastrado')),
+    el('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center' },
+      nota, botao('Contatado', salvar('contatado'), 'pequeno'), botao('Sem resposta', salvar('semResposta'))));
+}
 
 // Filtros (só re-renderiza, sem buscar de novo).
 for (const id of ['busca-membro', 'filtro-status-membro', 'filtro-ministerio-membro', 'filtro-aniversariantes', 'filtro-sem-consentimento']) {
@@ -1778,6 +1892,12 @@ async function carregarStatus() {
     (estado.chaveMural ? '?chave=' + encodeURIComponent(estado.chaveMural) : '');
   $('link-mural').textContent = urlMural;
   $('link-mural').href = urlMural;
+  const urlBoasVindas = urlMural + (urlMural.includes('?') ? '&' : '?') + 'tela=boas-vindas';
+  $('link-mural-boas-vindas').textContent = urlBoasVindas;
+  $('link-mural-boas-vindas').href = urlBoasVindas;
+  const urlRecepcao = estado.urlOracao.replace(/\/oracao$/, '/recepcao');
+  $('link-recepcao').textContent = urlRecepcao;
+  $('link-recepcao').href = urlRecepcao;
   $('backup-agora').disabled = !estado.backupConfigurado;
 }
 
@@ -1811,7 +1931,9 @@ function conectarTempoReal() {
     const { tipo } = JSON.parse(e.data);
     if (tipo === 'motivos') { if (pode('motivosVer')) carregarMotivos(); }
     else if (tipo === 'mensagens') { if (pode('mensagens')) carregarMensagens(); }
-    else if (tipo === abaAtual || (tipo === 'membros' && abaAtual === 'recados')) carregar[abaAtual]();
+    else if (tipo === abaAtual || (tipo === 'membros' && abaAtual === 'recados') || (tipo === 'visitas' && abaAtual === 'membros')) {
+      carregar[abaAtual]();
+    }
     if (abaAtual === 'inicio') carregarInicio();
   };
   ws.onclose = () => {

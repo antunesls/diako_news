@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Recepção — DiakoNews</title>
+<link rel="stylesheet" href="/estilo.css?v=5">
+<style>
+  .topo-recepcao { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .topo-recepcao h1 { font-size: 26px; margin: 0; text-align: left; }
+  .topo-recepcao .dica { display: block; }
+  .hoje { list-style: none; margin: 0; padding: 0; }
+  .hoje li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--linha); }
+  .hoje li:last-child { border-bottom: 0; }
+  .hoje .nome { font-weight: 600; overflow-wrap: anywhere; }
+  .etq { display: inline-block; padding: 0 9px; border-radius: 10px; font-size: 12.5px; font-weight: 600; line-height: 22px; white-space: nowrap; background: var(--neutro); color: var(--suave); }
+  .etq.primeira { background: #dbeafb; color: #1c4f86; }
+  .etq.voltou { background: #dcf0dd; color: #22592b; }
+  .resumo-hoje { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .resumo-hoje h2 { font-size: 19px; margin: 0; }
+  .aviso-ok { background: var(--primaria-suave); color: var(--primaria-escura); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-weight: 500; }
+  #novo { width: 100%; min-height: 54px; border-radius: 27px; font-size: 17px; margin-bottom: 18px; }
+</style>
+</head>
+<body class="publico">
+<main>
+  <header><img src="/logo.png" alt=""></header>
+
+  <section id="entrar" hidden>
+    <p class="sobretitulo">Recepção</p>
+    <h1>Entrar</h1>
+    <p class="intro">Use o usuário e a senha que a secretaria criou para você.</p>
+    <form id="form-entrar" class="cartao" novalidate>
+      <div class="campo"><label for="usuario">Usuário</label><input type="text" id="usuario" autocomplete="username" autocapitalize="none"></div>
+      <div class="campo"><label for="senha">Senha</label><input type="password" id="senha" autocomplete="current-password"></div>
+      <p id="erro-entrar" class="erro" role="alert" hidden></p>
+      <button type="submit" class="botao" id="enviar">Entrar</button>
+    </form>
+  </section>
+
+  <section id="app" hidden>
+    <div class="topo-recepcao">
+      <div><h1>Recepção</h1><span class="dica" id="quem"></span></div>
+      <button type="button" class="botao secundario pequeno" id="sair">Sair</button>
+    </div>
+    <p class="aviso-ok" id="salvo" role="status" hidden></p>
+
+    <div id="lista">
+      <button type="button" class="botao" id="novo">+ Novo visitante</button>
+      <div class="cartao">
+        <div class="resumo-hoje"><h2 id="titulo-hoje">Hoje</h2><span class="dica" id="contagem"></span></div>
+        <ul class="hoje" id="hoje"></ul>
+      </div>
+    </div>
+
+    <div id="cadastro" hidden>
+      <p class="dica" style="margin:0 0 12px">Preencha com o visitante. No fim, mostre a tela para <strong>a própria pessoa</strong> ler e tocar em "autorizo".</p>
+      <div id="form-visitante"></div>
+      <p style="text-align:center;margin-top:14px"><button type="button" class="botao secundario" id="voltar">Voltar sem salvar</button></p>
+    </div>
+  </section>
+</main>
+<script src="/form-visitante.js?v=1"></script>
+<script>
+  // Sessão própria da recepção: não mistura com o painel aberto no mesmo aparelho.
+  const CHAVE = 'diako_recepcao_token';
+  const $ = (id) => document.getElementById(id);
+  let token = null;
+  try { token = localStorage.getItem(CHAVE); } catch (e) { /* sem armazenamento: pede login a cada vez */ }
+
+  async function api(metodo, caminho, corpo) {
+    const r = await fetch(caminho, {
+      method: metodo,
+      headers: { Authorization: 'Bearer ' + token, ...(corpo ? { 'Content-Type': 'application/json' } : {}) },
+      body: corpo ? JSON.stringify(corpo) : undefined,
+    });
+    if (r.status === 401) { sair(); throw new Error('Sessão expirada. Entre novamente.'); }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.erro || 'Erro ' + r.status);
+    return j;
+  }
+
+  function sair() {
+    if (token) fetch('/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
+    token = null;
+    try { localStorage.removeItem(CHAVE); } catch (e) { /* ok */ }
+    $('app').hidden = true;
+    $('entrar').hidden = false;
+  }
+  $('sair').addEventListener('click', sair);
+
+  $('form-entrar').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('erro-entrar').hidden = true;
+    try {
+      const r = await fetch('/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario: $('usuario').value.trim(), senha: $('senha').value }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || 'Não foi possível entrar.');
+      token = j.token;
+      try { localStorage.setItem(CHAVE, token); } catch (e2) { /* ok */ }
+      $('senha').value = '';
+      await iniciar();
+    } catch (err) {
+      $('erro-entrar').textContent = err.message === 'Failed to fetch' ? 'Sem conexão com o servidor.' : err.message;
+      $('erro-entrar').hidden = false;
+    }
+  });
+
+  const hojeIso = () => new Date().toLocaleDateString('sv-SE');
+  async function carregarHoje() {
+    const visitas = (await api('GET', '/api/visitas?desde=' + hojeIso())).filter((v) => v.data === hojeIso());
+    $('titulo-hoje').textContent = 'Hoje, ' + new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+    $('contagem').textContent = visitas.length === 1 ? '1 visitante' : visitas.length + ' visitantes';
+    $('hoje').replaceChildren(...(visitas.length ? visitas.map((v) => {
+      const li = document.createElement('li');
+      const nome = document.createElement('span');
+      nome.className = 'nome';
+      nome.textContent = v.nome;
+      const etiquetas = document.createElement('span');
+      const etq = (texto, classe) => { const s = document.createElement('span'); s.className = 'etq ' + classe; s.textContent = texto; return s; };
+      etiquetas.append(etq(v.primeiraVez ? '1ª visita' : 'voltou', v.primeiraVez ? 'primeira' : 'voltou'));
+      if (!v.mencionar) etiquetas.append(' ', etq('não citar', ''));
+      li.append(nome, etiquetas);
+      return li;
+    }) : [Object.assign(document.createElement('li'), { textContent: 'Ninguém cadastrado ainda hoje.' })]));
+  }
+
+  let form = null;
+  async function iniciar() {
+    let eu;
+    try {
+      eu = await api('GET', '/api/eu');
+    } catch (e) {
+      sair();
+      return;
+    }
+    if (!(eu.permissoes || []).includes('visitantesCadastrar')) {
+      sair();
+      $('erro-entrar').textContent = 'Este usuário não pode cadastrar visitantes. Peça à secretaria o perfil "Recepção".';
+      $('erro-entrar').hidden = false;
+      return;
+    }
+    $('quem').textContent = eu.nome;
+    $('entrar').hidden = true;
+    $('app').hidden = false;
+    const termo = await fetch('/api/public/termo-lgpd').then((r) => r.json()).catch(() => null);
+    form = montarFormVisitante($('form-visitante'), {
+      termo,
+      textoAutorizo: 'Eu, visitante, li e autorizo a igreja a guardar e usar estes dados como descrito acima.',
+      textoBotao: 'Cadastrar visitante',
+      enviar: (corpo) => api('POST', '/api/visitas', corpo),
+      aoConcluir(r) {
+        const pessoas = r.pessoas || [];
+        const nomes = pessoas.map((p) => p.nome + (p.primeiraVez ? '' : ' (voltou)')).join(', ');
+        $('salvo').textContent = (pessoas.length > 1 ? 'Cadastrados: ' : 'Cadastrado: ') + nomes + '. Obrigado!';
+        $('salvo').hidden = false;
+        mostrar('lista');
+        carregarHoje();
+        setTimeout(() => { $('salvo').hidden = true; }, 8000);
+      },
+    });
+    mostrar('lista');
+    await carregarHoje();
+  }
+
+  function mostrar(qual) {
+    $('lista').hidden = qual !== 'lista';
+    $('cadastro').hidden = qual !== 'cadastro';
+    window.scrollTo(0, 0);
+  }
+  $('novo').addEventListener('click', () => {
+    $('salvo').hidden = true;
+    form.limpar();
+    mostrar('cadastro');
+    form.focar();
+  });
+  $('voltar').addEventListener('click', () => mostrar('lista'));
+  setInterval(() => { if (token && !$('lista').hidden) carregarHoje().catch(() => {}); }, 30000);
+
+  if (token) iniciar(); else $('entrar').hidden = false;
+</script>
+</body>
+</html>
