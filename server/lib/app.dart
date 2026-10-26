@@ -141,6 +141,7 @@ class Servidor {
       ..get('/mensagens', (Request _) => _pagina('mensagens.html'))
       // LGPD: autorização pelo link (token no #, nunca na URL) e cadastro de visitante pelo QR.
       ..get('/autorizar', (Request _) => _pagina('autorizar.html'))
+      ..get('/recepcao', (Request _) => _pagina('recepcao.html'))
       ..get('/visitante', (Request _) => cfg?.visitanteQrAtivo == false ? _paginaDesligada() : _pagina('visitante.html'))
       ..get('/qr-visitante.png', _qrVisitante)
       ..post('/api/public/autorizacao', _verAutorizacao)
@@ -211,6 +212,12 @@ class Servidor {
       ..post('/api/membros/<id>/lgpd/termo', _anexarTermo)
       ..get('/api/membros/<id>/lgpd/termo', _verTermoAssinado)
       ..post('/api/membros/<id>/lgpd/revogar', _revogarLgpd)
+      // Visitas (QR, obreiro da recepção, painel) e boas-vindas no culto
+      ..get('/api/visitas', _listarVisitas)
+      ..post('/api/visitas', _criarVisita)
+      ..post('/api/visitas/<id>/mencionada', _visitaMencionada)
+      ..put('/api/visitas/<id>/contato', _contatoVisita)
+      ..post('/api/projetar/boas-vindas', _projetarBoasVindas)
       // Cartazes
       ..get('/api/cartazes', _listarCartazes)
       ..post('/api/cartazes', _enviarCartaz)
@@ -846,6 +853,10 @@ class Servidor {
     await store.excluir('membros', id);
     if (m.foto != null) await _apagarFotoMembro(m.foto!);
     await termosAssinados.excluir(m.termoAssinado);
+    // As visitas da pessoa saem junto (o histórico de visitas é dela).
+    for (final v in store.listar('visitas').where((v) => v['membroId'] == id).toList()) {
+      await store.excluir('visitas', v['id'] as String);
+    }
     return _json({'ok': true});
   }
 
@@ -1240,8 +1251,7 @@ class Servidor {
     return _json({'igreja': _termo.igreja, 'termo': {'versao': _termo.versao, 'texto': _termo.texto}});
   }
 
-  /// POST /api/public/visitante — a própria pessoa se cadastra pelo QR da recepção e autoriza o termo.
-  /// Corpo: {nome, aniversario: "dd/mm" | "dd/mm/aaaa", telefone?, comoConheceu?, autorizo: true, responsavel?}
+  /// POST /api/public/visitante — a própria pessoa se cadastra pelo QR da recepção (corpo: ver [_registrarVisita]).
   Future<Response> _novoVisitantePublico(Request req) async {
     if (cfg?.visitanteQrAtivo == false) return _erro(403, 'O cadastro pela recepção está desligado.');
     final corpo = await _corpo(req);
@@ -1249,47 +1259,307 @@ class Servidor {
     if (!_limiteVisitantes.permitir(_ip(req))) {
       return _erro(429, 'Vários cadastros seguidos deste aparelho. Tente de novo em alguns minutos.');
     }
-    String texto(String campo) => (corpo[campo] as String? ?? '').trim().replaceAll(RegExp(r'\s+'), ' ');
-    final nome = texto('nome');
-    if (nome.isEmpty) return _erro(400, 'Escreva o seu nome.');
-    final aniv = RegExp(r'^(\d{1,2})/(\d{1,2})(?:/(\d{4}))?$').firstMatch(texto('aniversario'));
-    if (aniv == null) return _erro(400, 'Aniversário: use dia/mês, por exemplo 05/03.');
-    if (corpo['autorizo'] != true) return _erro(400, 'Para enviar, leia e marque a autorização de uso dos dados.');
-    final responsavel = texto('responsavel');
-    final telefone = texto('telefone');
-    final dados = <String, dynamic>{
-      'nome': nome,
-      'dia': int.parse(aniv.group(1)!),
-      'mes': int.parse(aniv.group(2)!),
-      if (aniv.group(3) != null) 'ano': int.parse(aniv.group(3)!),
-      if (telefone.isNotEmpty) 'telefone': telefone,
-      if (telefone.replaceAll(RegExp(r'\D'), '').length == 11) 'whatsapp': telefone,
-      if (texto('comoConheceu').isNotEmpty) 'comoConheceu': texto('comoConheceu'),
-      'status': StatusMembro.visitante.name,
-      'dataChegada': _hoje(),
+    return _registrarVisita(req, corpo, origem: OrigemVisita.qr);
+  }
+
+  // ---------- Visitas (QR, obreiro da recepção e painel) ----------
+
+  List<Visita> _visitas() => store.listar('visitas').map(Visita.fromJson).toList();
+
+  static String _nomeComparavel(String nome) =>
+      semAcento(nome.toLowerCase())!.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  /// Cadastro de quem já veio: mesmo nome e (mesmo telefone ou mesmo aniversário).
+  Map<String, dynamic>? _cadastroExistente(String nome, String telefone, int dia, int mes) {
+    final alvo = _nomeComparavel(nome);
+    final fone = telefone.replaceAll(RegExp(r'\D'), '');
+    for (final doc in store.listar('membros')) {
+      if (_nomeComparavel(doc['nome'] as String? ?? '') != alvo) continue;
+      final foneDoc = '${doc['telefone'] ?? ''}${doc['whatsapp'] ?? ''}'.replaceAll(RegExp(r'\D'), '');
+      if ((fone.isNotEmpty && foneDoc.contains(fone)) || (doc['dia'] == dia && doc['mes'] == mes)) return doc;
+    }
+    return null;
+  }
+
+  /// Cadastro de visita usado pelos três caminhos. Corpo:
+  /// `{pessoas: [{nome, aniversario: "dd/mm[/aaaa]", telefone?, parentesco?: conjuge|filho|outro, autorizo?}],
+  ///   comoConheceu?, mencionar: true|false, interesses?: [...], pedidoOracao?, responsavel?, autorizo}`.
+  /// O primeiro de `pessoas` é quem preenche; os demais vieram junto. Também aceita o formato antigo
+  /// do QR (nome, aniversario e telefone no próprio corpo).
+  Future<Response> _registrarVisita(Request req, Map<String, dynamic> corpo, {required String origem, String? por}) async {
+    String limpo(Object? v) => (v is String ? v : '').trim().replaceAll(RegExp(r'\s+'), ' ');
+    final brutas = corpo['pessoas'] is List
+        ? [for (final p in corpo['pessoas'] as List) if (p is Map) Map<String, dynamic>.from(p)]
+        : [{'nome': corpo['nome'], 'aniversario': corpo['aniversario'], 'telefone': corpo['telefone']}];
+    if (brutas.isEmpty || limpo(brutas.first['nome']).isEmpty) return _erro(400, 'Escreva o nome do visitante.');
+    if (brutas.length > 10) return _erro(400, 'No máximo 10 pessoas por cadastro.');
+    final mencionar = corpo['mencionar'];
+    if (mencionar is! bool) return _erro(400, 'Responda se o pastor pode mencionar a visita durante o culto.');
+    final viaPropria = origem != OrigemVisita.painel; // QR e obreiro: a própria pessoa toca em "autorizo"
+    if (viaPropria && corpo['autorizo'] != true) {
+      return _erro(400, 'Para enviar, leia e marque a autorização de uso dos dados.');
+    }
+    final comoConheceu = limpo(corpo['comoConheceu']);
+    final responsavel = limpo(corpo['responsavel']);
+    final pedidoOracao = limpo(corpo['pedidoOracao']);
+    final interesses = {
+      if (corpo['interesses'] is List)
+        for (final i in corpo['interesses'] as List)
+          if (InteresseVisita.porNome(i) case final interesse?) interesse,
+      if (pedidoOracao.isNotEmpty) InteresseVisita.oracao,
     };
-    if (telefone.length > 20 || responsavel.length > 100) return _erro(400, 'Algum campo ficou longo demais.');
+    if (comoConheceu.length > 200 || responsavel.length > 100 || pedidoOracao.length > 500) {
+      return _erro(400, 'Algum campo ficou longo demais.');
+    }
+
+    // 1. Valida todo mundo antes de gravar qualquer coisa.
+    final agora = _agora();
+    final hoje = diaIso(agora);
+    final pessoas = <({String nome, int dia, int mes, int? ano, String telefone, String parentesco, bool autorizo})>[];
+    for (final (i, p) in brutas.indexed) {
+      final nome = limpo(p['nome']);
+      final quem = i == 0 ? 'Aniversário' : 'Aniversário de ${nome.isEmpty ? 'acompanhante' : nome}';
+      if (nome.isEmpty) return _erro(400, 'Falta o nome de um acompanhante.');
+      final aniv = RegExp(r'^(\d{1,2})/(\d{1,2})(?:/(\d{4}))?$').firstMatch(limpo(p['aniversario']));
+      if (aniv == null) return _erro(400, '$quem: use dia/mês, por exemplo 05/03.');
+      final dia = int.parse(aniv.group(1)!), mes = int.parse(aniv.group(2)!);
+      if (!Membro.dataValida(dia, mes)) return _erro(400, '$quem: essa data não existe.');
+      final telefone = limpo(p['telefone']);
+      if (telefone.length > 20 || nome.length > 100) return _erro(400, 'Algum campo ficou longo demais.');
+      final parentesco = i == 0 ? '' : (const {'conjuge', 'filho', 'outro'}.contains(p['parentesco']) ? p['parentesco'] as String : 'outro');
+      pessoas.add((
+        nome: nome, dia: dia, mes: mes, ano: aniv.group(3) == null ? null : int.parse(aniv.group(3)!),
+        telefone: telefone, parentesco: parentesco, autorizo: i == 0 ? corpo['autorizo'] == true : p['autorizo'] == true,
+      ));
+    }
+    int? idade(int? ano, int dia, int mes) {
+      if (ano == null) return null;
+      final aniversarioEsteAno = DateTime(agora.year, mes, dia);
+      return agora.year - ano - (aniversarioEsteAno.isAfter(agora) ? 1 : 0);
+    }
+
+    final titular = pessoas.first;
+    final idadeTitular = idade(titular.ano, titular.dia, titular.mes);
+    if (idadeTitular != null && idadeTitular < 18 && responsavel.isEmpty && titular.autorizo) {
+      return _erro(400, 'Para menores de 18 anos, escreva o nome do pai, da mãe ou do responsável que autoriza.');
+    }
+
+    // 2. Cadastro de cada pessoa: liga a quem já veio, ou cria.
+    final registro = {
+      'em': agora.toUtc().toIso8601String(),
+      'versaoTermo': _termo.versao,
+      if (viaPropria) ..._origem(req),
+      if (por != null) 'por': por,
+    };
+    final idsDoDia = {for (final v in store.listar('visitas')) if (v['data'] == hoje) v['membroId']};
+    final jaVisitaram = {for (final v in store.listar('visitas')) v['membroId']};
+    final grupoId = pessoas.length > 1 ? novoId() : null;
+    final ids = <String>[];
+    final visitas = <Map<String, dynamic>>[];
     try {
-      final m = _montarMembro(dados, {}, novoId());
-      final idade = m.idadeEm(_agora());
-      if (idade != null && idade < 18 && responsavel.isEmpty) {
-        return _erro(400, 'Para menores de 18 anos, escreva o nome do pai, da mãe ou do responsável que autoriza.');
+      for (final (i, p) in pessoas.indexed) {
+        final existente = _cadastroExistente(p.nome, p.telefone, p.dia, p.mes);
+        final menor = (idade(p.ano, p.dia, p.mes) ?? 99) < 18;
+        // Quem autoriza: o próprio adulto; menor acompanhante, o titular; titular menor, o responsável informado.
+        final autoriza = i == 0 ? p.autorizo : (menor && titular.autorizo) || p.autorizo;
+        final responsavelDele = i == 0 ? responsavel : (menor ? titular.nome : '');
+        final consentimento = !autoriza
+            ? const <String, dynamic>{}
+            : {
+                'consentimentoEm': hoje,
+                'consentimentoVia': viaPropria ? ViaConsentimento.recepcao : ViaConsentimento.manual,
+                'consentimentoRegistro': {...registro, if (responsavelDele.isNotEmpty) 'responsavel': responsavelDele},
+              };
+        final fone = p.telefone.replaceAll(RegExp(r'\D'), '');
+        Map<String, dynamic> doc;
+        if (existente != null) {
+          // Só completa o que estava vazio; uma autorização da própria pessoa (link, termo) é mantida.
+          final viaAtual = existente['consentimentoVia'] as String?;
+          final podeTrocarConsentimento = existente['consentimentoEm'] == null || viaAtual == ViaConsentimento.manual;
+          doc = {
+            ...existente,
+            if (existente['telefone'] == null && p.telefone.isNotEmpty) 'telefone': p.telefone,
+            if (existente['whatsapp'] == null && fone.length == 11) 'whatsapp': p.telefone,
+            if (existente['ano'] == null && p.ano != null) 'ano': p.ano,
+            if (existente['comoConheceu'] == null && comoConheceu.isNotEmpty) 'comoConheceu': comoConheceu,
+            if (podeTrocarConsentimento) ...consentimento,
+            'atualizadoEm': agora.toIso8601String(),
+          };
+        } else {
+          final m = _montarMembro({
+            'nome': p.nome,
+            'dia': p.dia,
+            'mes': p.mes,
+            if (p.ano != null) 'ano': p.ano,
+            if (p.telefone.isNotEmpty) 'telefone': p.telefone,
+            if (fone.length == 11) 'whatsapp': p.telefone,
+            if (comoConheceu.isNotEmpty) 'comoConheceu': comoConheceu,
+            'status': StatusMembro.visitante.name,
+            'dataChegada': hoje,
+          }, {}, novoId());
+          doc = {...m.toJson(), ...consentimento};
+        }
+        await store.salvar('membros', doc);
+        ids.add(doc['id'] as String);
+        // Mesmo cadastro duas vezes no dia (clique duplo, QR e obreiro): uma visita só.
+        if (idsDoDia.contains(doc['id'])) continue;
+        visitas.add(Visita(
+          id: novoId(),
+          membroId: doc['id'] as String,
+          nome: doc['nome'] as String,
+          data: hoje,
+          criadoEm: agora,
+          origem: origem,
+          registradoPor: por,
+          primeiraVez: !jaVisitaram.contains(doc['id']),
+          mencionar: mencionar,
+          grupoId: grupoId,
+          interesses: i == 0 ? interesses : null,
+        ).toJson());
       }
-      await store.salvar('membros', {
-        ...m.toJson(),
-        'consentimentoEm': _hoje(),
-        'consentimentoVia': ViaConsentimento.recepcao,
-        'consentimentoRegistro': {
-          'em': _agora().toUtc().toIso8601String(),
-          'versaoTermo': _termo.versao,
-          ..._origem(req),
-          if (responsavel.isNotEmpty) 'responsavel': responsavel,
-        },
-      });
-      return _json({'ok': true, 'igreja': _termo.igreja}, status: 201);
     } on FormatException catch (e) {
       return _erro(400, e.message);
     }
+    if (visitas.isNotEmpty) await store.salvarVarios('visitas', visitas);
+
+    // 3. Família: cônjuge nos dois lados (se ninguém já tinha) e filhos ligados ao titular (e ao cônjuge).
+    final titularId = ids.first;
+    String? conjugeId;
+    for (final (i, p) in pessoas.indexed) {
+      if (p.parentesco != 'conjuge') continue;
+      final a = store.buscar('membros', titularId)!, b = store.buscar('membros', ids[i])!;
+      if (a['conjugeId'] == null && b['conjugeId'] == null && ids[i] != titularId) {
+        await store.salvarVarios('membros', [{...a, 'conjugeId': ids[i]}, {...b, 'conjugeId': titularId}]);
+        conjugeId = ids[i];
+      }
+    }
+    for (final (i, p) in pessoas.indexed) {
+      if (p.parentesco != 'filho' || ids[i] == titularId) continue;
+      final filho = store.buscar('membros', ids[i])!;
+      final pais = {...(filho['paisIds'] as List? ?? const []).map((e) => '$e'), titularId, if (conjugeId != null) conjugeId};
+      await store.salvar('membros', {...filho, 'paisIds': pais.take(2).toList()});
+    }
+
+    // 4. Pedido de oração escrito no cadastro: vai para a aprovação, particular (só o pastor vê).
+    if (pedidoOracao.isNotEmpty) {
+      await store.salvar('motivos', Motivo(
+        id: novoId(),
+        para: '',
+        motivo: pedidoOracao,
+        tipo: TipoMotivo.fromName('outro'),
+        criadoEm: agora,
+        status: StatusMotivo.aguardando,
+        origem: OrigemMotivo.site,
+        publico: false,
+        enviadoPor: '${titular.nome} (visitante)',
+      ).toJson());
+    }
+
+    return _json({
+      'ok': true,
+      'igreja': _termo.igreja,
+      'pessoas': [
+        for (final (i, id) in ids.indexed)
+          {'id': id, 'nome': pessoas[i].nome, 'primeiraVez': !jaVisitaram.contains(id)},
+      ],
+    }, status: 201);
+  }
+
+  /// GET /api/visitas?desde=aaaa-mm-dd (padrão: últimos 30 dias), mais novas primeiro.
+  /// Quem não cuida do cadastro (recepção, telão) não vê as anotações do acompanhamento.
+  Response _listarVisitas(Request req) {
+    final desde = req.url.queryParameters['desde'] ?? diaIso(_agora().subtract(const Duration(days: 30)));
+    final completo = Auth.contaDa(req)?.pode(Permissao.membros) ?? false;
+    final lista = [
+      for (final v in store.listar('visitas'))
+        if ((v['data'] as String? ?? '').compareTo(desde) >= 0)
+          completo ? v : {for (final e in v.entries) if (!e.key.startsWith('contato')) e.key: e.value},
+    ]..sort((a, b) => (b['criadoEm'] as String? ?? '').compareTo(a['criadoEm'] as String? ?? ''));
+    return _json(lista);
+  }
+
+  /// POST /api/visitas — obreiro (/recepcao) ou secretaria (painel). Corpo: ver [_registrarVisita].
+  Future<Response> _criarVisita(Request req) async {
+    final conta = Auth.contaDa(req)!;
+    final corpo = await _corpo(req);
+    final origem = conta.perfil == Perfil.recepcao || corpo['origem'] == OrigemVisita.recepcao
+        ? OrigemVisita.recepcao
+        : OrigemVisita.painel;
+    return _registrarVisita(req, corpo, origem: origem, por: conta.nome);
+  }
+
+  /// POST /api/visitas/<id>/mencionada  {desfazer?: true} — o pastor já deu as boas-vindas.
+  Future<Response> _visitaMencionada(Request req, String id) async {
+    final atual = store.buscar('visitas', id);
+    if (atual == null) return _erro(404, 'Visita não encontrada.');
+    final desfazer = (await _corpo(req))['desfazer'] == true;
+    final doc = {
+      for (final e in atual.entries)
+        if (e.key != 'mencionadaEm' && e.key != 'mencionadaPor') e.key: e.value,
+      if (!desfazer) 'mencionadaEm': _agora().toIso8601String(),
+      if (!desfazer && Auth.contaDa(req)?.nome != null) 'mencionadaPor': Auth.contaDa(req)!.nome,
+    };
+    await store.salvar('visitas', doc);
+    return _json(doc);
+  }
+
+  /// PUT /api/visitas/<id>/contato  {status: aContatar|contatado|semResposta, nota?}
+  Future<Response> _contatoVisita(Request req, String id) async {
+    final atual = store.buscar('visitas', id);
+    if (atual == null) return _erro(404, 'Visita não encontrada.');
+    final corpo = await _corpo(req);
+    final status = StatusContato.values.where((s) => s.name == corpo['status']).firstOrNull;
+    if (status == null) return _erro(400, 'Situação do contato inválida.');
+    final nota = (corpo['nota'] as String? ?? '').trim();
+    if (nota.length > 500) return _erro(400, 'Anotação muito longa (máximo 500 caracteres).');
+    final doc = {
+      for (final e in atual.entries)
+        if (!e.key.startsWith('contato')) e.key: e.value,
+      'contato': status.name,
+      if (status != StatusContato.aContatar) 'contatoEm': _agora().toIso8601String(),
+      if (status != StatusContato.aContatar && Auth.contaDa(req)?.nome != null) 'contatoPor': Auth.contaDa(req)!.nome,
+      if (nota.isNotEmpty) 'contatoNota': nota,
+    };
+    await store.salvar('visitas', doc);
+    return _json(doc);
+  }
+
+  /// POST /api/projetar/boas-vindas  {ids?: [...], tema?, segundos?} — "Sejam bem-vindos!" no telão.
+  /// Sem ids: os pendentes de hoje. Só entra quem autorizou a menção. Deu certo: dá baixa.
+  Future<Response> _projetarBoasVindas(Request req) async {
+    final corpo = await _corpo(req);
+    final ids = corpo['ids'] is List ? {for (final i in corpo['ids'] as List) '$i'} : null;
+    final hoje = diaIso(_agora());
+    final escolhidas = ids == null
+        ? pendenciasDoPastor(_visitas(), _agora())
+        : _visitas().where((v) => ids.contains(v.id) && v.mencionar && v.data == hoje).toList();
+    final nomes = <String>[];
+    final vistos = <String>{};
+    for (final v in escolhidas) {
+      if (vistos.add(v.membroId)) nomes.add(v.nome);
+    }
+    if (nomes.isEmpty) return _erro(400, 'Nenhum visitante de hoje para citar (só entra quem autorizou).');
+    final segundos = (corpo['segundos'] as num?)?.toInt() ?? cfg?.segundosPorSlide ?? 10;
+    final tema = corpo['tema'] as String? ?? cfg?.temaPadrao ?? '';
+    final slides = montarSlidesBoasVindas(nomes);
+    final acao = 'ShowQuickPresentation';
+    final pedido = jsonEncode({
+      'slides': [for (final s in slides) {'text': s, 'duration': segundos}],
+      if (slides.length > 1) 'automatic': {'seconds': segundos, 'repeat': true},
+      if (tema.isNotEmpty) 'theme': {'name': tema},
+    });
+    final usuario = Auth.contaDa(req)?.nome ?? '';
+    final r = await holyrics.chamar(acao, pedido);
+    if (_ok(r.corpo)) {
+      await historico.registrar(acao, pedido, usuario: usuario);
+      store.avisar('historico');
+      final quando = _agora().toIso8601String();
+      await store.salvarVarios('visitas', [
+        for (final v in escolhidas)
+          {...v.toJson(), 'mencionadaEm': quando, if (usuario.isNotEmpty) 'mencionadaPor': usuario},
+      ]);
+    }
+    return Response(r.status, body: r.corpo, headers: jsonHeaders);
   }
 
   Uint8List? _qrVisitantePng;
@@ -1517,6 +1787,7 @@ class Servidor {
           igreja: nomeIgreja,
           urlPedidos: urlOracao,
           eventos: _eventosDaSemana(),
+          visitas: _visitas(),
         ),
       });
 
@@ -1656,8 +1927,20 @@ class Servidor {
   }
 
   /// Slides do mural da recepção: só dados públicos (sem quem enviou, sem pedidos particulares).
-  Response _mural(Request _) {
+  /// `?tela=boas-vindas` é a TV de boas-vindas: só os nomes de hoje de quem autorizou a menção.
+  Response _mural(Request req) {
+    final nomes = nomesParaBoasVindas(_visitas(), _agora());
+    if (req.url.queryParameters['tela'] == 'boas-vindas') {
+      return _json({
+        'tela': 'boas-vindas',
+        'atualizado': _agora().toIso8601String(),
+        'igreja': _termo.igreja,
+        'nomes': nomes,
+        'qr': cfg?.visitanteQrAtivo == false ? null : '/qr-visitante.png',
+      });
+    }
     final slides = montarMural(
+      visitantesHoje: cfg?.muralBoasVindas == true ? nomes : const [],
       recados: _recadosComAuto(),
       motivos: _motivos(),
       agora: _agora(),

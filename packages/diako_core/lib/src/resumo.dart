@@ -3,6 +3,7 @@ import 'aniversariantes.dart';
 import 'membro.dart';
 import 'motivo.dart';
 import 'recado.dart';
+import 'visita.dart';
 
 String _dm(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
 
@@ -15,6 +16,7 @@ String montarResumoSemanal({
   String igreja = 'Igreja Diakonia Tulipas',
   String? urlPedidos,
   List<Evento> eventos = const [],
+  List<Visita> visitas = const [],
 }) {
   final semana = diasDaSemana(agora);
   final b = StringBuffer('*$igreja — Avisos da semana*\n_${_dm(semana.first)} a ${_dm(semana.last)}_\n');
@@ -56,6 +58,17 @@ String montarResumoSemanal({
     for (final m in oracoesRespondidas(motivos, agora, dias: 7))
       m.testemunho.trim().isEmpty ? m.linha : '${m.linha} — ${m.testemunho.trim()}',
   ]);
+
+  // Só a contagem (o resumo é público): quantos visitaram nos últimos 7 dias.
+  final desde = diaIso(hoje.subtract(const Duration(days: 6)));
+  final daSemana = visitas.where((v) => v.data.compareTo(desde) >= 0 && v.data.compareTo(diaIso(hoje)) <= 0).toList();
+  if (daSemana.isNotEmpty) {
+    final primeira = daSemana.where((v) => v.primeiraVez).length;
+    b
+      ..writeln()
+      ..writeln('👋 *Recebemos ${daSemana.length} visitante${daSemana.length == 1 ? '' : 's'} nos últimos 7 dias*'
+          '${primeira > 0 && primeira < daSemana.length ? ' ($primeira pela primeira vez)' : ''}. Que alegria!');
+  }
 
   if (urlPedidos != null && urlPedidos.isNotEmpty) {
     b

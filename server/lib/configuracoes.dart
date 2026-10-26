@@ -73,6 +73,7 @@ class Configuracoes {
       'termoLgpdTexto': '', // vazio: termo padrão (termoLgpdPadrao)
       'termoLgpdVersao': 1,
       'visitanteQrAtivo': true,
+      'muralBoasVindas': false, // boas-vindas também no mural principal (igreja com uma TV só)
     };
     if (await arquivo.exists()) {
       var texto = await arquivo.readAsString();
@@ -104,6 +105,9 @@ class Configuracoes {
 
   /// Cadastro de visitante pelo QR code da recepção (/visitante).
   bool get visitanteQrAtivo => _valores['visitanteQrAtivo'] as bool? ?? true;
+
+  /// Slide de boas-vindas também no mural principal (o normal é a TV de boas-vindas própria).
+  bool get muralBoasVindas => _valores['muralBoasVindas'] as bool? ?? false;
   String get pedidoTitulo => _s('pedidoTitulo');
   String get pedidoIntro => _s('pedidoIntro');
   String get pedidoObrigado => _s('pedidoObrigado');
@@ -293,8 +297,8 @@ class Configuracoes {
             novos['termoLgpdVersao'] = termoLgpdVersao + 1;
           }
           novos[k] = v == termoLgpdPadrao(nomeIgreja) ? '' : v;
-        case 'visitanteQrAtivo':
-          if (mudancas[k] is! bool) throw const FormatException('"visitanteQrAtivo" deve ser verdadeiro ou falso.');
+        case 'visitanteQrAtivo' || 'muralBoasVindas':
+          if (mudancas[k] is! bool) throw FormatException('"$k" deve ser verdadeiro ou falso.');
           novos[k] = mudancas[k];
         case 'smtpSenha':
           final v = texto(k, 300);
@@ -315,7 +319,7 @@ class Configuracoes {
       'temaPadrao', 'horaBackup', 'backupsManter', 'agendaMostrarDescricao', 'agendaDiasMural', 'agendaCalendarioId',
       'smtpHost', 'smtpPorta', 'smtpSsl', 'smtpUsuario', 'smtpRemetente', 'smtpDestinatario',
       'siteAtivo', 'siteAgenda', 'sitePix', 'siteGaleria', 'siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade',
-      'siteInstagram', 'siteYoutube', 'siteWhatsapp', 'termoLgpdTexto', 'termoLgpdVersao', 'visitanteQrAtivo',
+      'siteInstagram', 'siteYoutube', 'siteWhatsapp', 'termoLgpdTexto', 'termoLgpdVersao', 'visitanteQrAtivo', 'muralBoasVindas',
     };
     for (final e in dados.entries) {
       if (permitidos.contains(e.key)) _valores[e.key] = e.value;

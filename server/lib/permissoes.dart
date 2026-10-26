@@ -16,6 +16,8 @@ enum Permissao {
   cartazes('Cartazes'),
   galeria('Galeria do site'),
   membros('Cadastro de membros'),
+  visitantes('Ver os visitantes do dia e dar as boas-vindas'),
+  visitantesCadastrar('Cadastrar visitantes (recepção)'),
   resumo('Resumo da semana'),
   projetar('Projetar no telão'),
   admin('Administração'),
@@ -33,19 +35,25 @@ enum Perfil {
   administrador('Administrador', 'Tudo, inclusive configurações, backup e usuários.', {
     ..._base, Permissao.motivosParticulares, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar,
     Permissao.galeria, Permissao.membros, Permissao.resumo, Permissao.projetar, Permissao.admin, Permissao.usuarios,
+    Permissao.visitantes, Permissao.visitantesCadastrar,
   }),
   pastor('Pastor', 'Todo o conteúdo, inclusive pedidos particulares. Sem configurações técnicas.', {
     ..._base, Permissao.motivosParticulares, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar,
     Permissao.galeria, Permissao.membros, Permissao.resumo, Permissao.projetar,
+    Permissao.visitantes, Permissao.visitantesCadastrar,
   }),
   secretaria('Secretaria', 'Recados, agenda, mensagens, aniversariantes e pedidos públicos.', {
     ..._base, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar, Permissao.membros, Permissao.resumo,
+    Permissao.visitantes, Permissao.visitantesCadastrar,
   }),
   midia('Mídia', 'Cartazes, galeria do site, recados e projeção no telão.', {
     ..._base, Permissao.galeria, Permissao.projetar,
   }),
-  telao('Telão (tablet)', 'Operar o telão no culto: recados, pedidos públicos e projeção.', {
-    ..._base, Permissao.projetar,
+  telao('Telão (tablet)', 'Operar o telão no culto: recados, pedidos públicos, boas-vindas e projeção.', {
+    ..._base, Permissao.projetar, Permissao.visitantes,
+  }),
+  recepcao('Recepção', 'Obreiro da recepção: cadastra visitantes pelo celular (/recepcao) e vê os do dia. Nada mais.', {
+    Permissao.sessao, Permissao.visitantes, Permissao.visitantesCadastrar,
   });
 
   const Perfil(this.nome, this.descricao, this.permissoes);
@@ -77,6 +85,12 @@ Permissao permissaoDaRota(String metodo, String caminho) {
   if (comeca('api/cartazes')) return Permissao.cartazes;
   if (comeca('api/galeria')) return Permissao.galeria;
   if (comeca('api/membros')) return Permissao.membros;
+  if (comeca('api/visitas')) {
+    // Contato pós-visita mexe com telefone e anotações: só quem cuida do cadastro.
+    if (caminho.endsWith('/contato')) return Permissao.membros;
+    if (caminho.endsWith('/mencionada') || leitura) return Permissao.visitantes;
+    return Permissao.visitantesCadastrar;
+  }
   if (caminho == 'api/resumo-semanal') return Permissao.resumo;
   if (comeca('api/holyrics') || comeca('api/projetar')) return Permissao.projetar;
   if (comeca('api/admin/usuarios')) return Permissao.usuarios;

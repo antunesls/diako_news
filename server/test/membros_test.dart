@@ -421,7 +421,7 @@ void main() {
         final (si, info) = await chamar('GET', '/api/public/visitante', login: false);
         expect(si, 200);
         expect(info['termo']['texto'], contains('Lei Geral de Proteção de Dados'));
-        const base = {'nome': 'Rita Alves', 'aniversario': '07/08', 'telefone': '(11) 91234-5678', 'comoConheceu': 'Amigos'};
+        const base = {'nome': 'Rita Alves', 'aniversario': '07/08', 'telefone': '(11) 91234-5678', 'comoConheceu': 'Amigos', 'mencionar': true};
         expect((await chamar('POST', '/api/public/visitante', json: base, login: false)).$1, 400); // sem autorizar
         final (s, _) = await chamar('POST', '/api/public/visitante', json: {...base, 'autorizo': true}, login: false);
         expect(s, 201);
@@ -431,7 +431,7 @@ void main() {
         expect(rita['consentimentoVia'], 'recepcao');
         expect(rita['comoConheceu'], 'Amigos');
 
-        final menor = {'nome': 'Léo', 'aniversario': '01/01/${DateTime.now().year - 12}', 'autorizo': true};
+        final menor = {'nome': 'Léo', 'aniversario': '01/01/${DateTime.now().year - 12}', 'autorizo': true, 'mencionar': false};
         expect((await chamar('POST', '/api/public/visitante', json: menor, login: false)).$1, 400);
         expect((await chamar('POST', '/api/public/visitante', json: {...menor, 'responsavel': 'Pai do Léo'}, login: false)).$1, 201);
 

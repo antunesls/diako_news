@@ -277,6 +277,8 @@ class Restauracao {
                   !Galeria.nomeValido(doc['miniatura'] as String? ?? '')) {
                 throw const FormatException('Foto da galeria inválida.');
               }
+            case 'visitas':
+              Visita.fromJson(doc);
           }
         }
         colecoes[nome] = lista;

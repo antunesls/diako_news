@@ -1,6 +1,7 @@
 import 'agenda.dart';
 import 'motivo.dart';
 import 'recado.dart';
+import 'visita.dart';
 
 /// Um slide do mural da TV da recepção.
 class SlideMural {
@@ -54,6 +55,7 @@ class SlideMural {
 const _corOracao = 0xFFAB47BC;
 const _corGratidao = 0xFF26A69A;
 const _corAgenda = 0xFF5C6BC0;
+const _corBoasVindas = 0xFFEF8A3C;
 
 /// Sequência de slides do mural. Só entra o que pode ser público:
 /// eventos da agenda, recados válidos, motivos aprovados e públicos e orações respondidas públicas.
@@ -70,8 +72,14 @@ List<SlideMural> montarMural({
   int diasEventos = 7,
   bool mostrarDescricao = true,
   int eventosPorSlide = 6,
+  List<String> visitantesHoje = const [],
 }) {
   final slides = <SlideMural>[];
+
+  // Boas-vindas primeiro (só quando o /admin liga no mural principal; o normal é a TV própria).
+  for (final pagina in montarTelaBoasVindas(visitantesHoje, porPagina: 8)) {
+    slides.add(SlideMural.lista('Sejam bem-vindos!', pagina, corArgb: _corBoasVindas));
+  }
 
   // Agenda: "Hoje" (o que ainda não terminou) e os próximos dias.
   final amanha = DateTime(agora.year, agora.month, agora.day + 1);
