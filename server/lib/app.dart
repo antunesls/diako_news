@@ -151,6 +151,7 @@ class Servidor {
       ..post('/api/public/visitante', _novoVisitantePublico)
       ..get(ajudaAgenda, (Request _) => _pagina('ajuda-agenda.html'))
       ..get('/ajuda/usuarios', (Request _) => _pagina('ajuda-usuarios.html'))
+      ..get('/ajuda/visitantes', (Request _) => _pagina('ajuda-visitantes.html'))
       // Perfis e permissões (só a descrição da matriz, para a página de ajuda).
       ..get('/api/public/perfis', (Request _) => _json({
             'perfis': [for (final p in Perfil.values) p.toJson()],

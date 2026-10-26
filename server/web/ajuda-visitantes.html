@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ajuda: visitantes — DiakoNews</title>
+<link rel="stylesheet" href="/estilo.css?v=5">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  .topo-ajuda { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-bottom: 18px; margin-bottom: 28px; border-bottom: 1px solid var(--linha); }
+  .topo-ajuda img { height: 40px; width: auto; }
+  .topo-ajuda .espaco { flex: 1; }
+  h1 { font-size: 34px; margin-bottom: 8px; }
+  .lead { font-size: 18px; color: var(--suave); margin: 0 0 24px; }
+  h2 { font-size: 25px; margin: 40px 0 10px; scroll-margin-top: 16px; }
+  p, li { line-height: 1.6; }
+  ol li, ul li { margin-bottom: 6px; }
+  .nota { padding: 14px 18px; border-radius: 14px; background: var(--primaria-suave); color: var(--primaria-escura); margin: 16px 0; }
+  .nota p { margin: 0; }
+  .indice { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .indice a { padding: 4px 12px; border-radius: 16px; border: 1px solid var(--borda); text-decoration: none; font-size: 14px; font-weight: 600; }
+  code { padding: 1px 6px; border-radius: 6px; background: var(--neutro); font-size: 14px; overflow-wrap: anywhere; }
+  @media (max-width: 520px) { h1 { font-size: 28px; } h2 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="topo-ajuda">
+    <a href="/painel"><img src="/logo.png" alt="Igreja Diakonia Tulipas"></a>
+    <span class="espaco"></span>
+    <a class="botao secundario pequeno" href="/painel">Voltar ao painel</a>
+  </header>
+
+  <p class="sobretitulo">Ajuda</p>
+  <h1>Visitantes</h1>
+  <p class="lead">Como receber quem visita a igreja: o cadastro (pelo QR ou pelo obreiro da recepção), as boas-vindas no culto e o contato depois da visita.</p>
+  <nav class="indice" aria-label="Nesta página">
+    <a href="#qr">QR na recepção</a><a href="#obreiro">Obreiro da recepção</a><a href="#culto">Boas-vindas no culto</a>
+    <a href="#tvs">As duas TVs</a><a href="#acompanhamento">Acompanhamento</a><a href="#lgpd">Dados (LGPD)</a>
+  </nav>
+
+  <h2 id="qr">1. QR code na recepção</h2>
+  <p>O próprio visitante se cadastra pelo celular.</p>
+  <ol>
+    <li>No painel, abra a aba <strong>Status</strong> e clique no <strong>QR code do cadastro de visitante</strong> para baixar a imagem.</li>
+    <li>Imprima e deixe na recepção (ou nos bancos). A TV de boas-vindas também mostra esse QR enquanto ninguém se cadastrou.</li>
+    <li>A pessoa preenche nome, aniversário e telefone, pode incluir quem veio junto, responde se o pastor pode citá-la no culto e lê e aceita a autorização de uso dos dados.</li>
+  </ol>
+  <p>Para desligar o cadastro pelo QR: <strong>Administração › LGPD</strong>.</p>
+
+  <h2 id="obreiro">2. Obreiro da recepção (pelo celular)</h2>
+  <p>Para quem prefere ser atendido, um obreiro faz o cadastro no próprio celular.</p>
+  <ol>
+    <li>Em <strong>Administração › Usuários e perfis</strong>, crie um usuário para cada obreiro com o perfil <strong>Recepção</strong>. Esse perfil só cadastra visitantes e vê os do dia: não abre o cadastro de membros, os pedidos de oração nem as mensagens.</li>
+    <li>O obreiro abre <code>/recepcao</code> no celular (o link está na aba Status do painel), entra com o usuário e a senha e toca em <strong>+ Novo visitante</strong>.</li>
+    <li>No fim do formulário, ele <strong>mostra a tela para o visitante</strong>, que lê o termo e toca em "autorizo". Fica registrado qual obreiro fez o cadastro.</li>
+  </ol>
+  <div class="nota"><p>Quem já visitou antes é reconhecido pelo nome e pelo telefone (ou aniversário): a visita nova fica no mesmo cadastro e aparece como "voltou".</p></div>
+
+  <h2 id="culto">3. Boas-vindas no culto</h2>
+  <ul>
+    <li>No <strong>tablet</strong>, a seção <strong>Visitantes</strong> mostra quem chegou hoje e um número com quantos podem ser citados. Chega um aviso a cada visitante cadastrado.</li>
+    <li><strong>Projetar boas-vindas</strong> coloca "Sejam bem-vindos!" com os nomes no telão (Holyrics). Só entra quem respondeu "Sim, pode". Depois de projetar, eles ficam como "citado".</li>
+    <li>Se o pastor citou de viva voz, toque em <strong>Já citei</strong>.</li>
+    <li>O mesmo botão está no painel, no cartão <strong>Visitantes de hoje</strong> da tela Início.</li>
+  </ul>
+
+  <h2 id="tvs">4. As duas TVs</h2>
+  <ul>
+    <li><strong>TV de informações</strong>: o mural de sempre (recados, agenda, aniversariantes, pedidos públicos).</li>
+    <li><strong>TV de boas-vindas</strong>, logo depois da recepção: o mesmo link do mural com <code>&amp;tela=boas-vindas</code> no fim. Mostra os nomes de hoje de quem autorizou ser citado e se atualiza sozinha em poucos segundos. Sem visitantes, mostra o convite com o QR do cadastro.</li>
+  </ul>
+  <p>Os dois links prontos estão na aba <strong>Status</strong>. Abra cada um no navegador da sua TV e toque na tela para ficar em tela cheia. Igreja com uma TV só: ligue <strong>Administração › Mural › Mostrar as boas-vindas também no mural de informações</strong>.</p>
+
+  <h2 id="acompanhamento">5. Acompanhamento depois da visita</h2>
+  <ol>
+    <li>No painel, aba <strong>Membros</strong>, clique em <strong>"N visitantes a contatar"</strong> (ou em <strong>Acompanhamento</strong> no cartão do Início).</li>
+    <li>Cada visita mostra o que a pessoa pediu (visita, oração, batismo, grupo/célula) e o botão <strong>WhatsApp com mensagem</strong>, que já abre a conversa com um agradecimento pronto.</li>
+    <li>Depois do contato, marque <strong>Contatado</strong> ou <strong>Sem resposta</strong> e, se quiser, deixe uma anotação ("quer visita na quinta").</li>
+  </ol>
+  <p>Quem escreve um pedido de oração no cadastro gera um pedido <strong>particular</strong>, que vai para a aprovação do pastor.</p>
+
+  <h2 id="lgpd">6. Dados e autorização (LGPD)</h2>
+  <ul>
+    <li>Pelo QR e pelo obreiro, o cadastro só é enviado com a autorização da própria pessoa. Para menores de 18 anos, é pedido o nome do responsável. Os filhos que vieram junto ficam autorizados por quem preencheu.</li>
+    <li>Adultos que vieram junto só ficam autorizados se marcarem a própria caixa. Para os outros, envie depois o link de autorização pela ficha.</li>
+    <li>A TV e o telão mostram <strong>só o nome</strong>, e só de quem respondeu "Sim, pode".</li>
+  </ul>
+</main>
+</body>
+</html>

@@ -8,7 +8,7 @@ Sistema da Igreja Diakonia Tulipas para projetar recados e motivos de oração n
  TV da recepção ─────────▶ /mural  │      dados, cartazes, histórico, backup
  Tablet do pastor (este app) ──────┘
 ```
-No painel também ficam o **resumo da semana para o WhatsApp**, o **histórico** do que foi projetado e o **cadastro de membros** (dados completos, foto, família e ministérios — veja o [`LEIA-ME do servidor`](server/LEIA-ME.md)).
+No painel também ficam o **resumo da semana para o WhatsApp**, o **histórico** do que foi projetado, o **cadastro de membros** (dados completos, foto, família e ministérios) e os **visitantes** (QR e obreiro da recepção, boas-vindas no telão e na TV, acompanhamento) — veja o [`LEIA-ME do servidor`](server/LEIA-ME.md).
 
 | Pasta | O que é |
 |---|---|
