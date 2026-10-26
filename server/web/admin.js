@@ -74,9 +74,13 @@ async function carregar() {
 
 function preencher() {
   for (const id of ['nomeIgreja', 'urlPublica', 'pedidoTitulo', 'pedidoIntro', 'pedidoObrigado', 'holyricsHost',
-    'holyricsPorta', 'motivosPorSlide', 'segundosPorSlide', 'diasRespondidas', 'temaPadrao', 'horaBackup', 'backupsManter']) {
+    'holyricsPorta', 'motivosPorSlide', 'segundosPorSlide', 'diasRespondidas', 'temaPadrao', 'horaBackup', 'backupsManter',
+    'siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade', 'siteInstagram', 'siteYoutube', 'siteWhatsapp']) {
     if ($(id) && document.activeElement !== $(id)) $(id).value = cfg[id] ?? '';
   }
+  $('siteAtivo').checked = cfg.siteAtivo !== false;
+  $('siteAgenda').checked = cfg.siteAgenda === true;
+  $('endereco-inicio').textContent = (cfg.urlPublica || cfg.urlDetectada || '') + '/';
   $('urlPublica').placeholder = cfg.urlDetectada || '';
   $('dica-url').textContent = cfg.urlPublica
     ? 'O QR code aponta para ' + cfg.urlPublica + '/oracao'
@@ -136,6 +140,15 @@ function preencher() {
 }
 
 // ---------- Igreja, projeção, Holyrics ----------
+
+$('form-inicio').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const campos = { siteAtivo: $('siteAtivo').checked, siteAgenda: $('siteAgenda').checked };
+  for (const id of ['siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade', 'siteInstagram', 'siteYoutube', 'siteWhatsapp']) {
+    campos[id] = $(id).value.trim();
+  }
+  salvar(campos, $('res-inicio'));
+});
 
 $('form-igreja').addEventListener('submit', (e) => {
   e.preventDefault();

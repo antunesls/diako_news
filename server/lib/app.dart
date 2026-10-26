@@ -23,6 +23,7 @@ import 'configuracoes.dart';
 import 'historico.dart';
 import 'holyrics.dart';
 import 'email_mensagens.dart';
+import 'pagina_inicial.dart';
 import 'qr_oracao.dart';
 import 'store.dart';
 
@@ -109,7 +110,11 @@ class Servidor {
 
   Handler get handler {
     final r = Router()
-      ..get('/', (Request _) => Response.found('/painel'))
+      // Página inicial pública (desligada no /admin: vai direto ao painel, como antes).
+      ..get('/', (Request _) => cfg?.siteAtivo == true ? _pagina('inicio.html') : Response.found('/painel'))
+      ..get('/api/public/inicio', _inicio)
+      ..get('/api/public/eventos/<arquivo>', _icsEvento)
+      ..get('/pix.png', _pngPix)
       ..get('/oracao', (Request _) => _pagina('oracao.html'))
       ..get('/mensagens', (Request _) => _pagina('mensagens.html'))
       ..get(ajudaAgenda, (Request _) => _pagina('ajuda-agenda.html'))
@@ -753,12 +758,7 @@ class Servidor {
       recados: _recadosComAuto(),
       motivos: _motivos(),
       agora: _agora(),
-      urlCartaz: (caminho) {
-        const prefixo = '${Config.subpastaHolyrics}/';
-        if (!caminho.startsWith(prefixo)) return null;
-        final nome = caminho.substring(prefixo.length);
-        return cartazes.arquivo(nome)?.existsSync() == true ? '/cartazes/${Uri.encodeComponent(nome)}' : null;
-      },
+      urlCartaz: _urlCartaz,
       urlQr: '/qr-oracao.png',
       urlQrMensagens: '/qr-mensagens.png',
       motivosPorSlide: cfg?.motivosPorSlide ?? 5,
@@ -774,6 +774,93 @@ class Servidor {
     if (a == null) return const [];
     final hoje = DateTime(_agora().year, _agora().month, _agora().day);
     return a.eventos(de: hoje, ate: hoje.add(Duration(days: (cfg?.agendaDiasMural ?? 7) + 1)));
+  }
+
+  /// Endereço público da imagem de um cartaz do Holyrics ("Diako/retiro.jpg"), se o arquivo existir.
+  String? _urlCartaz(String caminho) {
+    const prefixo = '${Config.subpastaHolyrics}/';
+    if (!caminho.startsWith(prefixo)) return null;
+    final nome = caminho.substring(prefixo.length);
+    return cartazes.arquivo(nome)?.existsSync() == true ? '/cartazes/${Uri.encodeComponent(nome)}' : null;
+  }
+
+  // ---------- Página inicial pública ----------
+
+  /// Eventos que podem aparecer no site (só com a agenda liberada no /admin).
+  List<Evento> _eventosDoSite() =>
+      cfg?.siteAgenda == true ? (agenda?.proximos(dias: 30) ?? const <Evento>[]) : const <Evento>[];
+
+  /// GET /api/public/inicio — só dados públicos: recados marcados "no site", agenda (se liberada),
+  /// cultos, endereço, PIX e redes. Nada de pedidos de oração, mensagens ou aniversariantes.
+  Response _inicio(Request _) {
+    final c = cfg;
+    if (c == null || !c.siteAtivo) return _erro(404, 'Página inicial desligada.');
+    final agora = _agora();
+    final noSite = store
+        .listar('recados')
+        .map(Recado.fromJson)
+        .where((r) => (r.site || r.urgente) && !r.expirado(agora))
+        .toList()
+      // Mesma ordem do tablet: fixos primeiro, depois a ordem da lista.
+      ..sort((a, b) => a.fixo != b.fixo ? (a.fixo ? -1 : 1) : a.ordem.compareTo(b.ordem));
+    Map<String, dynamic> aviso(Recado r) => {
+          'titulo': r.titulo,
+          'texto': r.texto,
+          if (r.validoAte != null) 'validoAte': r.validoAte!.toIso8601String(),
+          if (r.ehImagem && _urlCartaz(r.imagemHolyrics!) != null) 'imagem': _urlCartaz(r.imagemHolyrics!),
+        };
+    final eventos = _eventosDoSite();
+    final pix = c.sitePixChave.isNotEmpty && c.sitePixNome.isNotEmpty && c.sitePixCidade.isNotEmpty;
+    return _json({
+      'igreja': nomeIgreja,
+      'urgentes': [for (final r in noSite.where((r) => r.urgente)) aviso(r)],
+      'avisos': [for (final r in noSite.where((r) => !r.urgente)) aviso(r)],
+      'agenda': c.siteAgenda && agenda?.configurada == true,
+      'eventos': [
+        for (final e in eventos.take(8))
+          {
+            'id': e.id,
+            'titulo': e.titulo,
+            'inicio': e.inicio.toIso8601String(),
+            'diaInteiro': e.diaInteiro,
+            'horario': horario(e),
+            'local': e.local,
+            'ics': '/api/public/eventos/${Uri.encodeComponent(e.id)}.ics',
+          },
+      ],
+      'cultos': lerCultos(c.siteCultos),
+      'endereco': c.siteEndereco,
+      if (c.siteEndereco.isNotEmpty) 'mapa': linkMapa(c.siteEndereco),
+      if (pix) 'pix': {'chave': c.sitePixChave, 'nome': c.sitePixNome, 'qr': '/pix.png'},
+      'redes': {
+        if (c.siteInstagram.isNotEmpty) 'instagram': c.siteInstagram,
+        if (c.siteYoutube.isNotEmpty) 'youtube': c.siteYoutube,
+        if (c.siteWhatsapp.isNotEmpty) 'whatsapp': linkWhatsapp(c.siteWhatsapp),
+      },
+    });
+  }
+
+  /// GET /api/public/eventos/<id>.ics — convite para a pessoa salvar o evento no próprio calendário.
+  Response _icsEvento(Request _, String arquivo) {
+    final id = Uri.decodeComponent(arquivo).replaceFirst(RegExp(r'\.ics$'), '');
+    final e = _eventosDoSite().where((e) => e.id == id).firstOrNull;
+    if (e == null) return Response.notFound('Evento não encontrado.');
+    final nome = e.titulo.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-').replaceAll(RegExp(r'^-|-$'), '');
+    return Response.ok(icsDoEvento(e, igreja: nomeIgreja, agora: _agora().toUtc()), headers: {
+      'content-type': 'text/calendar; charset=utf-8',
+      'content-disposition': 'attachment; filename="${nome.isEmpty ? 'evento' : nome}.ics"',
+      'cache-control': 'no-cache',
+    });
+  }
+
+  /// GET /pix.png — QR do PIX (copia e cola) para a página inicial.
+  Response _pngPix(Request _) {
+    final c = cfg;
+    if (c == null || !c.siteAtivo || c.sitePixChave.isEmpty || c.sitePixNome.isEmpty || c.sitePixCidade.isEmpty) {
+      return Response.notFound('PIX não configurado.');
+    }
+    final payload = payloadPix(chave: c.sitePixChave, nome: c.sitePixNome, cidade: c.sitePixCidade);
+    return Response.ok(gerarPngQrQuadrado(payload), headers: {'content-type': 'image/png', 'cache-control': 'no-cache'});
   }
 
   /// Textos públicos do site (formulário de pedidos).

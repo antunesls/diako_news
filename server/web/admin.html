@@ -62,6 +62,7 @@
   <div class="layout">
     <nav class="secoes" aria-label="Seções">
       <a href="#igreja">Igreja e site</a>
+      <a href="#pagina-inicial">Página inicial</a>
       <a href="#mural">Mural</a>
       <a href="#holyrics">Holyrics</a>
       <a href="#agenda">Agenda (Google)</a>
@@ -86,6 +87,32 @@
           <div class="campo"><label for="pedidoIntro">Texto de apresentação</label><textarea id="pedidoIntro" maxlength="300" style="min-height:70px"></textarea></div>
           <div class="campo"><label for="pedidoObrigado">Mensagem depois de enviar</label><textarea id="pedidoObrigado" maxlength="300" style="min-height:70px"></textarea></div>
           <div class="acoes"><button class="botao">Salvar</button><a class="botao secundario" href="/oracao" target="_blank">Ver formulário</a><span id="res-igreja" role="status"></span></div>
+        </form>
+      </section>
+
+      <section class="cartao" id="pagina-inicial">
+        <h2>Página inicial</h2>
+        <p class="dica">A página que abre em <code id="endereco-inicio"></code>: avisos, agenda, horários dos cultos, PIX e os botões de pedido de oração e mensagens. Os avisos são os recados marcados com <strong>Mostrar no site</strong> ou <strong>Urgente</strong> no painel ou no tablet. Bloco sem conteúdo não aparece.</p>
+        <form id="form-inicio">
+          <div class="campo"><label class="marcar"><input type="checkbox" id="siteAtivo"><span>Página inicial ligada<br><span class="dica">Desligada, o endereço do site abre direto o login do painel.</span></span></label></div>
+          <div class="campo"><label class="marcar"><input type="checkbox" id="siteAgenda"><span>Mostrar a agenda no site<br><span class="dica">Os eventos do Google Agenda ficam visíveis para qualquer pessoa. Deixe desligado se a agenda tiver eventos internos.</span></span></label></div>
+          <div class="campo">
+            <label for="siteCultos">Horários dos cultos <span class="dica">(um por linha, ex.: Domingo — 19h)</span></label>
+            <textarea id="siteCultos" maxlength="500" style="min-height:80px" placeholder="Domingo — 19h&#10;Quarta (oração) — 19h30"></textarea>
+          </div>
+          <div class="campo"><label for="siteEndereco">Endereço <span class="dica">(o botão "Como chegar" abre no Google Maps)</span></label><input type="text" id="siteEndereco" maxlength="200" placeholder="Rua, número, bairro, cidade"></div>
+          <h3 style="font-size:17px;margin:22px 0 6px">PIX para dízimos e ofertas</h3>
+          <p class="dica" style="margin-top:0">Preencha os três campos para mostrar a chave e o QR code. Nome e cidade são os do recebedor, como no banco (sem acentos, até 25 e 15 letras).</p>
+          <div class="campo"><label for="sitePixChave">Chave PIX</label><input type="text" id="sitePixChave" maxlength="77" placeholder="CNPJ, e-mail, telefone (+55…) ou chave aleatória"></div>
+          <div class="grade2">
+            <div class="campo"><label for="sitePixNome">Nome do recebedor</label><input type="text" id="sitePixNome" maxlength="25"></div>
+            <div class="campo"><label for="sitePixCidade">Cidade do recebedor</label><input type="text" id="sitePixCidade" maxlength="15"></div>
+          </div>
+          <h3 style="font-size:17px;margin:22px 0 6px">Redes e contato</h3>
+          <div class="campo"><label for="siteInstagram">Instagram <span class="dica">(link completo)</span></label><input type="url" id="siteInstagram" maxlength="200" placeholder="https://instagram.com/…"></div>
+          <div class="campo"><label for="siteYoutube">YouTube <span class="dica">(link completo)</span></label><input type="url" id="siteYoutube" maxlength="200" placeholder="https://youtube.com/@…"></div>
+          <div class="campo"><label for="siteWhatsapp">WhatsApp da secretaria <span class="dica">(DDD e número)</span></label><input type="text" id="siteWhatsapp" maxlength="30" placeholder="11 91234-5678"></div>
+          <div class="acoes"><button class="botao">Salvar</button><a class="botao secundario" href="/" target="_blank">Ver página inicial</a><span id="res-inicio" role="status"></span></div>
         </form>
       </section>
 
@@ -294,6 +321,6 @@
 </dialog>
 
 <script src="/comum.js?v=2"></script>
-<script src="/admin.js?v=2"></script>
+<script src="/admin.js?v=3"></script>
 </body>
 </html>

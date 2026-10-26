@@ -409,6 +409,8 @@ function itemRecado(r, editaveis, hoje) {
       el('div', { class: 'titulo' }, r.titulo,
         el('span', { class: 'etiqueta' }, rotulo),
         r.fixo ? el('span', { class: 'etiqueta' }, 'Fixo') : null,
+        r.urgente ? el('span', { class: 'etiqueta', style: 'background:#fbefe2;color:#6b3d00' }, 'Urgente no site')
+          : r.site ? el('span', { class: 'etiqueta' }, 'No site') : null,
         expirado ? el('span', { class: 'etiqueta' }, 'Expirado') : null),
       sub ? el('div', { class: 'sub' }, sub) : null),
     el('div', { class: 'acoes' }, acoes));
@@ -432,6 +434,8 @@ function editarRecado(r) {
   $('r-categoria').value = r ? r.categoria : 'aviso';
   $('r-validade').value = r && r.validoAte ? r.validoAte.slice(0, 10) : '';
   $('r-fixo').checked = r ? r.fixo : false;
+  $('r-site').checked = r ? !!(r.site || r.urgente) : false;
+  $('r-urgente').checked = r ? !!r.urgente : false;
   $('r-imagem').replaceChildren(
     el('option', { value: '' }, '(nenhum — projetar o texto)'),
     ...cartazes.map((c) => el('option', { value: c.holyrics }, c.nome)));
@@ -444,12 +448,22 @@ function editarRecado(r) {
       validoAte: $('r-validade').value ? $('r-validade').value + 'T00:00:00.000' : null,
       imagemHolyrics: $('r-imagem').value || null,
       fixo: $('r-fixo').checked,
+      site: $('r-site').checked || $('r-urgente').checked,
+      urgente: $('r-urgente').checked,
     };
     if (novo) await api('POST', '/api/recados', dados);
     else await api('PUT', '/api/recados/' + r.id, dados);
     await carregarRecados();
   });
 }
+
+// Urgente sempre aparece no site.
+$('r-urgente').addEventListener('change', () => {
+  if ($('r-urgente').checked) $('r-site').checked = true;
+});
+$('r-site').addEventListener('change', () => {
+  if (!$('r-site').checked) $('r-urgente').checked = false;
+});
 
 $('novo-recado').addEventListener('click', async () => {
   cartazes = await api('GET', '/api/cartazes');

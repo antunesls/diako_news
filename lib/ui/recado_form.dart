@@ -27,6 +27,8 @@ class _RecadoFormState extends State<RecadoForm> {
   late Categoria _categoria;
   DateTime? _validoAte;
   late bool _fixo;
+  late bool _site;
+  late bool _urgente;
 
   bool get _novo => widget.recado == null;
 
@@ -40,6 +42,8 @@ class _RecadoFormState extends State<RecadoForm> {
     _categoria = r?.categoria ?? Categoria.aviso;
     _validoAte = r?.validoAte;
     _fixo = r?.fixo ?? false;
+    _urgente = r?.urgente ?? false;
+    _site = (r?.site ?? false) || _urgente;
   }
 
   @override
@@ -59,7 +63,9 @@ class _RecadoFormState extends State<RecadoForm> {
       ..imagemHolyrics = _imagem
       ..categoria = _categoria
       ..validoAte = _validoAte
-      ..fixo = _fixo;
+      ..fixo = _fixo
+      ..site = _site || _urgente
+      ..urgente = _urgente;
     Recado? salvo;
     await executar(context, () async => salvo = _novo ? await repo.criar(r) : await repo.atualizar(r));
     if (salvo != null && mounted) Navigator.pop(context, salvo);
@@ -168,6 +174,28 @@ class _RecadoFormState extends State<RecadoForm> {
               subtitle: const Text('Sempre no topo da lista (ex: Boas-vindas).'),
               value: _fixo,
               onChanged: (v) => setState(() => _fixo = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.public),
+              title: const Text('Mostrar no site'),
+              subtitle: const Text('Aparece em "Avisos da semana" na página inicial pública.'),
+              value: _site,
+              onChanged: (v) => setState(() {
+                _site = v;
+                if (!v) _urgente = false;
+              }),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.warning_amber_rounded),
+              title: const Text('Urgente'),
+              subtitle: const Text('Faixa em destaque no topo do site (ex.: culto cancelado).'),
+              value: _urgente,
+              onChanged: (v) => setState(() {
+                _urgente = v;
+                if (v) _site = true;
+              }),
             ),
             const SizedBox(height: 8),
             _SeletorCartaz(valor: _imagem, aoMudar: (v) => setState(() => _imagem = v)),

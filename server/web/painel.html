@@ -327,6 +327,8 @@
     <div class="campo"><label for="r-validade">Mostrar até <span class="dica">(opcional)</span></label><input type="date" id="r-validade"></div>
     <div class="campo"><label for="r-imagem">Cartaz <span class="dica">(opcional — projeta a imagem em vez do texto)</span></label><select id="r-imagem"></select></div>
     <div class="campo"><label class="marcar"><input type="checkbox" id="r-fixo"><span>Fixo no topo da lista</span></label></div>
+    <div class="campo"><label class="marcar"><input type="checkbox" id="r-site"><span>Mostrar no site<br><span class="dica">Aparece em "Avisos da semana" na página inicial pública.</span></span></label></div>
+    <div class="campo"><label class="marcar"><input type="checkbox" id="r-urgente"><span>Urgente<br><span class="dica">Faixa em destaque no topo do site (ex.: culto cancelado). Use a data "Mostrar até" para sair sozinho.</span></span></label></div>
     <p class="erro" id="erro-recado" hidden></p>
     <div class="dialogo-acoes">
       <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
@@ -353,6 +355,6 @@
 </dialog>
 
 <script src="/comum.js?v=2"></script>
-<script src="/painel.js?v=4"></script>
+<script src="/painel.js?v=5"></script>
 </body>
 </html>

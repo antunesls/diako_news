@@ -58,6 +58,16 @@ class Configuracoes {
       'smtpSenha': '',
       'smtpRemetente': '',
       'smtpDestinatario': '',
+      'siteAtivo': true,
+      'siteAgenda': false,
+      'siteCultos': '',
+      'siteEndereco': '',
+      'sitePixChave': '',
+      'sitePixNome': '',
+      'sitePixCidade': '',
+      'siteInstagram': '',
+      'siteYoutube': '',
+      'siteWhatsapp': '',
     };
     if (await arquivo.exists()) {
       var texto = await arquivo.readAsString();
@@ -99,6 +109,24 @@ class Configuracoes {
       _s('agendaCalendarioId').isNotEmpty ? _s('agendaCalendarioId') : calendarioIdDoIcal(agendaUrl);
   bool get agendaMostrarDescricao => _valores['agendaMostrarDescricao'] as bool? ?? true;
   int get agendaDiasMural => _i('agendaDiasMural', 7);
+
+  // Página inicial pública (/).
+  bool get siteAtivo => _valores['siteAtivo'] as bool? ?? true;
+
+  /// Mostrar a agenda na página inicial (desligado: os eventos só aparecem com senha ou chave do mural).
+  bool get siteAgenda => _valores['siteAgenda'] as bool? ?? false;
+
+  /// Uma linha por culto, ex.: "Domingo — 19h".
+  String get siteCultos => _s('siteCultos');
+  String get siteEndereco => _s('siteEndereco');
+  String get sitePixChave => _s('sitePixChave');
+  String get sitePixNome => _s('sitePixNome');
+  String get sitePixCidade => _s('sitePixCidade');
+  String get siteInstagram => _s('siteInstagram');
+  String get siteYoutube => _s('siteYoutube');
+
+  /// Só os dígitos (com DDI ou não).
+  String get siteWhatsapp => _s('siteWhatsapp');
 
   String get smtpHost => _s('smtpHost');
   int get smtpPorta => _i('smtpPorta', 587);
@@ -190,6 +218,32 @@ class Configuracoes {
           novos[k] = mudancas[k];
         case 'agendaDiasMural':
           novos[k] = inteiro(k, 1, 30);
+        case 'siteAtivo' || 'siteAgenda':
+          if (mudancas[k] is! bool) throw FormatException('"$k" deve ser verdadeiro ou falso.');
+          novos[k] = mudancas[k];
+        case 'siteCultos':
+          novos[k] = texto(k, 500);
+        case 'siteEndereco':
+          novos[k] = texto(k, 200);
+        case 'sitePixChave':
+          novos[k] = texto(k, 77);
+        case 'sitePixNome':
+          // Limites do padrão do PIX (BR Code): 25 letras no nome e 15 na cidade.
+          novos[k] = texto(k, 25);
+        case 'sitePixCidade':
+          novos[k] = texto(k, 15);
+        case 'siteInstagram' || 'siteYoutube':
+          final v = texto(k, 200);
+          if (v.isNotEmpty && !RegExp(r'^https://\S+$').hasMatch(v)) {
+            throw FormatException('Use o link completo, começando com https://, em "$k".');
+          }
+          novos[k] = v;
+        case 'siteWhatsapp':
+          final v = texto(k, 30).replaceAll(RegExp(r'\D'), '');
+          if (v.isNotEmpty && (v.length < 10 || v.length > 15)) {
+            throw const FormatException('WhatsApp inválido. Use DDD e número, ex.: 11 91234-5678.');
+          }
+          novos[k] = v;
         case 'smtpHost' || 'smtpUsuario':
           novos[k] = texto(k, 200);
         case 'smtpPorta':
@@ -221,6 +275,8 @@ class Configuracoes {
       'holyricsHost', 'holyricsPorta', 'motivosPorSlide', 'segundosPorSlide', 'diasRespondidas',
       'temaPadrao', 'horaBackup', 'backupsManter', 'agendaMostrarDescricao', 'agendaDiasMural', 'agendaCalendarioId',
       'smtpHost', 'smtpPorta', 'smtpSsl', 'smtpUsuario', 'smtpRemetente', 'smtpDestinatario',
+      'siteAtivo', 'siteAgenda', 'siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade',
+      'siteInstagram', 'siteYoutube', 'siteWhatsapp',
     };
     for (final e in dados.entries) {
       if (permitidos.contains(e.key)) _valores[e.key] = e.value;

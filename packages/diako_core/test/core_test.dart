@@ -43,8 +43,14 @@ void main() {
         validoAte: DateTime(2026, 11, 10),
         fixo: true,
         ordem: 3,
+        site: true,
+        urgente: true,
       );
       expect(Recado.fromJson(original.toJson()).toJson(), original.toJson());
+      // Recados gravados antes do site não aparecem nele.
+      final antigo = original.toJson()..remove('site')..remove('urgente');
+      expect(Recado.fromJson(antigo).site, isFalse);
+      expect(Recado.fromJson(antigo).urgente, isFalse);
     });
 
     test('categoria desconhecida (ex: antiga "oracao") vira aviso', () {

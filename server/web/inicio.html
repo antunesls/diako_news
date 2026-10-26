@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Igreja Diakonia Tulipas</title>
+<meta name="description" content="Avisos, agenda, horários dos cultos e pedidos de oração.">
+<meta name="theme-color" content="#f7f5f0">
+<link rel="stylesheet" href="/estilo.css?v=4">
+<style>
+  .topo-site { background: var(--superficie); border-bottom: 1px solid var(--linha); }
+  .topo-site .dentro { max-width: 1120px; margin: 0 auto; padding: 14px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+  .topo-site img { height: 40px; width: auto; display: block; }
+  .topo-site nav { display: flex; gap: 22px; font-weight: 600; font-size: 15px; }
+  .topo-site nav a { color: var(--texto); text-decoration: none; }
+  .topo-site nav a:hover { color: var(--primaria); }
+  .topo-site .espaco { flex: 1; }
+  .urgente { background: #fbefe2; color: #6b3d00; border-bottom: 1px solid #e9c9a3; }
+  .urgente .dentro { max-width: 1120px; margin: 0 auto; padding: 12px 20px; display: flex; gap: 12px; align-items: flex-start; }
+  .urgente svg { flex-shrink: 0; margin-top: 2px; }
+  .urgente p { margin: 0; }
+  .conteudo { max-width: 1120px; margin: 0 auto; padding: 28px 20px 48px; display: grid; gap: 28px; }
+  .coluna { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+  section > h1, section > h2 { margin: 0 0 12px; }
+  h1 { font-size: 30px; }
+  h2 { font-size: 23px; }
+  .avisos { display: grid; gap: 12px; }
+  .aviso { background: var(--superficie); border: 1px solid var(--linha); border-radius: 18px; overflow: hidden; }
+  .aviso img { width: 100%; max-height: 320px; object-fit: cover; display: block; background: var(--neutro); }
+  .aviso .texto { padding: 14px 18px; }
+  .aviso strong { display: block; font-size: 17px; }
+  .aviso p { margin: 4px 0 0; color: var(--suave); white-space: pre-line; }
+  .aviso .ate { font-size: 13px; color: var(--suave); margin-top: 6px; }
+  .acoes-site { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .acao { display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 18px; text-decoration: none; background: var(--superficie); border: 1px solid var(--linha); color: var(--texto); }
+  .acao.principal { background: var(--primaria); border-color: var(--primaria); color: #fff; }
+  .acao strong { font-size: 17px; }
+  .acao span { font-size: 14px; color: var(--suave); }
+  .acao.principal span { color: #d6e8e5; }
+  .acao:hover { border-color: var(--borda); }
+  .acao.principal:hover { background: var(--primaria-escura); color: #fff; }
+  .lista { background: var(--superficie); border: 1px solid var(--linha); border-radius: 18px; padding: 4px 18px; }
+  .evento { display: flex; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--linha); }
+  .evento:last-child { border-bottom: 0; }
+  .data { width: 48px; flex-shrink: 0; text-align: center; padding: 4px 0; border-radius: 10px; background: var(--neutro); font-size: 12px; font-weight: 600; line-height: 1.2; text-transform: uppercase; }
+  .data b { display: block; font-size: 19px; }
+  .data.hoje { background: var(--primaria-suave); color: var(--primaria-escura); }
+  .evento .info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .evento .info span { font-size: 14px; color: var(--suave); }
+  .evento a { font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .caixa { background: var(--superficie); border: 1px solid var(--linha); border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .caixa h2 { margin: 0; font-size: 21px; }
+  .par { display: flex; justify-content: space-between; gap: 12px; }
+  .endereco { color: var(--suave); padding-top: 10px; border-top: 1px solid var(--linha); white-space: pre-line; }
+  .pix { display: flex; gap: 16px; align-items: center; }
+  .pix img { width: 120px; height: 120px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--linha); background: #fff; }
+  .pix code { display: block; padding: 8px 10px; border-radius: 10px; background: var(--neutro); font-size: 14px; overflow-wrap: anywhere; margin: 6px 0 10px; }
+  .rodape-site { max-width: 1120px; margin: 0 auto; padding: 8px 20px 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--suave); font-size: 14px; }
+  .rodape-site .redes { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; font-weight: 600; }
+  .rodape-site .equipe { color: var(--suave); }
+  .carregando { text-align: center; color: var(--suave); padding: 48px 0; }
+  @media (min-width: 960px) {
+    .conteudo { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); gap: 32px; }
+    .avisos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .aviso.com-imagem { grid-row: span 2; }
+    .acoes-site { grid-template-columns: 1fr; }
+    h1 { font-size: 34px; }
+  }
+  @media (max-width: 600px) {
+    .topo-site nav { display: none; }
+    .topo-site .dentro { justify-content: space-between; flex-wrap: nowrap; gap: 12px; }
+    .topo-site img { height: 34px; }
+    .topo-site .espaco { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="topo-site">
+  <div class="dentro">
+    <a href="/" aria-label="Página inicial"><img src="/logo.png" alt="Igreja Diakonia Tulipas"></a>
+    <span class="espaco"></span>
+    <nav aria-label="Nesta página" id="menu-site"></nav>
+    <a class="botao secundario pequeno" href="/painel">Área da equipe</a>
+  </div>
+</header>
+<div id="urgentes"></div>
+
+<main class="conteudo" id="conteudo">
+  <p class="carregando" id="carregando">Carregando…</p>
+  <div class="coluna" id="principal" hidden></div>
+  <aside class="coluna" id="lateral" hidden></aside>
+</main>
+<footer class="rodape-site" id="rodape" hidden></footer>
+
+<script>
+  'use strict';
+  /** Cria elementos sem innerHTML (o conteúdo vem do painel). */
+  function el(tag, props = {}, ...filhos) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (v === undefined || v === null || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v === true ? '' : v);
+    }
+    for (const f of filhos.flat()) if (f !== null && f !== undefined && f !== false) e.append(f);
+    return e;
+  }
+  const $ = (id) => document.getElementById(id);
+  const svg = (caminho, cor = 'currentColor') => {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('width', '22'); s.setAttribute('height', '22'); s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.style.stroke = cor; s.setAttribute('stroke-width', '2');
+    s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true');
+    s.innerHTML = caminho; // ícone fixo deste arquivo, nunca conteúdo do painel
+    return s;
+  };
+  const dataCurta = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const diaIso = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+  function secao(id, titulo, ...conteudo) {
+    return el('section', { id, 'aria-labelledby': id + '-t' }, el('h2', { id: id + '-t' }, titulo), ...conteudo);
+  }
+
+  function montar(s) {
+    document.title = s.igreja;
+    const menu = [];
+
+    // Avisos urgentes: faixa no topo
+    $('urgentes').replaceChildren(...s.urgentes.map((u) => el('div', { class: 'urgente', role: 'alert' },
+      el('div', { class: 'dentro' },
+        svg('<path d="M12 3l9 16H3z"></path><path d="M12 10v4M12 17v.5"></path>'),
+        el('p', {}, el('strong', {}, u.titulo), u.texto ? ' ' + u.texto : '')))));
+
+    const principal = [];
+    if (s.avisos.length) {
+      menu.push(['avisos', 'Avisos']);
+      principal.push(el('section', { id: 'avisos', 'aria-labelledby': 'avisos-t' },
+        el('h1', { id: 'avisos-t' }, 'Avisos da semana'),
+        el('div', { class: 'avisos' }, s.avisos.map((a) => el('article', { class: 'aviso' + (a.imagem ? ' com-imagem' : '') },
+          a.imagem ? el('img', { src: a.imagem, alt: a.titulo, loading: 'lazy' }) : null,
+          el('div', { class: 'texto' },
+            el('strong', {}, a.titulo),
+            a.texto ? el('p', {}, a.texto) : null,
+            a.validoAte ? el('div', { class: 'ate' }, 'Até ' + dataCurta(a.validoAte)) : null))))));
+    }
+
+    if (s.agenda && s.eventos.length) {
+      menu.push(['agenda', 'Agenda']);
+      const hoje = diaIso(new Date());
+      principal.push(secao('agenda', 'Próximos eventos', el('div', { class: 'lista' }, s.eventos.map((e) => {
+        const d = new Date(e.inicio);
+        return el('div', { class: 'evento' },
+          el('span', { class: 'data' + (diaIso(d) === hoje ? ' hoje' : '') },
+            d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''), el('b', {}, String(d.getDate()))),
+          el('div', { class: 'info' }, el('strong', {}, e.titulo), el('span', {}, [e.horario, e.local].filter(Boolean).join(' · '))),
+          el('a', { href: e.ics, 'aria-label': 'Adicionar "' + e.titulo + '" ao meu calendário' }, '+ Agenda'));
+      }))));
+    }
+
+    const lateral = [
+      el('div', { class: 'acoes-site' },
+        el('a', { class: 'acao principal', href: '/oracao' },
+          svg('<path d="M12 3c2 3 2 6 0 9-2-3-2-6 0-9z"></path><path d="M12 12v9M8 21h8"></path>', '#fff'),
+          el('strong', {}, 'Pedido de oração'), el('span', {}, 'O pastor recebe e ora por você')),
+        el('a', { class: 'acao', href: '/mensagens' },
+          svg('<path d="M4 5h16v11H8l-4 4z"></path>', 'var(--primaria)'),
+          el('strong', {}, 'Fale com a igreja'), el('span', {}, 'Dúvidas, sugestões, críticas'))),
+    ];
+
+    if (s.cultos.length || s.endereco) {
+      menu.push(['cultos', 'Cultos']);
+      lateral.push(el('section', { class: 'caixa', id: 'cultos', 'aria-labelledby': 'cultos-t' },
+        el('h2', { id: 'cultos-t' }, 'Nossos cultos'),
+        s.cultos.map((c) => el('div', { class: 'par' }, el('span', {}, c.dia), el('strong', {}, c.hora))),
+        s.endereco ? el('div', { class: 'endereco' }, s.endereco) : null,
+        s.mapa ? el('a', { class: 'botao secundario', href: s.mapa, target: '_blank', rel: 'noopener' }, 'Como chegar') : null));
+    }
+
+    if (s.pix) {
+      menu.push(['contribuir', 'Contribuir']);
+      const resultado = el('span', { class: 'dica', role: 'status' });
+      lateral.push(el('section', { class: 'caixa', id: 'contribuir', 'aria-labelledby': 'contribuir-t' },
+        el('h2', { id: 'contribuir-t' }, 'Dízimos e ofertas (PIX)'),
+        el('div', { class: 'pix' },
+          el('img', { src: s.pix.qr, alt: 'QR code do PIX da igreja', loading: 'lazy' }),
+          el('div', {},
+            el('span', { class: 'dica' }, s.pix.nome),
+            el('code', {}, s.pix.chave),
+            el('button', { class: 'botao pequeno', type: 'button', onclick: async () => {
+              try {
+                await navigator.clipboard.writeText(s.pix.chave);
+                resultado.textContent = 'Chave copiada.';
+              } catch {
+                resultado.textContent = 'Selecione e copie a chave acima.';
+              }
+            } }, 'Copiar chave'), ' ', resultado))));
+    }
+
+    $('menu-site').replaceChildren(...menu.map(([id, nome]) => el('a', { href: '#' + id }, nome)));
+    $('principal').replaceChildren(...principal);
+    $('lateral').replaceChildren(...lateral);
+    $('principal').hidden = principal.length === 0;
+    $('lateral').hidden = false;
+    if (!principal.length) $('conteudo').style.gridTemplateColumns = 'minmax(0, 560px)';
+    if (!principal.length) $('conteudo').style.justifyContent = 'center';
+
+    const redes = [
+      s.redes.instagram && el('a', { href: s.redes.instagram, target: '_blank', rel: 'noopener' }, 'Instagram'),
+      s.redes.youtube && el('a', { href: s.redes.youtube, target: '_blank', rel: 'noopener' }, 'YouTube'),
+      s.redes.whatsapp && el('a', { href: s.redes.whatsapp, target: '_blank', rel: 'noopener' }, 'WhatsApp'),
+    ].filter(Boolean);
+    $('rodape').replaceChildren(
+      redes.length ? el('div', { class: 'redes' }, redes) : null,
+      el('span', {}, s.igreja),
+      el('a', { class: 'equipe', href: '/painel' }, 'Área da equipe'));
+    $('rodape').hidden = false;
+    $('carregando').remove();
+  }
+
+  fetch('/api/public/inicio')
+    .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then(montar)
+    .catch(() => {
+      $('carregando').replaceChildren('Não foi possível carregar agora. ',
+        el('a', { href: '/oracao' }, 'Fazer um pedido de oração'), ' · ', el('a', { href: '/mensagens' }, 'Falar com a igreja'));
+    });
+</script>
+</body>
+</html>

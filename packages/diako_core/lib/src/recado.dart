@@ -24,6 +24,8 @@ class Recado {
     this.fixo = false,
     this.ordem = 0,
     this.auto = false,
+    this.site = false,
+    this.urgente = false,
   });
 
   final String id;
@@ -42,6 +44,12 @@ class Recado {
 
   /// Gerado pelo servidor (ex: aniversariantes da semana); não pode ser editado.
   final bool auto;
+
+  /// Aparece na página inicial pública do site.
+  bool site;
+
+  /// Aviso urgente: faixa em destaque no topo da página inicial (implica [site]).
+  bool urgente;
 
   bool get ehImagem => imagemHolyrics != null && imagemHolyrics!.trim().isNotEmpty;
 
@@ -62,6 +70,8 @@ class Recado {
         'fixo': fixo,
         'ordem': ordem,
         if (auto) 'auto': true,
+        'site': site,
+        'urgente': urgente,
       };
 
   factory Recado.fromJson(Map<String, dynamic> j) => Recado(
@@ -74,6 +84,8 @@ class Recado {
         fixo: j['fixo'] as bool? ?? false,
         ordem: (j['ordem'] as num?)?.toInt() ?? 0,
         auto: j['auto'] as bool? ?? false,
+        site: j['site'] as bool? ?? false,
+        urgente: j['urgente'] as bool? ?? false,
       );
 }
 

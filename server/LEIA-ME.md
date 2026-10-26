@@ -61,6 +61,15 @@ Para atualizar, rode o `instalar.ps1` da versão nova. Ele não mexe em `config.
 - **Resumo da semana:** a aba *Resumo da semana* do painel monta o texto para o grupo do WhatsApp. Revise, depois use **Copiar** ou **Abrir no WhatsApp**. O envio é feito por você: o sistema não manda mensagens sozinho.
 - **Histórico:** a aba *Histórico* mostra o que foi projetado (texto, imagem, contagem, mensagem para o palco) e quando.
 
+## Página inicial (site da igreja)
+O endereço do site (`/`) abre uma página pública com:
+- **Aviso urgente** em destaque no topo e **Avisos da semana**: são os recados marcados com **Urgente** ou **Mostrar no site** (no painel ou no tablet). A data "Mostrar até" tira o aviso do ar sozinha;
+- botões de **Pedido de oração** e **Fale com a igreja**;
+- **Próximos eventos** do Google Agenda, com "+ Agenda" para a pessoa salvar no celular. Fica desligado até você liberar em `/admin`, porque deixa a agenda visível para qualquer pessoa;
+- **Horários dos cultos**, **endereço** com "Como chegar" (Google Maps), **PIX** com chave e QR code, e links do Instagram, YouTube e WhatsApp.
+
+Tudo se configura em `/admin` › *Página inicial*. Bloco sem conteúdo não aparece. Pedidos de oração, mensagens, nomes e aniversariantes nunca vão para a página. Para voltar ao comportamento antigo (o endereço abre o painel), desligue a página inicial no `/admin`. O painel continua em `/painel` ("Área da equipe").
+
 ## Agenda do Google
 Os eventos continuam sendo criados no **Google Agenda**. O DiakoNews só lê e mostra:
 - na **TV** (mural), com um slide **Hoje** e os **Próximos eventos** (7 dias por padrão, com descrição se quiser);
