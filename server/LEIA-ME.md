@@ -108,6 +108,14 @@ Com uma **conta de serviço** do Google (gratuita), o painel e o tablet também 
 O passo a passo completo, com os problemas comuns, fica no próprio servidor em **`/ajuda/agenda-google`**. A chave é guardada em `data/google-conta-servico.json`, não vai para os backups e nunca aparece no painel. Eventos que se repetem continuam sendo alterados no Google Agenda.
 
 ## Problemas comuns
+Para testar o Holyrics **real** neste PC sem projetar nada, rode na raiz do projeto:
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\tool\diagnosticar_holyrics.ps1`
+O script testa a porta 8091, pede o token em entrada oculta e consulta apenas `GetCPInfo` e `GetCurrentPresentation`.
+Use `-SemToken` para verificar só a porta; nesse caso não há confirmação da autenticação nem da API.
+Se um token foi compartilhado fora do PC, revogue-o e crie outro antes de testar.
+Não use `tool/rodar_local.ps1` para diagnosticar a instalação real sem revisar a configuração:
+ele configura o token de desenvolvimento `teste` e pode iniciar um Holyrics simulado.
+
 | Sintoma | O que verificar |
 |---|---|
 | Tablet ou celular não abre o endereço | Estão no mesmo Wi-Fi? A rede do Windows está como **Privada**? O IP mudou? |
