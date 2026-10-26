@@ -102,15 +102,25 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scope = _scope;
     return ListenableBuilder(
-      listenable: Listenable.merge([scope.repo, scope.motivos, scope.agenda, scope.mensagens]),
+      listenable: Listenable.merge([scope.repo, scope.motivos, scope.agenda, scope.mensagens, scope.conta]),
       builder: (context, _) {
+        final conta = scope.conta;
+        // Seções que o perfil vê; se a atual saiu (perfil trocado), volta para Recados.
+        final permitidas = {
+          _Secao.recados,
+          if (conta.pode('motivosVer')) _Secao.oracao,
+          if (conta.pode('agendaVer')) _Secao.agenda,
+          if (conta.pode('mensagens')) _Secao.mensagens,
+        };
+        if (!permitidas.contains(_secao)) _secao = _Secao.recados;
         final todos = scope.repo.todos;
         // Remove seleções de recados que foram excluídos.
         _selecionados.removeWhere((id) => !todos.any((r) => r.id == id));
         final focado = todos.where((r) => r.id == _focadoId).firstOrNull;
         final selecionados = ordenarParaExibicao(todos.where((r) => _selecionados.contains(r.id)));
         final aguardando = scope.motivos.aguardando.length;
-        final online = scope.repo.online && scope.motivos.online;
+        // Perfis sem acesso aos pedidos não sincronizam os motivos: não conta como "sem conexão".
+        final online = scope.repo.online && (!conta.pode('motivosVer') || scope.motivos.online);
 
         return Scaffold(
           appBar: AppBar(
@@ -123,6 +133,7 @@ class _HomePageState extends State<HomePage> {
                   showSelectedIcon: false,
                   segments: [
                     const ButtonSegment(value: _Secao.recados, icon: Icon(Icons.campaign_outlined), label: Text('Recados')),
+                    if (permitidas.contains(_Secao.oracao))
                     ButtonSegment(
                       value: _Secao.oracao,
                       icon: Badge(
@@ -132,7 +143,9 @@ class _HomePageState extends State<HomePage> {
                       ),
                       label: const Text('Motivos de oração'),
                     ),
-                    const ButtonSegment(value: _Secao.agenda, icon: Icon(Icons.event_outlined), label: Text('Agenda')),
+                    if (permitidas.contains(_Secao.agenda))
+                      const ButtonSegment(value: _Secao.agenda, icon: Icon(Icons.event_outlined), label: Text('Agenda')),
+                    if (permitidas.contains(_Secao.mensagens))
                     ButtonSegment(value: _Secao.mensagens,
                       icon: Badge(isLabelVisible: scope.mensagens.novas > 0,
                         label: Text('${scope.mensagens.novas}'), child: const Icon(Icons.mail_outline)),
@@ -146,11 +159,12 @@ class _HomePageState extends State<HomePage> {
             actions: [
               const _StatusChip(),
               const SizedBox(width: 8),
-              IconButton(
-                tooltip: 'Contagem e mensagem no palco',
-                icon: const Icon(Icons.timer_outlined),
-                onPressed: () => mostrarFerramentas(context),
-              ),
+              if (conta.pode('projetar'))
+                IconButton(
+                  tooltip: 'Contagem e mensagem no palco',
+                  icon: const Icon(Icons.timer_outlined),
+                  onPressed: () => mostrarFerramentas(context),
+                ),
               IconButton(
                 tooltip: 'Configurações',
                 icon: const Icon(Icons.settings_outlined),
@@ -198,7 +212,9 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           // A agenda é editada no Google: sem botão de criar.
-          floatingActionButton: online && _secao != _Secao.agenda && _secao != _Secao.mensagens
+          floatingActionButton: online &&
+                  (_secao == _Secao.recados && conta.pode('recados') ||
+                      _secao == _Secao.oracao && conta.pode('motivosEditar'))
               ? FloatingActionButton.extended(
                   onPressed: () => _secao == _Secao.oracao ? editarMotivo(context, null) : _editar(null),
                   icon: const Icon(Icons.add),

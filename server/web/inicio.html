@@ -38,6 +38,9 @@
   .acao span { font-size: 14px; color: var(--suave); }
   .acao.principal span { color: #d6e8e5; }
   .acao:hover { border-color: var(--borda); }
+  .icone-acao { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--primaria-suave); margin-bottom: 2px; }
+  .acao.principal .icone-acao { background: rgba(255, 255, 255, .16); }
+  .icone-acao svg { width: 26px; height: 26px; }
   .acao.principal:hover { background: var(--primaria-escura); color: #fff; }
   .lista { background: var(--superficie); border: 1px solid var(--linha); border-radius: 18px; padding: 4px 18px; }
   .evento { display: flex; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--linha); }
@@ -60,9 +63,47 @@
   .pix { padding-top: 12px; border-top: 1px solid var(--linha); }
   .pix code { display: block; padding: 8px 10px; border-radius: 10px; background: var(--neutro); font-size: 14px; overflow-wrap: anywhere; margin: 6px 0 10px; }
   .rodape-site { max-width: 1120px; margin: 0 auto; padding: 8px 20px 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--suave); font-size: 14px; }
-  .rodape-site .redes { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; font-weight: 600; }
   .rodape-site .equipe { color: var(--suave); }
+  .faixa-redes { background: var(--primaria); color: #fff; }
+  .faixa-redes .dentro { max-width: 1120px; margin: 0 auto; padding: 36px 20px 26px; display: flex; flex-direction: column; gap: 16px; }
+  .faixa-redes h2 { margin: 0; color: #fff; font-size: 27px; }
+  .faixa-redes p { margin: 0; color: #d6e8e5; font-size: 16px; }
+  .botoes-redes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .rede { display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 8px 22px; border-radius: 30px; background: #fff; color: var(--texto); text-decoration: none; border: 1px solid #fff; }
+  .rede strong { display: block; font-size: 16px; }
+  .rede small { display: block; font-size: 13px; color: var(--suave); }
+  .rede.contorno { background: rgba(255, 255, 255, .14); border-color: rgba(255, 255, 255, .45); color: #fff; }
+  .rede.contorno small { color: #d6e8e5; }
+  .rede:hover { color: var(--texto); box-shadow: 0 0 0 3px rgba(255, 255, 255, .35); }
+  .rede.contorno:hover { color: #fff; }
+  .rede:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  .assinatura { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; padding-top: 8px; font-size: 14px; color: #d6e8e5; }
+  .assinatura .equipe { color: #fff; }
+  @media (min-width: 960px) { .faixa-redes .dentro { padding: 44px 20px 30px; } .faixa-redes h2 { font-size: 34px; } }
   .carregando { text-align: center; color: var(--suave); padding: 48px 0; }
+  /* Carrossel de fotos (capa) */
+  .capa { max-width: 1120px; margin: 24px auto 0; padding: 0 20px; }
+  .capa .moldura { position: relative; border-radius: 20px; overflow: hidden; background: var(--neutro); }
+  .trilho { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; aspect-ratio: 4 / 3; outline: none; }
+  .trilho::-webkit-scrollbar { display: none; }
+  .trilho:focus-visible { box-shadow: inset 0 0 0 3px var(--primaria); }
+  .slide { flex: 0 0 100%; margin: 0; position: relative; scroll-snap-align: start; }
+  .slide a, .slide img { display: block; width: 100%; height: 100%; }
+  .slide img { object-fit: cover; }
+  .slide figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 20px 38px; background: rgba(28, 27, 25, .62); color: #fff; font-weight: 600; font-size: 16px; }
+  .capa.uma .slide figcaption { padding-bottom: 12px; }
+  .pontos { position: absolute; left: 0; right: 0; bottom: 6px; display: flex; justify-content: center; gap: 2px; }
+  .pontos button { width: 28px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .pontos button::before { content: ''; width: 9px; height: 9px; border-radius: 5px; background: rgba(255, 255, 255, .6); transition: width .2s; }
+  .pontos button[aria-current="true"]::before { width: 22px; background: #fff; }
+  .seta { position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 23px; border: 0; background: rgba(255, 255, 255, .9); color: var(--texto); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .seta:hover { background: #fff; }
+  .seta.anterior { left: 14px; }
+  .seta.proxima { right: 14px; }
+  /* 16:9 até 540 px de altura (altura calculada: aspect-ratio + max-height estreitaria o trilho). */
+  @media (min-width: 700px) { .trilho { aspect-ratio: auto; height: min(540px, calc((100vw - 40px) * 9 / 16)); } }
+  @media (max-width: 600px) { .seta { display: none; } .capa { margin-top: 14px; padding: 0 16px; } }
+  @media (prefers-reduced-motion: reduce) { .trilho { scroll-behavior: auto; } .pontos button::before { transition: none; } }
   @media (min-width: 960px) {
     .conteudo { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); gap: 32px; }
     .avisos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -88,12 +129,14 @@
   </div>
 </header>
 <div id="urgentes"></div>
+<section class="capa" id="capa" aria-roledescription="carrossel" aria-label="Fotos da igreja" hidden></section>
 
 <main class="conteudo" id="conteudo">
   <p class="carregando" id="carregando">Carregando…</p>
   <div class="coluna" id="principal" hidden></div>
   <aside class="coluna" id="lateral" hidden></aside>
 </main>
+<section class="faixa-redes" id="redes" aria-labelledby="redes-t" hidden></section>
 <footer class="rodape-site" id="rodape" hidden></footer>
 
 <script>
@@ -136,6 +179,8 @@
         svg('<path d="M12 3l9 16H3z"></path><path d="M12 10v4M12 17v.5"></path>'),
         el('p', {}, el('strong', {}, u.titulo), u.texto ? ' ' + u.texto : '')))));
 
+    montarCarrossel(s.galeria || []);
+
     const principal = [];
     if (s.avisos.length) {
       menu.push(['avisos', 'Avisos']);
@@ -165,10 +210,18 @@
     const lateral = [
       el('div', { class: 'acoes-site' },
         el('a', { class: 'acao principal', href: '/oracao' },
-          svg('<path d="M12 3c2 3 2 6 0 9-2-3-2-6 0-9z"></path><path d="M12 12v9M8 21h8"></path>', '#fff'),
+          // Mão segurando um coração: o mesmo símbolo dos motivos de oração no app do tablet.
+          el('span', { class: 'icone-acao' }, svg(
+            '<path d="M11 14h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 16"></path>' +
+            '<path d="m7 20 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9"></path>' +
+            '<path d="m2 15 6 6"></path>' +
+            '<path d="M19.5 8.5c.7-.7 1.5-1.6 1.5-2.7A2.73 2.73 0 0 0 16 4a2.78 2.78 0 0 0-5 1.8c0 1.2.8 2 1.5 2.8L16 12Z"></path>',
+            '#fff')),
           el('strong', {}, 'Pedido de oração'), el('span', {}, 'O pastor recebe e ora por você')),
         el('a', { class: 'acao', href: '/mensagens' },
-          svg('<path d="M4 5h16v11H8l-4 4z"></path>', 'var(--primaria)'),
+          el('span', { class: 'icone-acao' }, svg(
+            '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><path d="M13 8H7"></path><path d="M17 12H7"></path>',
+            'var(--primaria)')),
           el('strong', {}, 'Fale com a igreja'), el('span', {}, 'Dúvidas, sugestões, críticas'))),
     ];
 
@@ -225,17 +278,111 @@
     if (!principal.length) $('conteudo').style.gridTemplateColumns = 'minmax(0, 560px)';
     if (!principal.length) $('conteudo').style.justifyContent = 'center';
 
-    const redes = [
-      s.redes.instagram && el('a', { href: s.redes.instagram, target: '_blank', rel: 'noopener' }, 'Instagram'),
-      s.redes.youtube && el('a', { href: s.redes.youtube, target: '_blank', rel: 'noopener' }, 'YouTube'),
-      s.redes.whatsapp && el('a', { href: s.redes.whatsapp, target: '_blank', rel: 'noopener' }, 'WhatsApp'),
+    // Faixa "Acompanhe a igreja" com as redes cadastradas; sem redes, fica só o rodapé simples.
+    const botoes = [
+      s.redes.instagram && botaoRede(s.redes.instagram, 'Seguir no Instagram', perfil(s.redes.instagram, 'instagram'),
+        '<rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><path d="M17.5 6.5v.01"></path>', '#8e2c55'),
+      s.redes.youtube && botaoRede(s.redes.youtube, 'Assistir no YouTube', perfil(s.redes.youtube, 'youtube') || 'cultos ao vivo e gravados',
+        '<rect x="2" y="5" width="20" height="14" rx="4"></rect><path d="M10 9l5 3-5 3z"></path>', '#a3261e'),
+      s.redes.whatsapp && botaoRede(s.redes.whatsapp, 'Chamar no WhatsApp', 'fale com a secretaria',
+        '<path d="M4 20l1.5-4A8 8 0 1 1 9 19.5z"></path>', '#fff', true),
     ].filter(Boolean);
-    $('rodape').replaceChildren(
-      redes.length ? el('div', { class: 'redes' }, redes) : null,
-      el('span', {}, s.igreja),
-      el('a', { class: 'equipe', href: '/painel' }, 'Área da equipe'));
-    $('rodape').hidden = false;
+    const assinatura = [el('span', {}, s.igreja), el('a', { class: 'equipe', href: '/painel' }, 'Área da equipe')];
+    if (botoes.length) {
+      $('redes').replaceChildren(el('div', { class: 'dentro' },
+        el('h2', { id: 'redes-t' }, 'Acompanhe a igreja durante a semana'),
+        el('p', {}, s.redes.instagram && s.redes.youtube && s.redes.whatsapp
+          ? 'Fotos, avisos, cultos ao vivo e contato direto com a secretaria.'
+          : 'Siga e fale com a igreja também fora dos cultos.'),
+        el('div', { class: 'botoes-redes' }, botoes),
+        el('div', { class: 'assinatura' }, assinatura)));
+      $('redes').hidden = false;
+    } else {
+      $('rodape').replaceChildren(...assinatura);
+      $('rodape').hidden = false;
+    }
     $('carregando').remove();
+  }
+
+  /** Carrossel de fotos no topo: arrastar no celular, setas e bolinhas, passa sozinho a cada 6 s. */
+  function montarCarrossel(fotos) {
+    const capa = $('capa');
+    if (!fotos.length) {
+      capa.hidden = true;
+      return;
+    }
+    const trilho = el('div', { class: 'trilho', tabindex: '0', 'aria-label': 'Use as setas do teclado para trocar de foto' },
+      fotos.map((f, i) => {
+        const imagem = el('img', {
+          src: f.url, alt: f.legenda || 'Foto ' + (i + 1) + ' da igreja', loading: i === 0 ? 'eager' : 'lazy',
+          width: f.largura, height: f.altura,
+        });
+        return el('figure', { class: 'slide', role: 'group', 'aria-roledescription': 'foto', 'aria-label': (i + 1) + ' de ' + fotos.length },
+          f.link ? el('a', { href: f.link, target: '_blank', rel: 'noopener' }, imagem) : imagem,
+          f.legenda ? el('figcaption', {}, f.legenda) : null);
+      }));
+    const atual = () => Math.round(trilho.scrollLeft / Math.max(trilho.clientWidth, 1));
+    const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const ir = (i) => trilho.scrollTo({ left: ((i + fotos.length) % fotos.length) * trilho.clientWidth, behavior: reduzido ? 'auto' : 'smooth' });
+    const pontos = fotos.map((_, i) => el('button', { type: 'button', 'aria-label': 'Ver foto ' + (i + 1) + ' de ' + fotos.length, onclick: () => ir(i) }));
+    const marcar = () => pontos.forEach((b, i) => b.setAttribute('aria-current', String(i === atual())));
+    let espera;
+    trilho.addEventListener('scroll', () => {
+      clearTimeout(espera);
+      espera = setTimeout(marcar, 80);
+    });
+    trilho.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') ir(atual() + 1);
+      else if (e.key === 'ArrowLeft') ir(atual() - 1);
+      else return;
+      e.preventDefault();
+    });
+    const varias = fotos.length > 1;
+    capa.classList.toggle('uma', !varias);
+    capa.replaceChildren(el('div', { class: 'moldura' }, trilho,
+      varias ? el('button', { class: 'seta anterior', type: 'button', 'aria-label': 'Foto anterior', onclick: () => ir(atual() - 1) },
+        svg('<path d="M15 6l-6 6 6 6"></path>')) : null,
+      varias ? el('button', { class: 'seta proxima', type: 'button', 'aria-label': 'Próxima foto', onclick: () => ir(atual() + 1) },
+        svg('<path d="M9 6l6 6-6 6"></path>')) : null,
+      varias ? el('div', { class: 'pontos' }, pontos) : null));
+    capa.hidden = false;
+    marcar();
+
+    // Passa sozinho, mas para enquanto a pessoa interage (mouse, dedo ou teclado) ou com a aba escondida.
+    if (!varias || reduzido) return;
+    let pausado = false;
+    let retomar;
+    const pausar = () => (pausado = true);
+    const continuar = () => (pausado = false);
+    capa.addEventListener('mouseenter', pausar);
+    capa.addEventListener('mouseleave', continuar);
+    capa.addEventListener('focusin', pausar);
+    capa.addEventListener('focusout', continuar);
+    capa.addEventListener('touchstart', () => {
+      pausar();
+      clearTimeout(retomar);
+      retomar = setTimeout(continuar, 10000);
+    }, { passive: true });
+    setInterval(() => {
+      if (!pausado && !document.hidden) ir(atual() + 1);
+    }, 6000);
+  }
+
+  /** "@perfil" a partir do link (instagram.com/perfil ou youtube.com/@perfil). */
+  function perfil(url, rede) {
+    try {
+      const primeiro = new URL(url).pathname.split('/').filter(Boolean)[0] || '';
+      if (rede === 'instagram' && primeiro && !['p', 'reel', 'reels', 'stories', 'explore'].includes(primeiro)) return '@' + primeiro;
+      if (rede === 'youtube' && primeiro.startsWith('@')) return primeiro;
+    } catch {
+      // link fora do padrão: mostra só o nome da rede
+    }
+    return '';
+  }
+
+  function botaoRede(url, titulo, detalhe, icone, cor, contorno = false) {
+    return el('a', { class: 'rede' + (contorno ? ' contorno' : ''), href: url, target: '_blank', rel: 'noopener' },
+      svg(icone, cor), el('span', {}, el('strong', {}, titulo), detalhe ? el('small', {}, detalhe) : null));
   }
 
   fetch('/api/public/inicio')

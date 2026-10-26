@@ -42,6 +42,11 @@
   <form id="form-login" class="cartao">
     <h1 style="font-size:20px">Administração</h1>
     <div class="campo">
+      <label for="usuario-login">Usuário</label>
+      <input type="text" id="usuario-login" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <span class="dica">Conta principal: deixe em branco ou use "admin".</span>
+    </div>
+    <div class="campo">
       <label for="senha-login">Senha</label>
       <input type="password" id="senha-login" autocomplete="current-password" required>
     </div>
@@ -59,7 +64,13 @@
     <button class="botao secundario pequeno" id="sair">Sair</button>
   </header>
 
-  <div class="layout">
+  <section id="sem-acesso" class="cartao" style="max-width:520px;margin:10vh auto 0" hidden>
+    <h2>Sem acesso à administração</h2>
+    <p id="texto-sem-acesso"></p>
+    <a class="botao" href="/painel">Ir para o painel</a>
+  </section>
+
+  <div class="layout" id="layout-admin">
     <nav class="secoes" aria-label="Seções">
       <a href="#igreja">Igreja e site</a>
       <a href="#pagina-inicial">Página inicial</a>
@@ -69,6 +80,7 @@
       <a href="#email">Avisos por e-mail</a>
       <a href="#projecao">Projeção</a>
       <a href="#backup">Backup e restauração</a>
+      <a href="#usuarios">Usuários e perfis</a>
       <a href="#seguranca">Senha e aparelhos</a>
     </nav>
 
@@ -96,6 +108,7 @@
         <form id="form-inicio">
           <div class="campo"><label class="marcar"><input type="checkbox" id="siteAtivo"><span>Página inicial ligada<br><span class="dica">Desligada, o endereço do site abre direto o login do painel.</span></span></label></div>
           <div class="campo"><label class="marcar"><input type="checkbox" id="siteAgenda"><span>Mostrar a agenda no site<br><span class="dica">Os eventos do Google Agenda ficam visíveis para qualquer pessoa. Deixe desligado se a agenda tiver eventos internos.</span></span></label></div>
+          <div class="campo"><label class="marcar"><input type="checkbox" id="siteGaleria"><span>Mostrar o carrossel de fotos na página inicial<br><span class="dica">As fotos são enviadas no painel, aba <a href="/painel">Galeria</a>. Desligado, o carrossel some da página e as fotos continuam guardadas.</span></span></label></div>
           <div class="campo">
             <label for="siteCultos">Horários dos cultos <span class="dica">(um por linha, ex.: Domingo — 19h)</span></label>
             <textarea id="siteCultos" maxlength="500" style="min-height:80px" placeholder="Domingo — 19h&#10;Quarta (oração) — 19h30"></textarea>
@@ -103,6 +116,7 @@
           <div class="campo"><label for="siteEndereco">Endereço <span class="dica">(o botão "Como chegar" abre no Google Maps)</span></label><input type="text" id="siteEndereco" maxlength="200" placeholder="Rua, número, bairro, cidade"></div>
           <h3 style="font-size:17px;margin:22px 0 6px">PIX para dízimos e ofertas</h3>
           <p class="dica" style="margin-top:0">Preencha os três campos para mostrar a chave e o QR code. Nome e cidade são os do recebedor, como aparecem no banco.</p>
+          <div class="campo"><label class="marcar"><input type="checkbox" id="sitePix"><span>Mostrar o PIX na página inicial<br><span class="dica">Desligado, o bloco do PIX some da página. A chave, o nome e a cidade continuam salvos.</span></span></label></div>
           <div class="campo"><label for="sitePixChave">Chave PIX</label><input type="text" id="sitePixChave" maxlength="77" placeholder="CNPJ, e-mail, telefone (+55…) ou chave aleatória"></div>
           <div class="campo">
             <label for="sitePixNome">Nome do recebedor</label>
@@ -295,6 +309,30 @@
         <div class="acoes"><button class="botao perigo" type="button" id="restaurar-arquivo">Restaurar arquivo</button><span id="res-restaurar" role="status"></span></div>
       </section>
 
+      <section class="cartao" id="usuarios">
+        <h2>Usuários e perfis</h2>
+        <p class="dica">Cada pessoa entra no painel e no tablet com o próprio usuário e senha. O perfil define o que ela vê e pode fazer. A conta principal ("admin", com a senha da seção abaixo) continua valendo. <a href="/ajuda/usuarios" target="_blank" rel="noopener">Como funciona</a></p>
+        <form id="form-usuario">
+          <div class="grade2">
+            <div class="campo"><label for="u-nome">Nome da pessoa</label><input type="text" id="u-nome" maxlength="60" required></div>
+            <div class="campo"><label for="u-login">Usuário (para entrar)</label><input type="text" id="u-login" maxlength="30" required autocapitalize="none" spellcheck="false" placeholder="ex.: maria.silva"></div>
+          </div>
+          <div class="campo"><label for="u-perfil">Perfil</label><select id="u-perfil"></select><span class="dica" id="u-perfil-dica"></span></div>
+          <div class="acoes"><button class="botao">Adicionar pessoa</button><span id="res-usuario" role="status"></span></div>
+        </form>
+        <div id="senha-gerada" class="aviso" role="status" hidden></div>
+        <div class="tabela-rolagem" style="margin-top:12px">
+          <table id="tabela-usuarios">
+            <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Último acesso</th><th><span class="escondido">Ações</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <details style="margin-top:16px">
+          <summary style="cursor:pointer;font-weight:600">O que cada perfil pode fazer</summary>
+          <div class="tabela-rolagem"><table id="matriz-perfis"></table></div>
+        </details>
+      </section>
+
       <section class="cartao" id="seguranca">
         <h2>Senha e aparelhos</h2>
         <p class="dica">A mesma senha é usada no painel, nesta página e no app do tablet.</p>
@@ -327,6 +365,6 @@
 </dialog>
 
 <script src="/comum.js?v=2"></script>
-<script src="/admin.js?v=3"></script>
+<script src="/admin.js?v=6"></script>
 </body>
 </html>

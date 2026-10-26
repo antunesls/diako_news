@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
-import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import 'agenda_google_api.dart';
@@ -61,6 +59,8 @@ class Configuracoes {
       'smtpDestinatario': '',
       'siteAtivo': true,
       'siteAgenda': false,
+      'sitePix': true,
+      'siteGaleria': true,
       'siteCultos': '',
       'siteEndereco': '',
       'sitePixChave': '',
@@ -116,6 +116,15 @@ class Configuracoes {
 
   /// Mostrar a agenda na página inicial (desligado: os eventos só aparecem com senha ou chave do mural).
   bool get siteAgenda => _valores['siteAgenda'] as bool? ?? false;
+
+  /// Mostrar o PIX na página inicial (desligar mantém chave, nome e cidade salvos).
+  bool get sitePix => _valores['sitePix'] as bool? ?? true;
+
+  /// Mostrar o carrossel de fotos (galeria do site) na página inicial.
+  bool get siteGaleria => _valores['siteGaleria'] as bool? ?? true;
+
+  /// PIX ligado e completo (o QR exige chave, nome e cidade).
+  bool get pixNoSite => sitePix && sitePixChave.isNotEmpty && sitePixNome.isNotEmpty && sitePixCidade.isNotEmpty;
 
   /// Uma linha por culto, ex.: "Domingo — 19h".
   String get siteCultos => _s('siteCultos');
@@ -219,7 +228,7 @@ class Configuracoes {
           novos[k] = mudancas[k];
         case 'agendaDiasMural':
           novos[k] = inteiro(k, 1, 30);
-        case 'siteAtivo' || 'siteAgenda':
+        case 'siteAtivo' || 'siteAgenda' || 'sitePix' || 'siteGaleria':
           if (mudancas[k] is! bool) throw FormatException('"$k" deve ser verdadeiro ou falso.');
           novos[k] = mudancas[k];
         case 'siteCultos':
@@ -277,7 +286,7 @@ class Configuracoes {
       'holyricsHost', 'holyricsPorta', 'motivosPorSlide', 'segundosPorSlide', 'diasRespondidas',
       'temaPadrao', 'horaBackup', 'backupsManter', 'agendaMostrarDescricao', 'agendaDiasMural', 'agendaCalendarioId',
       'smtpHost', 'smtpPorta', 'smtpSsl', 'smtpUsuario', 'smtpRemetente', 'smtpDestinatario',
-      'siteAtivo', 'siteAgenda', 'siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade',
+      'siteAtivo', 'siteAgenda', 'sitePix', 'siteGaleria', 'siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade',
       'siteInstagram', 'siteYoutube', 'siteWhatsapp',
     };
     for (final e in dados.entries) {
@@ -305,29 +314,15 @@ class Configuracoes {
   bool conferirSenha(String senha) {
     final hash = _s('senhaHash'), sal = _s('senhaSal');
     if (hash.isEmpty || sal.isEmpty) return iguaisSeguro(senha, _senhaInicial);
-    return iguaisSeguro(base64.encode(_derivar(senha, base64.decode(sal))), hash);
+    return conferirHashSenha(senha, hash: hash, sal: sal);
   }
 
   Future<void> trocarSenha(String nova, {required int minimo}) async {
     if (nova.trim().length < minimo) throw FormatException('A senha precisa ter pelo menos $minimo caracteres.');
-    final sal = List<int>.generate(16, (_) => _rng.nextInt(256));
-    _valores['senhaSal'] = base64.encode(sal);
-    _valores['senhaHash'] = base64.encode(_derivar(nova.trim(), sal));
+    final h = gerarHashSenha(nova.trim());
+    _valores['senhaSal'] = h.sal;
+    _valores['senhaHash'] = h.hash;
     await _salvar();
-  }
-
-  /// PBKDF2-HMAC-SHA256 (um bloco de 32 bytes).
-  static List<int> _derivar(String senha, List<int> sal, {int iteracoes = 100000}) {
-    final hmac = Hmac(sha256, utf8.encode(senha));
-    var u = hmac.convert([...sal, 0, 0, 0, 1]).bytes;
-    final t = List<int>.from(u);
-    for (var i = 1; i < iteracoes; i++) {
-      u = hmac.convert(u).bytes;
-      for (var j = 0; j < t.length; j++) {
-        t[j] ^= u[j];
-      }
-    }
-    return t;
   }
 
   Future<void> _salvar() async {
@@ -337,8 +332,6 @@ class Configuracoes {
     await tmp.rename(_arquivo.path);
   }
 }
-
-final _rng = Random.secure();
 
 /// Aceita https (Google Agenda ou qualquer .ics) e http só em localhost (testes).
 bool enderecoAgendaValido(String v) {

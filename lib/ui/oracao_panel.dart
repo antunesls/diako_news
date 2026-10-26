@@ -89,7 +89,8 @@ class _OracaoPanelState extends State<OracaoPanel> {
   Widget _tile(BuildContext context, Motivo m) {
     final esquema = Theme.of(context).colorScheme;
     final repo = AppScope.of(context).motivos;
-    final online = repo.online;
+    // Mídia e Telão só veem: botões de aprovar/editar ficam desabilitados.
+    final online = repo.online && AppScope.of(context).conta.pode('motivosEditar');
     final detalhes = [
       if (m.para.trim().isNotEmpty) m.motivo,
       m.tipo.label,
@@ -181,6 +182,7 @@ class _Previa extends StatelessWidget {
     final esquema = Theme.of(context).colorScheme;
     final slides = montarSlidesOracao(projetaveis, porSlide: s.motivosPorSlide, negritoTitulo: false);
     final focadoProjetavel = focado != null && focado!.projetavel;
+    final podeProjetar = scope.conta.pode('projetar');
     final exemplo = focadoProjetavel
         ? montarSlidesOracao([focado!], negritoTitulo: false).first
         : (slides.isEmpty ? null : slides.first);
@@ -256,7 +258,7 @@ class _Previa extends StatelessWidget {
           SizedBox(
             height: 64,
             child: FilledButton.icon(
-              onPressed: projetaveis.isEmpty ? null : projetarTodos,
+              onPressed: projetaveis.isEmpty || !podeProjetar ? null : projetarTodos,
               icon: const Icon(Icons.play_arrow, size: 32),
               label: const Text('PROJETAR MOTIVOS', style: TextStyle(fontSize: 20)),
             ),
@@ -265,7 +267,7 @@ class _Previa extends StatelessWidget {
           SizedBox(
             height: 52,
             child: FilledButton.tonalIcon(
-              onPressed: focadoProjetavel ? projetarEste : null,
+              onPressed: focadoProjetavel && podeProjetar ? projetarEste : null,
               icon: const Icon(Icons.person_outline),
               label: const Text('Projetar só o selecionado'),
             ),
@@ -274,7 +276,7 @@ class _Previa extends StatelessWidget {
           SizedBox(
             height: 52,
             child: OutlinedButton.icon(
-              onPressed: respondidas.isEmpty ? null : projetarRespondidas,
+              onPressed: respondidas.isEmpty || !podeProjetar ? null : projetarRespondidas,
               icon: const Icon(Icons.celebration_outlined),
               label: Text('Orações respondidas (${respondidas.length}) — últimos 30 dias'),
             ),
@@ -283,7 +285,7 @@ class _Previa extends StatelessWidget {
           SizedBox(
             height: 52,
             child: OutlinedButton.icon(
-              onPressed: projetarQr,
+              onPressed: podeProjetar ? projetarQr : null,
               icon: const Icon(Icons.qr_code_2),
               label: const Text('Projetar QR para pedidos de oração'),
             ),

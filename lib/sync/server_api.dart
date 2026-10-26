@@ -69,10 +69,14 @@ class ServerApi {
   String get base => _config().base;
 
   /// Troca a senha por um token de sessão.
-  Future<String> login(String base, String senha) async {
-    final j = await _enviar('POST', base, '/api/login', null, json: {'senha': senha});
+  /// [usuario] vazio entra com a senha principal da igreja.
+  Future<String> login(String base, String senha, {String usuario = ''}) async {
+    final j = await _enviar('POST', base, '/api/login', null, json: {'usuario': usuario.trim(), 'senha': senha});
     return (j as Map)['token'] as String;
   }
+
+  /// Quem está logado: nome, perfil e permissões.
+  Future<Map<String, dynamic>> eu() async => Map<String, dynamic>.from(await _req('GET', '/api/eu') as Map);
 
   Future<List<Map<String, dynamic>>> listar(String colecao) async {
     final j = await _req('GET', '/api/$colecao');

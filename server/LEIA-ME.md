@@ -61,12 +61,19 @@ Para atualizar, rode o `instalar.ps1` da versão nova. Ele não mexe em `config.
 - **Resumo da semana:** a aba *Resumo da semana* do painel monta o texto para o grupo do WhatsApp. Revise, depois use **Copiar** ou **Abrir no WhatsApp**. O envio é feito por você: o sistema não manda mensagens sozinho.
 - **Histórico:** a aba *Histórico* mostra o que foi projetado (texto, imagem, contagem, mensagem para o palco) e quando.
 
+## Usuários e perfis
+Cada pessoa da equipe pode ter o próprio usuário e senha, com um perfil: **Administrador**, **Pastor**, **Secretaria**, **Mídia** ou **Telão (tablet)**. O perfil define o que ela vê e faz no painel e no tablet. Pedidos de oração particulares e o nome de quem pediu aparecem só para Pastor e Administrador.
+
+Cadastre em `/admin` › *Usuários e perfis*: a senha temporária aparece uma vez, e a pessoa troca em **Minha senha**, no painel. A senha definida na instalação continua valendo como a conta **admin** (no login, usuário em branco ou `admin`). Os usuários ficam em `data/usuarios.json` (só com o hash das senhas) e não vão para o backup. Detalhes e a tabela do que cada perfil pode fazer: `/ajuda/usuarios`.
+
 ## Página inicial (site da igreja)
 O endereço do site (`/`) abre uma página pública com:
 - **Aviso urgente** em destaque no topo e **Avisos da semana**: são os recados marcados com **Urgente** ou **Mostrar no site** (no painel ou no tablet). A data "Mostrar até" tira o aviso do ar sozinha;
 - botões de **Pedido de oração** e **Fale com a igreja**;
 - **Próximos eventos** do Google Agenda, com "+ Agenda" para a pessoa salvar no celular. Fica desligado até você liberar em `/admin`, porque deixa a agenda visível para qualquer pessoa;
 - **Horários dos cultos**, **endereço** com "Como chegar" (Google Maps), **PIX** com chave e QR code, e links do Instagram, YouTube e WhatsApp.
+
+**Carrossel de fotos:** no painel, aba **Galeria do site**, envie fotos (JPG ou PNG até 15 MB, até 30 fotos). A primeira é a capa; use ↑/↓ para ordenar, coloque legenda e link se quiser, e **Ocultar** tira a foto do site sem apagar. O servidor reduz as fotos para no máximo 1920 px e remove os dados escondidos da câmera (como a localização GPS). As fotos entram no backup. Para tirar o carrossel da página, desmarque "Mostrar o carrossel de fotos" em `/admin`.
 
 Tudo se configura em `/admin` › *Página inicial*. Bloco sem conteúdo não aparece. Pedidos de oração, mensagens, nomes e aniversariantes nunca vão para a página. Para voltar ao comportamento antigo (o endereço abre o painel), desligue a página inicial no `/admin`. O painel continua em `/painel` ("Área da equipe").
 

@@ -12,6 +12,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _servidor;
+  final _usuario = TextEditingController();
   final _senha = TextEditingController();
   late final TextEditingController _tema;
   late final TextEditingController _pin;
@@ -39,7 +40,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
-    for (final c in [_servidor, _senha, _tema, _pin]) {
+    for (final c in [_servidor, _usuario, _senha, _tema, _pin]) {
       c.dispose();
     }
     super.dispose();
@@ -60,7 +61,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (base.isEmpty) return;
     setState(() => _entrando = true);
     final ok = await executar(context, () async {
-      final sessao = await scope.api.login(base, _senha.text);
+      final sessao = await scope.api.login(base, _senha.text, usuario: _usuario.text);
       await scope.settings.atualizar(servidor: base, sessao: sessao);
       _servidor.text = base;
       _senha.clear();
@@ -75,6 +76,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _sair() async {
     final scope = AppScope.of(context);
     await scope.settings.atualizar(sessao: '');
+    await scope.conta.limpar();
     scope.tempoReal.reiniciar();
     await scope.sincronizarTudo();
     if (mounted) setState(() {});
@@ -120,20 +122,23 @@ class _SettingsPageState extends State<SettingsPage> {
             Text('Servidor da igreja', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              'O endereço e a senha são definidos na instalação do servidor DiakoNews '
-              '(ex: diako.minhaigreja.com.br ou 192.168.0.10:8080).',
+              'Endereço do servidor DiakoNews (ex: diako.minhaigreja.com.br ou 192.168.0.10:8080) e o '
+              'usuário e a senha criados em Administração › Usuários e perfis. Usuário em branco entra com a senha principal.',
               style: TextStyle(color: esquema.outline),
             ),
             const SizedBox(height: 16),
             ListenableBuilder(
-              listenable: Listenable.merge([scope.settings, scope.tempoReal]),
+              listenable: Listenable.merge([scope.settings, scope.tempoReal, scope.conta]),
               builder: (context, _) => scope.settings.configurado
                   ? ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(scope.tempoReal.conectado ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
                           color: scope.tempoReal.conectado ? Colors.greenAccent : esquema.error),
                       title: Text(scope.settings.servidor),
-                      subtitle: Text(scope.tempoReal.conectado ? 'Conectado, recebendo atualizações ao vivo' : 'Sem conexão no momento'),
+                      subtitle: Text([
+                        if (scope.conta.nome.isNotEmpty) '${scope.conta.nome} · ${scope.conta.perfil}',
+                        scope.tempoReal.conectado ? 'Conectado, recebendo atualizações ao vivo' : 'Sem conexão no momento',
+                      ].join('\n')),
                       trailing: OutlinedButton(onPressed: _sair, child: const Text('Sair')),
                     )
                   : Row(
@@ -146,6 +151,18 @@ class _SettingsPageState extends State<SettingsPage> {
                             keyboardType: TextInputType.url,
                             decoration: const InputDecoration(
                                 labelText: 'Endereço do servidor', hintText: '192.168.0.10:8080', border: OutlineInputBorder()),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: _usuario,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            textCapitalization: TextCapitalization.none,
+                            decoration: const InputDecoration(
+                                labelText: 'Usuário', hintText: 'ex.: telao (vazio = conta principal)', border: OutlineInputBorder()),
                           ),
                         ),
                         const SizedBox(width: 12),

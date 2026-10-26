@@ -11,11 +11,33 @@ const ORIGENS = { site: 'pelo site', app: 'pelo tablet', painel: 'pelo painel' }
 function sair() {
   if (token) fetch('/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
   token = null;
+  eu = null;
   localStorage.removeItem('diako_token');
   $('app').hidden = true;
   $('login').hidden = false;
-  $('senha').focus();
+  ($('usuario').value ? $('senha') : $('usuario')).focus();
 }
+
+// ---------- Quem está logado e o que pode (perfis) ----------
+
+/** Resposta de /api/eu: nome, perfil e permissões. */
+let eu = null;
+const pode = (permissao) => !!eu && eu.permissoes.includes(permissao);
+
+/** Esconde abas, botões e cartões marcados com data-permissao que o perfil não tem. */
+function aplicarPermissoes() {
+  document.querySelectorAll('[data-permissao]').forEach((e) => e.classList.toggle('sem-permissao', !pode(e.dataset.permissao)));
+  $('quem').textContent = eu.nome + ' · ' + eu.perfilNome;
+}
+
+$('minha-senha').addEventListener('click', () => {
+  for (const id of ['senha-atual', 'senha-nova', 'senha-confirma']) $(id).value = '';
+  abrirDialogo($('dlg-senha'), $('erro-senha'), async () => {
+    if ($('senha-nova').value !== $('senha-confirma').value) throw new Error('As duas senhas novas não são iguais.');
+    const r = await api('POST', '/api/eu/senha', { atual: $('senha-atual').value, nova: $('senha-nova').value });
+    $('conexao').textContent = r.sessoesEncerradas ? 'Senha trocada. Outros aparelhos saíram.' : 'Senha trocada.';
+  });
+});
 
 $('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -24,7 +46,7 @@ $('form-login').addEventListener('submit', async (e) => {
   const r = await fetch('/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ senha: $('senha').value }),
+    body: JSON.stringify({ usuario: $('usuario').value.trim(), senha: $('senha').value }),
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
@@ -47,6 +69,8 @@ document.querySelectorAll('nav.abas button').forEach((b) =>
   b.addEventListener('click', () => mostrarAba(b.dataset.aba)));
 
 function mostrarAba(nome) {
+  const botaoAba = document.querySelector(`nav.abas button[data-aba="${nome}"]`);
+  if (!botaoAba || botaoAba.classList.contains('sem-permissao')) nome = 'inicio';
   abaAtual = nome;
   document.querySelectorAll('nav.abas button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === nome)));
   document.querySelectorAll('[data-painel]').forEach((s) => (s.hidden = s.dataset.painel !== nome));
@@ -60,6 +84,7 @@ const carregar = {
   recados: carregarRecados,
   agenda: carregarAgenda,
   cartazes: carregarCartazes,
+  galeria: carregarGaleria,
   membros: carregarMembros,
   resumo: carregarResumo,
   historico: carregarHistorico,
@@ -90,9 +115,11 @@ async function carregarInicio() {
   $('hoje').textContent = agora.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   carregarSistemaInicio();
 
+  // Só busca o que o perfil pode ver (os cartões sem permissão já estão escondidos).
+  const se = (permissao, caminho, vazio) => (pode(permissao) ? api('GET', caminho) : Promise.resolve(vazio));
   const [listaMotivos, listaMensagens, listaRecados, agenda, membros] = await Promise.all([
-    api('GET', '/api/motivos'), api('GET', '/api/mensagens'), api('GET', '/api/recados'),
-    api('GET', '/api/agenda?dias=7'), api('GET', '/api/membros')]);
+    se('motivosVer', '/api/motivos', []), se('mensagens', '/api/mensagens', []), se('recados', '/api/recados', []),
+    se('agendaVer', '/api/agenda?dias=7', { configurada: false, eventos: [] }), se('membros', '/api/membros', [])]);
   motivos = listaMotivos;
   mensagensRecebidas = listaMensagens;
   atualizarBadge();
@@ -110,7 +137,7 @@ async function carregarInicio() {
         el('div', { class: 'conteudo' },
           el('strong', { class: 'texto' }, m.para || m.motivo),
           el('span', { class: 'sub' }, [TIPOS[m.tipo], dataCurta(m.criadoEm), m.publico ? null : 'particular'].filter(Boolean).join(' · '))),
-        botao('Aprovar', () => api('POST', `/api/motivos/${m.id}/aprovar`).then(carregarInicio), 'pequeno')))
+        pode('motivosEditar') ? botao('Aprovar', () => api('POST', `/api/motivos/${m.id}/aprovar`).then(carregarInicio), 'pequeno') : null))
     : [vazioCk('Nenhum pedido aguardando aprovação.')]));
 
   // Mensagens
@@ -147,8 +174,8 @@ async function carregarInicio() {
   $('ck-novo-evento').hidden = !agenda.editavel;
   if (!agenda.configurada) {
     indicador('ind-eventos', '–', 'agenda não configurada');
-    $('ck-eventos').replaceChildren(el('p', { class: 'vazio-ck' }, 'Agenda do Google não configurada. ',
-      el('a', { href: '/admin#agenda' }, 'Configurar em Administração'), '.'));
+    $('ck-eventos').replaceChildren(el('p', { class: 'vazio-ck' }, 'Agenda do Google não configurada.',
+      pode('admin') ? [' ', el('a', { href: '/admin#agenda' }, 'Configurar em Administração'), '.'] : null));
   } else {
     const eventos = agenda.eventos;
     indicador('ind-eventos', eventos.length, eventos.length ? 'próximo: ' + eventos[0].dia.split(',')[0].toLowerCase() + ', ' + eventos[0].horario : 'nada marcado');
@@ -255,7 +282,9 @@ function itemMotivo(m) {
     m.atendidoEm && 'atendido em ' + dataCurta(m.atendidoEm)]
     .filter(Boolean).join(' · ');
   const acoes = [];
-  if (m.status === 'aguardando') {
+  if (!pode('motivosEditar')) {
+    // Só leitura (Mídia, Telão): sem botões.
+  } else if (m.status === 'aguardando') {
     acoes.push(botao('Aprovar', () => api('POST', `/api/motivos/${m.id}/aprovar`).then(carregarMotivos), 'pequeno'));
     acoes.push(botao('Recusar', () => confirm('Recusar e apagar este pedido?') && api('DELETE', '/api/motivos/' + m.id).then(carregarMotivos), 'perigo pequeno'));
   } else if (m.status === 'pendente') {
@@ -263,8 +292,8 @@ function itemMotivo(m) {
   } else {
     acoes.push(botao('Voltar para a lista', () => api('PUT', '/api/motivos/' + m.id, { status: 'pendente' }).then(carregarMotivos)));
   }
-  acoes.push(botao('Editar', () => editarMotivo(m)));
-  if (m.status !== 'aguardando') {
+  if (pode('motivosEditar')) acoes.push(botao('Editar', () => editarMotivo(m)));
+  if (pode('motivosEditar') && m.status !== 'aguardando') {
     acoes.push(botao('Excluir', () => confirm('Excluir este motivo?') && api('DELETE', '/api/motivos/' + m.id).then(carregarMotivos), 'perigo pequeno'));
   }
   return el('div', { class: 'item' },
@@ -358,7 +387,8 @@ async function carregarHistorico() {
       ? lista.map((h) => el('div', { class: 'item' },
           el('div', { class: 'conteudo' },
             el('div', { class: 'titulo' }, h.descricao, el('span', { class: 'etiqueta' }, ACOES[h.acao] || h.acao)),
-            el('div', { class: 'sub' }, new Date(h.quando).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })))))
+            el('div', { class: 'sub' }, new Date(h.quando).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) +
+              (h.usuario ? ' · ' + h.usuario : '')))))
       : [el('p', { class: 'vazio' }, 'Nada projetado ainda.')]));
 }
 document.querySelectorAll('input[name=filtro-motivo]').forEach((r) => r.addEventListener('change', carregarMotivos));
@@ -477,7 +507,8 @@ async function carregarAgenda() {
   const estado = $('estado-agenda-painel');
   $('novo-evento').hidden = !r.editavel;
   if (!r.configurada) {
-    estado.replaceChildren('Agenda do Google não configurada. ', el('a', { href: '/admin#agenda' }, 'Configurar em Administração'), '.');
+    estado.replaceChildren('Agenda do Google não configurada.',
+      ...(pode('admin') ? [' ', el('a', { href: '/admin#agenda' }, 'Configurar em Administração'), '.'] : []));
     $('lista-agenda').replaceChildren();
     return;
   }
@@ -505,8 +536,8 @@ async function carregarAgenda() {
         e.descricao ? el('div', { class: 'sub' }, e.descricao) : null),
       el('div', { class: 'acoes' },
         botao('Criar recado', () => criarRecadoDoEvento(e)),
-        e.editavel ? botao('Editar', () => editarEvento(e)) : null,
-        e.editavel ? botao('Excluir', () => excluirEvento(e), 'perigo pequeno') : null,
+        e.editavel && pode('agendaEditar') ? botao('Editar', () => editarEvento(e)) : null,
+        e.editavel && pode('agendaEditar') ? botao('Excluir', () => excluirEvento(e), 'perigo pequeno') : null,
         r.editavel && !e.editavel ? el('span', { class: 'dica' }, 'Repete: altere no Google Agenda') : null)));
   }
   $('lista-agenda').replaceChildren(...(itens.length ? itens : [el('p', { class: 'vazio' }, 'Nenhum evento nos próximos 30 dias.')]));
@@ -621,6 +652,96 @@ $('arquivo-cartaz').addEventListener('change', async (e) => {
   carregarCartazes();
 });
 
+// ---------- Galeria do site (carrossel da página inicial) ----------
+
+let fotos = [];
+
+async function carregarGaleria() {
+  fotos = await api('GET', '/api/galeria');
+  const site = (eu && eu.site) || {};
+  const desligada = site.ativo === false || site.galeria === false;
+  $('aviso-galeria').hidden = !desligada;
+  $('aviso-galeria').replaceChildren(
+    site.ativo === false ? 'A página inicial está desligada, então o carrossel não aparece. ' : 'O carrossel está desligado na página inicial. ',
+    pode('admin') ? el('a', { href: '/admin#pagina-inicial' }, 'Ligar em Administração') : 'Peça ao administrador para ligar', '.');
+  $('lista-galeria').replaceChildren(...(fotos.length
+    ? fotos.map((f, i) => itemFoto(f, i))
+    : [el('p', { class: 'vazio' }, 'Nenhuma foto ainda. Use "Enviar fotos".')]));
+}
+
+function itemFoto(f, i) {
+  const resultado = $('resultado-galeria');
+  // Legenda e link são salvos ao sair do campo (ou com Enter).
+  const campo = (nome, rotulo, props) => {
+    const input = el('input', { type: nome === 'link' ? 'url' : 'text', value: f[nome] || '', 'aria-label': rotulo + ' da foto ' + (i + 1), ...props });
+    const salvar = async () => {
+      const valor = input.value.trim();
+      if (valor === (f[nome] || '')) return;
+      try {
+        await api('PUT', '/api/galeria/' + f.id, { [nome]: valor });
+        f[nome] = valor;
+        mensagem(resultado, rotulo + ' salvo.');
+      } catch (err) {
+        input.value = f[nome] || '';
+        mensagem(resultado, err.message, false);
+      }
+    };
+    input.addEventListener('change', salvar);
+    input.addEventListener('keydown', (e) => e.key === 'Enter' && input.blur());
+    return input;
+  };
+  const acoes = [
+    botao('↑', () => moverFoto(i, -1), 'secundario pequeno'),
+    botao('↓', () => moverFoto(i, 1), 'secundario pequeno'),
+    botao(f.ativo === false ? 'Mostrar' : 'Ocultar', () =>
+      api('PUT', '/api/galeria/' + f.id, { ativo: f.ativo === false }).then(carregarGaleria), 'secundario pequeno'),
+    botao('Excluir', () => confirm('Excluir esta foto do site?') &&
+      api('DELETE', '/api/galeria/' + f.id).then(carregarGaleria), 'perigo pequeno'),
+  ];
+  acoes[0].setAttribute('aria-label', 'Mover a foto ' + (i + 1) + ' para antes');
+  acoes[1].setAttribute('aria-label', 'Mover a foto ' + (i + 1) + ' para depois');
+  acoes[0].disabled = i === 0;
+  acoes[1].disabled = i === fotos.length - 1;
+  return el('article', { class: 'foto' + (f.ativo === false ? ' oculta' : '') },
+    el('img', { src: f.urlMiniatura, alt: f.legenda || 'Foto ' + (i + 1), loading: 'lazy' }),
+    el('div', { class: 'corpo' },
+      el('div', { class: 'topo-foto' },
+        i === 0 ? el('span', { class: 'etiqueta', style: 'margin:0' }, 'Capa') : null,
+        f.ativo === false ? el('span', { class: 'etiqueta', style: 'margin:0' }, 'Oculta') : null,
+        el('span', {}, f.largura + '×' + f.altura)),
+      campo('legenda', 'Legenda', { maxlength: 140, placeholder: 'Legenda (opcional)' }),
+      campo('link', 'Link', { maxlength: 300, placeholder: 'Link ao tocar (opcional, https://…)' }),
+      el('div', { class: 'acoes' }, acoes)));
+}
+
+async function moverFoto(i, delta) {
+  const ids = fotos.map((f) => f.id);
+  const j = i + delta;
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  await api('PUT', '/api/galeria/ordem', ids);
+  await carregarGaleria();
+}
+
+$('botao-fotos').addEventListener('click', () => $('arquivo-fotos').click());
+$('arquivo-fotos').addEventListener('change', async (e) => {
+  const arquivos = [...e.target.files];
+  e.target.value = '';
+  const resultado = $('resultado-galeria');
+  for (let i = 0; i < arquivos.length; i++) {
+    mensagem(resultado, arquivos.length > 1 ? `Enviando ${i + 1} de ${arquivos.length}…` : 'Enviando…');
+    try {
+      await api('POST', '/api/galeria', arquivos[i], { bruto: true, tipo: arquivos[i].type || 'application/octet-stream' });
+    } catch (err) {
+      mensagem(resultado, `${arquivos[i].name}: ${err.message}`, false);
+      await carregarGaleria();
+      return;
+    }
+  }
+  mensagem(resultado, arquivos.length === 1 ? 'Foto enviada.' : `${arquivos.length} fotos enviadas.`);
+  await carregarGaleria();
+});
+
 // ---------- Membros ----------
 
 async function carregarMembros() {
@@ -724,8 +845,8 @@ function conectarTempoReal() {
   ws.onopen = () => ($('conexao').textContent = '● ao vivo');
   ws.onmessage = (e) => {
     const { tipo } = JSON.parse(e.data);
-    if (tipo === 'motivos') carregarMotivos();
-    else if (tipo === 'mensagens') carregarMensagens();
+    if (tipo === 'motivos') { if (pode('motivosVer')) carregarMotivos(); }
+    else if (tipo === 'mensagens') { if (pode('mensagens')) carregarMensagens(); }
     else if (tipo === abaAtual || (tipo === 'membros' && abaAtual === 'recados')) carregar[abaAtual]();
     if (abaAtual === 'inicio') carregarInicio();
   };
@@ -737,12 +858,18 @@ function conectarTempoReal() {
 
 // ---------- Início ----------
 
-function iniciar() {
+async function iniciar() {
+  try {
+    eu = await api('GET', '/api/eu');
+  } catch {
+    return; // sessão expirada: api() já voltou para o login
+  }
+  aplicarPermissoes();
   $('login').hidden = true;
   $('app').hidden = false;
   mostrarAba(abaAtual);
-  if (abaAtual !== 'motivos') carregarMotivos();
-  if (abaAtual !== 'mensagens') carregarMensagens();
+  if (abaAtual !== 'motivos' && pode('motivosVer')) carregarMotivos();
+  if (abaAtual !== 'mensagens' && pode('mensagens')) carregarMensagens();
   conectarTempoReal();
 }
 

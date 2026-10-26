@@ -61,11 +61,12 @@ void main() {
   });
 
   test('horários dos cultos', () {
-    expect(lerCultos('Domingo — 19h\nQuarta (oração) | 19h30\n\nSábado - 17h\nTodo dia 19:30'), [
+    expect(lerCultos('Domingo — 19h\nQuarta (oração) | 19h30\n\nSábado - 17h\nTodo dia 19:30\nDomingo (Culto da Família) -- 09h'), [
       {'dia': 'Domingo', 'hora': '19h'},
       {'dia': 'Quarta (oração)', 'hora': '19h30'},
       {'dia': 'Sábado', 'hora': '17h'},
       {'dia': 'Todo dia 19:30', 'hora': ''},
+      {'dia': 'Domingo (Culto da Família)', 'hora': '09h'},
     ]);
   });
 
@@ -231,6 +232,13 @@ void main() {
       final png = await chamar('GET', '/pix.png', null, false);
       expect(png.statusCode, 200);
       expect(png.headers['content-type'], 'image/png');
+
+      // PIX desligado: some da página e o QR deixa de ser servido; os dados continuam salvos.
+      expect((await chamar('PUT', '/api/admin/configuracoes', {'sitePix': false})).statusCode, 200);
+      expect((await inicio()).containsKey('pix'), isFalse);
+      expect((await chamar('GET', '/pix.png', null, false)).statusCode, 404);
+      expect((await chamar('PUT', '/api/admin/configuracoes', {'sitePix': true})).statusCode, 200);
+      expect((await inicio())['pix']['chave'], '12345678000199');
 
       // Nome maior que o limite do QR: aparece inteiro na página e o QR continua válido.
       const nomeLongo = 'Igreja Evangélica Diakonia Tulipas de São Paulo';

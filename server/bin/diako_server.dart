@@ -13,6 +13,7 @@ import 'package:diako_server/historico.dart';
 import 'package:diako_server/holyrics.dart';
 import 'package:diako_server/qr_oracao.dart';
 import 'package:diako_server/store.dart';
+import 'package:diako_server/usuarios.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf_io.dart' as io;
 
@@ -38,7 +39,10 @@ Future<void> main(List<String> args) async {
   // Configurações editáveis pelo painel (/admin); o config.json vale como padrão.
   final ip = await ipLocal() ?? '127.0.0.1';
   final cfg = await Configuracoes.carregar(config, urlDetectada: 'http://$ip:${config.porta}');
-  final auth = Auth(conferirSenha: cfg.conferirSenha, pastaDados: config.pastaDados);
+  // Usuários por pessoa (perfis Pastor, Secretaria, Mídia...); a senha do config.json/admin é a conta "admin".
+  final usuarios = Usuarios(config.pastaDados);
+  await usuarios.carregar();
+  final auth = Auth(conferirSenha: cfg.conferirSenha, pastaDados: config.pastaDados, usuarios: usuarios);
   await auth.carregar();
 
   final base = cfg.urlBase;

@@ -114,10 +114,11 @@ void main() {
     });
 
     test('login não manda sessão', () async {
-      final t = await api({'token': 'novo'}).login('http://srv:8080', 'senha');
+      final t = await api({'token': 'novo'}).login('http://srv:8080', 'senha', usuario: ' telao ');
       expect(t, 'novo');
       expect(ultima.url.toString(), 'http://srv:8080/api/login');
       expect(ultima.headers.containsKey('Authorization'), isFalse);
+      expect(jsonDecode(ultima.body), {'usuario': 'telao', 'senha': 'senha'});
     });
 
     test('cartazes com endereço completo e upload de bytes', () async {

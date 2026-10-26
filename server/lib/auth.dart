@@ -2,21 +2,55 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 
-/// Login por senha única do administrador, com sessões persistidas em data/sessoes.json
-/// (o tablet não precisa logar de novo quando o servidor reinicia).
+import 'permissoes.dart';
+import 'usuarios.dart';
+
+/// Quem está usando o painel/app nesta requisição.
+class Conta {
+  const Conta({required this.id, required this.nome, required this.login, required this.perfil});
+
+  /// A conta principal: a senha do painel definida na instalação (config.json / /admin).
+  static const principal =
+      Conta(id: Auth.idPrincipal, nome: 'Administrador', login: Auth.idPrincipal, perfil: Perfil.administrador);
+
+  final String id;
+  final String nome;
+  final String login;
+  final Perfil perfil;
+
+  bool get ehPrincipal => id == Auth.idPrincipal;
+  bool pode(Permissao p) => perfil.pode(p);
+}
+
+class _Sessao {
+  _Sessao(this.expira, this.usuario);
+  final DateTime expira;
+
+  /// Id do usuário ([Auth.idPrincipal] para a conta principal).
+  final String usuario;
+}
+
+/// Login por usuário e senha (ou só a senha principal, que entra como "admin"), com sessões
+/// persistidas em data/sessoes.json (o tablet não precisa logar de novo quando o servidor reinicia).
 class Auth {
   /// Use [senha] (fixa) ou [conferirSenha] (ex: Configuracoes.conferirSenha, que permite trocar pelo painel).
-  Auth({String? senha, bool Function(String)? conferirSenha, required String pastaDados})
+  Auth({String? senha, bool Function(String)? conferirSenha, required String pastaDados, this.usuarios})
       : _conferir = conferirSenha ?? ((s) => iguaisSeguro(s, senha ?? '')),
         _arquivo = File(p.join(pastaDados, 'sessoes.json'));
 
+  static const idPrincipal = 'admin';
+
+  /// Usuários individuais (sem eles, só a conta principal entra).
+  final Usuarios? usuarios;
   final bool Function(String) _conferir;
   final File _arquivo;
-  final Map<String, DateTime> _sessoes = {};
+  final Map<String, _Sessao> _sessoes = {};
   final _tentativas = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 1));
+  final _tentativasPorLogin = LimiteTaxa(maximo: 10, janela: const Duration(minutes: 15));
 
   static const validade = Duration(days: 90);
 
@@ -24,20 +58,31 @@ class Auth {
     if (!await _arquivo.exists()) return;
     final j = jsonDecode(await _arquivo.readAsString()) as Map<String, dynamic>;
     final agora = DateTime.now();
-    j.forEach((token, expira) {
-      final d = DateTime.tryParse(expira as String);
-      if (d != null && d.isAfter(agora)) _sessoes[token] = d;
+    j.forEach((token, valor) {
+      // Formato antigo (token -> data): sessões da senha única, que agora é a conta principal.
+      final d = DateTime.tryParse((valor is Map ? valor['expira'] : valor) as String? ?? '');
+      final usuario = valor is Map ? valor['usuario'] as String? ?? idPrincipal : idPrincipal;
+      if (d != null && d.isAfter(agora)) _sessoes[token] = _Sessao(d, usuario);
     });
   }
 
-  /// Retorna o token de sessão, ou null se a senha estiver errada.
-  /// Lança [LimiteExcedido] após muitas tentativas do mesmo IP.
-  Future<String?> login(String senhaInformada, String ip) async {
+  /// Retorna o token de sessão, ou null se o usuário ou a senha estiverem errados.
+  /// [usuario] vazio (ou "admin") entra com a senha principal.
+  /// Lança [LimiteExcedido] após muitas tentativas do mesmo IP ou do mesmo usuário.
+  Future<String?> login(String senhaInformada, String ip, {String usuario = ''}) async {
     if (!_tentativas.permitir(ip)) throw LimiteExcedido();
-    if (!_conferir(senhaInformada)) return null;
+    final login = usuario.trim().toLowerCase();
+    if (!_tentativasPorLogin.permitir(login.isEmpty ? idPrincipal : login)) throw LimiteExcedido();
+    String? id;
+    if (login.isEmpty || login == idPrincipal) {
+      if (_conferir(senhaInformada)) id = idPrincipal;
+    } else {
+      id = (await usuarios?.autenticar(login, senhaInformada))?.id;
+    }
+    if (id == null) return null;
     final bytes = List<int>.generate(32, (_) => _rng.nextInt(256));
     final token = base64Url.encode(bytes).replaceAll('=', '');
-    _sessoes[token] = DateTime.now().add(validade);
+    _sessoes[token] = _Sessao(DateTime.now().add(validade), id);
     await _salvar();
     return token;
   }
@@ -47,7 +92,7 @@ class Auth {
   }
 
   /// Aparelhos conectados (sessões válidas).
-  int get quantidade => _sessoes.values.where((d) => d.isAfter(DateTime.now())).length;
+  int get quantidade => _sessoes.values.where((s) => s.expira.isAfter(DateTime.now())).length;
 
   /// Desconecta todos os aparelhos, menos a sessão [manter] (quem pediu). Retorna quantos saíram.
   Future<int> encerrarOutras(String? manter) async {
@@ -57,14 +102,32 @@ class Auth {
     return antes - _sessoes.length;
   }
 
-  /// Confere a senha sem criar sessão (ex: para trocar a senha).
+  /// Desconecta os aparelhos de um usuário (perfil trocado, senha redefinida, desativado, excluído).
+  Future<int> encerrarDoUsuario(String id, {String? manter}) async {
+    final antes = _sessoes.length;
+    _sessoes.removeWhere((t, s) => s.usuario == id && t != manter);
+    if (_sessoes.length != antes) await _salvar();
+    return antes - _sessoes.length;
+  }
+
+  /// Confere a senha principal sem criar sessão (ex: para trocar a senha).
   bool conferir(String senha) => _conferir(senha);
 
-  bool valido(String? token) {
-    if (token == null) return false;
-    final expira = _sessoes[token];
-    return expira != null && expira.isAfter(DateTime.now());
+  /// Conta dona do token, ou null (token inválido, vencido ou usuário desativado/excluído).
+  Conta? contaDe(String? token) {
+    final s = token == null ? null : _sessoes[token];
+    if (s == null || !s.expira.isAfter(DateTime.now())) return null;
+    if (s.usuario == idPrincipal) return Conta.principal;
+    final u = usuarios?.buscar(s.usuario);
+    if (u == null || !u.ativo) return null;
+    return Conta(id: u.id, nome: u.nome, login: u.login, perfil: u.perfil);
   }
+
+  bool valido(String? token) => contaDe(token) != null;
+
+  /// Conta guardada na requisição pelo [middleware] (null em rotas públicas).
+  static Conta? contaDa(Request req) => req.context[_chaveConta] as Conta?;
+  static const _chaveConta = 'diako.conta';
 
   /// Token do cabeçalho "Authorization: Bearer ..." ou do parâmetro ?token= (WebSocket).
   static String? tokenDe(Request req) {
@@ -74,16 +137,51 @@ class Auth {
   }
 
   Middleware middleware(bool Function(Request) publica) => (inner) => (req) {
-        if (publica(req) || valido(tokenDe(req))) return inner(req);
+        if (publica(req)) return inner(req);
+        final conta = contaDe(tokenDe(req));
+        if (conta != null) return inner(req.change(context: {_chaveConta: conta}));
         return Response(401, body: jsonEncode({'erro': 'Faça login.'}), headers: jsonHeaders);
       };
 
   Future<void> _salvar() async {
     final tmp = File('${_arquivo.path}.tmp');
-    await tmp.writeAsString(jsonEncode(_sessoes.map((k, v) => MapEntry(k, v.toIso8601String()))));
+    await tmp.writeAsString(jsonEncode(
+        _sessoes.map((k, s) => MapEntry(k, {'expira': s.expira.toIso8601String(), 'usuario': s.usuario}))));
     await tmp.rename(_arquivo.path);
   }
+}
 
+// ---------- Senhas (PBKDF2) ----------
+
+/// Gera sal e hash (base64) para guardar uma senha.
+({String hash, String sal}) gerarHashSenha(String senha) {
+  final sal = List<int>.generate(16, (_) => _rng.nextInt(256));
+  return (hash: base64.encode(derivarSenha(senha, sal)), sal: base64.encode(sal));
+}
+
+bool conferirHashSenha(String senha, {required String hash, required String sal}) {
+  if (hash.isEmpty || sal.isEmpty) return false;
+  return iguaisSeguro(base64.encode(derivarSenha(senha, base64.decode(sal))), hash);
+}
+
+/// PBKDF2-HMAC-SHA256 (um bloco de 32 bytes).
+List<int> derivarSenha(String senha, List<int> sal, {int iteracoes = 100000}) {
+  final hmac = Hmac(sha256, utf8.encode(senha));
+  var u = hmac.convert([...sal, 0, 0, 0, 1]).bytes;
+  final t = List<int>.from(u);
+  for (var i = 1; i < iteracoes; i++) {
+    u = hmac.convert(u).bytes;
+    for (var j = 0; j < t.length; j++) {
+      t[j] ^= u[j];
+    }
+  }
+  return t;
+}
+
+/// Senha temporária fácil de ditar (sem letras e números parecidos).
+String gerarSenhaTemporaria([int tamanho = 10]) {
+  const letras = 'abcdefghjkmnpqrstuvwxyz23456789';
+  return List.generate(tamanho, (_) => letras[_rng.nextInt(letras.length)]).join();
 }
 
 /// Compara segredos em tempo constante.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'data/agenda_repo.dart';
+import 'data/conta_repo.dart';
 import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
@@ -18,6 +19,7 @@ class AppScope extends InheritedWidget {
     required this.motivos,
     required this.agenda,
     required this.mensagens,
+    required this.conta,
     required this.settings,
     required this.api,
     required this.client,
@@ -30,6 +32,9 @@ class AppScope extends InheritedWidget {
   final MotivoRepo motivos;
   final AgendaRepo agenda;
   final MensagemRepo mensagens;
+
+  /// Perfil de quem está logado (o que mostrar e permitir).
+  final ContaRepo conta;
   final AppSettings settings;
   final ServerApi api;
   final HolyricsClient client;
@@ -38,8 +43,17 @@ class AppScope extends InheritedWidget {
 
   static AppScope of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppScope>()!;
 
-  /// Busca tudo de novo no servidor (após login ou reconexão).
-  Future<void> sincronizarTudo() => Future.wait([repo.sincronizar(), motivos.sincronizar(), agenda.sincronizar(), mensagens.sincronizar(), status.atualizar()]);
+  /// Busca tudo de novo no servidor (após login ou reconexão), só o que o perfil pode ver.
+  Future<void> sincronizarTudo() async {
+    await conta.sincronizar();
+    await Future.wait([
+      if (conta.pode('recados')) repo.sincronizar(),
+      if (conta.pode('motivosVer')) motivos.sincronizar(),
+      if (conta.pode('agendaVer')) agenda.sincronizar(),
+      if (conta.pode('mensagens')) mensagens.sincronizar(),
+      status.atualizar(),
+    ]);
+  }
 
   @override
   bool updateShouldNotify(AppScope oldWidget) => false;

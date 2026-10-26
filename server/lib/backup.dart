@@ -8,13 +8,15 @@ import 'package:diako_core/diako_core.dart';
 import 'package:path/path.dart' as p;
 
 import 'cartazes.dart';
+import 'galeria.dart';
 import 'qr_oracao.dart';
 import 'store.dart';
 
 /// Formato dos arquivos de backup (manifest.json).
 const versaoBackup = 2;
 
-/// Backups em .zip: dados, histórico, cartazes e configurações públicas (sem senha nem chaves).
+/// Backups em .zip: dados, histórico, cartazes, fotos da galeria do site e configurações públicas
+/// (sem senha nem chaves).
 /// Diário no horário configurado, sob demanda pelo painel e antes de cada restauração.
 class Backup {
   Backup({
@@ -71,6 +73,13 @@ class Backup {
         if (e is File && nome != arquivoQr && nome != arquivoQrMensagens && Cartazes.nomeValido(nome)) {
           arquivo.add(ArchiveFile.bytes('cartazes/$nome', await e.readAsBytes()));
         }
+      }
+    }
+    final dirGaleria = Directory(Galeria(pastaDados).pasta);
+    if (await dirGaleria.exists()) {
+      await for (final e in dirGaleria.list()) {
+        final nome = p.basename(e.path);
+        if (e is File && Galeria.nomeValido(nome)) arquivo.add(ArchiveFile.bytes('galeria/$nome', await e.readAsBytes()));
       }
     }
     arquivo.add(ArchiveFile.string('configuracoes.json', const JsonEncoder.withIndent('  ').convert(_configuracoes())));
@@ -163,6 +172,7 @@ class Backup {
 class ResumoRestauracao {
   final colecoes = <String, int>{};
   int cartazes = 0;
+  int fotosGaleria = 0;
   bool historico = false;
   bool configuracoes = false;
   String? backupSeguranca;
@@ -170,6 +180,7 @@ class ResumoRestauracao {
   Map<String, dynamic> toJson() => {
         'colecoes': colecoes,
         'cartazes': cartazes,
+        'fotosGaleria': fotosGaleria,
         'historico': historico,
         'configuracoes': configuracoes,
         'backupSeguranca': backupSeguranca,
@@ -227,6 +238,12 @@ class Restauracao {
               if (!Mensagem.tipos.contains(mensagem.tipo) || !Mensagem.statusValidos.contains(mensagem.status)) {
                 throw const FormatException('Mensagem inválida.');
               }
+            case 'galeria':
+              if (doc['id'] is! String ||
+                  !Galeria.nomeValido(doc['arquivo'] as String? ?? '') ||
+                  !Galeria.nomeValido(doc['miniatura'] as String? ?? '')) {
+                throw const FormatException('Foto da galeria inválida.');
+              }
           }
         }
         colecoes[nome] = lista;
@@ -243,6 +260,14 @@ class Restauracao {
       temPastaCartazes = true;
       final nome = f.name.substring('cartazes/'.length);
         if (Cartazes.nomeValido(nome) && nome != arquivoQr && nome != arquivoQrMensagens) cartazes[nome] = f.content;
+    }
+    final fotos = <String, List<int>>{};
+    var temPastaGaleria = false;
+    for (final f in arquivo.files) {
+      if (!f.isFile || !f.name.startsWith('galeria/')) continue;
+      temPastaGaleria = true;
+      final nome = f.name.substring('galeria/'.length);
+      if (Galeria.nomeValido(nome)) fotos[nome] = f.content;
     }
     final historico = arquivo.findFile('data/historico.jsonl');
     Map<String, dynamic>? cfg;
@@ -282,6 +307,19 @@ class Restauracao {
       }
       resumo.cartazes = cartazes.length;
       store.avisar('cartazes');
+    }
+    // Idem para as fotos da galeria do site (backups de antes dela mantêm as atuais).
+    if (temPastaGaleria) {
+      final dir = Directory(Galeria(pastaDados).pasta);
+      await dir.create(recursive: true);
+      await for (final e in dir.list()) {
+        if (e is File && Galeria.nomeValido(p.basename(e.path))) await e.delete();
+      }
+      for (final f in fotos.entries) {
+        await File(p.join(dir.path, f.key)).writeAsBytes(f.value, flush: true);
+      }
+      resumo.fotosGaleria = fotos.keys.where((k) => !k.endsWith('-m.jpg')).length;
+      store.avisar('galeria');
     }
     if (cfg != null && aplicarConfiguracoes != null) {
       await aplicarConfiguracoes!(cfg);

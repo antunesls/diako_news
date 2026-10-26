@@ -22,7 +22,7 @@ $('form-login').addEventListener('submit', async (e) => {
   const r = await fetch('/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ senha: $('senha-login').value }),
+    body: JSON.stringify({ usuario: $('usuario-login').value.trim(), senha: $('senha-login').value }),
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
@@ -80,6 +80,8 @@ function preencher() {
   }
   $('siteAtivo').checked = cfg.siteAtivo !== false;
   $('siteAgenda').checked = cfg.siteAgenda === true;
+  $('sitePix').checked = cfg.sitePix !== false;
+  $('siteGaleria').checked = cfg.siteGaleria !== false;
   $('endereco-inicio').textContent = (cfg.urlPublica || cfg.urlDetectada || '') + '/';
   $('urlPublica').placeholder = cfg.urlDetectada || '';
   $('dica-url').textContent = cfg.urlPublica
@@ -143,7 +145,7 @@ function preencher() {
 
 $('form-inicio').addEventListener('submit', (e) => {
   e.preventDefault();
-  const campos = { siteAtivo: $('siteAtivo').checked, siteAgenda: $('siteAgenda').checked };
+  const campos = { siteAtivo: $('siteAtivo').checked, siteAgenda: $('siteAgenda').checked, sitePix: $('sitePix').checked, siteGaleria: $('siteGaleria').checked };
   for (const id of ['siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade', 'siteInstagram', 'siteYoutube', 'siteWhatsapp']) {
     campos[id] = $(id).value.trim();
   }
@@ -489,14 +491,121 @@ $('encerrar-sessoes').addEventListener('click', async () => {
 // ---------- Início ----------
 
 async function iniciar() {
+  let eu;
+  try {
+    eu = await api('GET', '/api/eu');
+  } catch {
+    return; // sessão expirada: api() já voltou para o login
+  }
   $('login').hidden = true;
   $('app').hidden = false;
+  const admin = eu.permissoes.includes('admin');
+  $('layout-admin').hidden = !admin;
+  $('sem-acesso').hidden = admin;
+  if (!admin) {
+    $('texto-sem-acesso').textContent = `Você entrou como ${eu.nome} (${eu.perfilNome}). Só o perfil Administrador mexe nas configurações.`;
+    return;
+  }
   try {
     await carregar();
+    await carregarUsuarios();
   } catch (err) {
     if (token) mensagem($('res-igreja'), 'Não foi possível carregar as configurações: ' + err.message, false);
   }
 }
+
+// ---------- Usuários e perfis ----------
+
+let perfis = [];
+
+async function carregarUsuarios() {
+  const r = await api('GET', '/api/admin/usuarios');
+  perfis = r.perfis;
+  if (!$('u-perfil').options.length) {
+    $('u-perfil').replaceChildren(...perfis.map((p) => el('option', { value: p.id }, p.nome)));
+    $('u-perfil').value = 'secretaria';
+  }
+  mostrarDicaPerfil();
+  $('tabela-usuarios').tBodies[0].replaceChildren(...(r.usuarios.length
+    ? r.usuarios.map(linhaUsuario)
+    : [el('tr', {}, el('td', { colspan: 5, class: 'dica' }, 'Ninguém cadastrado ainda. Hoje só a conta principal entra.'))]));
+  montarMatriz(r.permissoes);
+}
+
+function mostrarDicaPerfil() {
+  const p = perfis.find((x) => x.id === $('u-perfil').value);
+  $('u-perfil-dica').textContent = p ? p.descricao : '';
+}
+$('u-perfil').addEventListener('change', mostrarDicaPerfil);
+
+function linhaUsuario(u) {
+  const saida = $('res-usuario');
+  const seletor = el('select', { 'aria-label': 'Perfil de ' + u.nome },
+    perfis.map((p) => el('option', { value: p.id, selected: p.id === u.perfil }, p.nome)));
+  seletor.addEventListener('change', async () => {
+    try {
+      await api('PUT', '/api/admin/usuarios/' + u.id, { perfil: seletor.value });
+      mensagem(saida, `${u.nome} agora tem o perfil ${seletor.selectedOptions[0].textContent} e precisa entrar de novo.`);
+      await carregarUsuarios();
+    } catch (err) {
+      mensagem(saida, err.message, false);
+    }
+  });
+  const acoes = el('td', { class: 'acoes-tabela' },
+    botao('Nova senha', async () => {
+      if (!await confirmar('Gerar nova senha?', `${u.nome} sai de todos os aparelhos e precisa entrar com a senha nova.`, 'Gerar')) return;
+      const r = await api('POST', `/api/admin/usuarios/${u.id}/senha`);
+      mostrarSenhaGerada(u.nome, u.login, r.senhaTemporaria);
+    }),
+    botao(u.ativo ? 'Desativar' : 'Reativar', async () => {
+      await api('PUT', '/api/admin/usuarios/' + u.id, { ativo: !u.ativo });
+      await carregarUsuarios();
+    }),
+    botao('Excluir', async () => {
+      if (!await confirmar('Excluir usuário?', `${u.nome} perde o acesso. O histórico do que foi feito com esse usuário continua registrado.`, 'Excluir')) return;
+      await api('DELETE', '/api/admin/usuarios/' + u.id);
+      await carregarUsuarios();
+    }, 'perigo pequeno'));
+  return el('tr', { style: u.ativo ? '' : 'opacity:.55' },
+    el('td', {}, u.nome, u.ativo ? null : el('span', { class: 'dica' }, ' (desativado)')),
+    el('td', {}, el('code', {}, u.login)),
+    el('td', {}, seletor),
+    el('td', { class: 'dica' }, u.ultimoAcesso ? dataCurta(u.ultimoAcesso) : 'nunca'),
+    acoes);
+}
+
+function mostrarSenhaGerada(nome, login, senha) {
+  const caixa = $('senha-gerada');
+  caixa.replaceChildren(
+    el('strong', {}, `Acesso de ${nome}: `), 'usuário ', el('code', {}, login), ' e senha ', el('code', {}, senha), '. ',
+    'Anote e entregue à pessoa; ela não aparece de novo. A pessoa pode trocar em "Minha senha", no painel. ',
+    botao('Copiar', () => copiar(`Usuário: ${login}\nSenha: ${senha}`, $('res-usuario'))));
+  caixa.hidden = false;
+}
+
+function montarMatriz(permissoes) {
+  $('matriz-perfis').replaceChildren(
+    el('thead', {}, el('tr', {}, el('th', {}, 'Pode'), perfis.map((p) => el('th', { style: 'text-align:center' }, p.nome)))),
+    el('tbody', {}, permissoes.map((perm) => el('tr', {},
+      el('td', {}, perm.descricao),
+      perfis.map((p) => el('td', { style: 'text-align:center' }, p.permissoes.includes(perm.id)
+        ? el('span', { 'aria-label': 'sim' }, '✓') : el('span', { 'aria-label': 'não', class: 'dica' }, '—')))))));
+}
+
+$('form-usuario').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const saida = $('res-usuario');
+  try {
+    const r = await api('POST', '/api/admin/usuarios', { nome: valor('u-nome'), login: valor('u-login'), perfil: $('u-perfil').value });
+    $('u-nome').value = '';
+    $('u-login').value = '';
+    mensagem(saida, 'Pessoa adicionada.');
+    mostrarSenhaGerada(r.usuario.nome, r.usuario.login, r.senhaTemporaria);
+    await carregarUsuarios();
+  } catch (err) {
+    mensagem(saida, err.message, false);
+  }
+});
 
 if (token) iniciar();
 else sair();

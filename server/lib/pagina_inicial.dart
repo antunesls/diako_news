@@ -87,12 +87,12 @@ Uint8List gerarPngQrQuadrado(String conteudo, {int tamanho = 600}) {
   return img.encodePng(imagem);
 }
 
-/// "Domingo — 19h" (uma linha por culto; separador —, – , | ou " - ") vira {dia, hora}.
+/// "Domingo — 19h" (uma linha por culto; separador —, –, |, " - " ou " -- ") vira {dia, hora}.
 /// Sem separador, a linha inteira vai em "dia".
 List<Map<String, String>> lerCultos(String texto) => [
       for (final linha in texto.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty))
         () {
-          final m = RegExp(r'^(.*?)\s*(?:—|–|\||\s-\s)\s*(.+)$').firstMatch(linha);
+          final m = RegExp(r'^(.*?)\s*(?:—|–|\||\s--?\s)\s*(.+)$').firstMatch(linha);
           return m == null ? {'dia': linha, 'hora': ''} : {'dia': m.group(1)!.trim(), 'hora': m.group(2)!.trim()};
         }(),
     ];

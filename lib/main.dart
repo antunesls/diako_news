@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_scope.dart';
 import 'data/agenda_repo.dart';
+import 'data/conta_repo.dart';
 import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
@@ -35,11 +36,15 @@ Future<void> main() async {
   final motivos = MotivoRepo(api: api, cache: () => arquivo('cache_motivos.json'));
   final agenda = AgendaRepo(api: api, cache: () => arquivo('cache_agenda.json'));
   final mensagens = MensagemRepo(api: api, cache: () => arquivo('cache_mensagens.json'));
+  final conta = ContaRepo(api: api, cache: () => arquivo('cache_conta.json'));
+  // O perfil primeiro (cache), para só buscar o que ele pode ver.
+  await conta.carregar();
+  unawaited(conta.sincronizar());
   // Sem await: a tela abre na hora com o cache e atualiza quando o servidor responder.
-  unawaited(repo.carregar());
-  unawaited(motivos.carregar());
-  unawaited(agenda.carregar());
-  unawaited(mensagens.carregar());
+  if (conta.pode('recados')) unawaited(repo.carregar());
+  if (conta.pode('motivosVer')) unawaited(motivos.carregar());
+  if (conta.pode('agendaVer')) unawaited(agenda.carregar());
+  if (conta.pode('mensagens')) unawaited(mensagens.carregar());
 
   final client = HolyricsClient(api);
   final status = StatusController(client)..iniciar();
@@ -47,16 +52,17 @@ Future<void> main() async {
   final tempoReal = TempoReal(
     api,
     aoMudar: (tipo) {
-      if (tipo == 'recados' || tipo == 'membros') repo.sincronizar();
-      if (tipo == 'motivos') motivos.sincronizar();
-      if (tipo == 'agenda') agenda.sincronizar();
-      if (tipo == 'mensagens') mensagens.sincronizar();
+      if ((tipo == 'recados' || tipo == 'membros') && conta.pode('recados')) repo.sincronizar();
+      if (tipo == 'motivos' && conta.pode('motivosVer')) motivos.sincronizar();
+      if (tipo == 'agenda' && conta.pode('agendaVer')) agenda.sincronizar();
+      if (tipo == 'mensagens' && conta.pode('mensagens')) mensagens.sincronizar();
     },
-    aoReconectar: () {
-      repo.sincronizar();
-      motivos.sincronizar();
-      agenda.sincronizar();
-      mensagens.sincronizar();
+    aoReconectar: () async {
+      await conta.sincronizar();
+      if (conta.pode('recados')) repo.sincronizar();
+      if (conta.pode('motivosVer')) motivos.sincronizar();
+      if (conta.pode('agendaVer')) agenda.sincronizar();
+      if (conta.pode('mensagens')) mensagens.sincronizar();
     },
   );
   if (settings.configurado) tempoReal.iniciar();
@@ -66,6 +72,7 @@ Future<void> main() async {
     motivos: motivos,
     agenda: agenda,
     mensagens: mensagens,
+    conta: conta,
     settings: settings,
     api: api,
     client: client,

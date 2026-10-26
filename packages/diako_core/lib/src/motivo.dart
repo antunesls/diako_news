@@ -48,6 +48,7 @@ class Motivo {
     this.enviadoPor = '',
     this.atendidoEm,
     this.testemunho = '',
+    this.aprovadoPor = '',
   }) : criadoEm = criadoEm ?? DateTime.now();
 
   final String id;
@@ -71,6 +72,9 @@ class Motivo {
 
   /// Como a oração foi respondida (opcional), para os testemunhos.
   String testemunho;
+
+  /// Nome de quem aprovou o pedido vindo do site (vazio em pedidos antigos ou criados já aprovados).
+  String aprovadoPor;
 
   bool get atendido => status == StatusMotivo.atendido;
 
@@ -100,6 +104,7 @@ class Motivo {
         'enviadoPor': enviadoPor,
         'atendidoEm': atendidoEm?.toIso8601String(),
         'testemunho': testemunho,
+        if (aprovadoPor.isNotEmpty) 'aprovadoPor': aprovadoPor,
       };
 
   factory Motivo.fromJson(Map<String, dynamic> j) => Motivo(
@@ -117,6 +122,7 @@ class Motivo {
         enviadoPor: j['enviadoPor'] as String? ?? '',
         atendidoEm: DateTime.tryParse(j['atendidoEm'] as String? ?? ''),
         testemunho: j['testemunho'] as String? ?? '',
+        aprovadoPor: j['aprovadoPor'] as String? ?? '',
       );
 }
 

@@ -23,7 +23,10 @@ import 'configuracoes.dart';
 import 'historico.dart';
 import 'holyrics.dart';
 import 'email_mensagens.dart';
+import 'galeria.dart';
 import 'pagina_inicial.dart';
+import 'permissoes.dart';
+import 'usuarios.dart';
 import 'qr_oracao.dart';
 import 'store.dart';
 
@@ -52,7 +55,9 @@ class Servidor {
     this.senhaMinima = 6,
     DateTime Function()? relogio,
     LimiteTaxa? limitePedidos,
-  })  : _urlOracaoFixa = urlOracao,
+    Galeria? galeria,
+  })  : galeria = galeria ?? Galeria(store.pasta),
+        _urlOracaoFixa = urlOracao,
         _chaveAgenteFixa = chaveAgente,
         _chaveMuralFixa = chaveMural,
         _agora = relogio ?? DateTime.now,
@@ -73,6 +78,9 @@ class Servidor {
   final HolyricsViaAgente? agente;
   final bool confiarProxy;
   final Cartazes cartazes;
+
+  /// Fotos do carrossel da página inicial (data/galeria).
+  final Galeria galeria;
   final Backup backup;
   final String pastaWeb;
 
@@ -118,6 +126,15 @@ class Servidor {
       ..get('/oracao', (Request _) => _pagina('oracao.html'))
       ..get('/mensagens', (Request _) => _pagina('mensagens.html'))
       ..get(ajudaAgenda, (Request _) => _pagina('ajuda-agenda.html'))
+      ..get('/ajuda/usuarios', (Request _) => _pagina('ajuda-usuarios.html'))
+      // Perfis e permissões (só a descrição da matriz, para a página de ajuda).
+      ..get('/api/public/perfis', (Request _) => _json({
+            'perfis': [for (final p in Perfil.values) p.toJson()],
+            'permissoes': [
+              for (final p in Permissao.values)
+                if (p != Permissao.sessao) {'id': p.name, 'descricao': p.descricao}
+            ],
+          }))
       ..get('/painel', (Request _) => _pagina('painel.html'))
       ..get('/mural', (Request req) => _chaveMuralOk(req) ? _pagina('mural.html') : _semChaveMural())
       ..get('/api/public/mural', (Request req) => _chaveMuralOk(req) ? _mural(req) : _semChaveMural())
@@ -128,8 +145,16 @@ class Servidor {
       ..get('/qr-oracao.png', (Request _) => _arquivo(File(p.join(cartazes.pasta, arquivoQr))))
       ..get('/qr-mensagens.png', (Request _) => _arquivo(File(p.join(cartazes.pasta, arquivoQrMensagens))))
       ..get('/cartazes/<nome>', (Request _, String nome) => _arquivo(cartazes.arquivo(nome)))
+      ..get('/galeria/<arquivo>', _fotoGaleria)
       ..post('/api/login', _login)
       ..post('/api/logout', _logout)
+      ..get('/api/eu', _eu)
+      ..post('/api/eu/senha', _minhaSenha)
+      ..get('/api/admin/usuarios', _listarUsuarios)
+      ..post('/api/admin/usuarios', _criarUsuario)
+      ..put('/api/admin/usuarios/<id>', _atualizarUsuario)
+      ..post('/api/admin/usuarios/<id>/senha', _redefinirSenhaUsuario)
+      ..delete('/api/admin/usuarios/<id>', _excluirUsuario)
       ..post('/api/public/pedidos', _novoPedido)
       ..post('/api/public/mensagens', _novaMensagem)
       ..get('/api/estado', _estado)
@@ -143,11 +168,11 @@ class Servidor {
       ..put('/api/recados/<id>', _atualizarRecado)
       ..delete('/api/recados/<id>', (Request _, String id) => _excluir('recados', id))
       // Motivos de oração
-      ..get('/api/motivos', (Request _) => _json(store.listar('motivos')))
+      ..get('/api/motivos', _listarMotivos)
       ..post('/api/motivos', _criarMotivo)
       ..put('/api/motivos/<id>', _atualizarMotivo)
       ..post('/api/motivos/<id>/aprovar', _aprovarMotivo)
-      ..delete('/api/motivos/<id>', (Request _, String id) => _excluir('motivos', id))
+      ..delete('/api/motivos/<id>', _excluirMotivo)
       // Membros / aniversariantes
       ..get('/api/membros', (Request _) => _json(store.listar('membros')))
       ..post('/api/membros', _criarMembro)
@@ -158,6 +183,12 @@ class Servidor {
       ..get('/api/cartazes', _listarCartazes)
       ..post('/api/cartazes', _enviarCartaz)
       ..delete('/api/cartazes/<nome>', _excluirCartaz)
+      // Galeria do site (carrossel da página inicial)
+      ..get('/api/galeria', (Request _) => _json([for (final f in _fotos()) _fotoJson(f)]))
+      ..post('/api/galeria', _enviarFoto)
+      ..put('/api/galeria/ordem', _ordenarGaleria)
+      ..put('/api/galeria/<id>', _atualizarFoto)
+      ..delete('/api/galeria/<id>', _excluirFoto)
       // Holyrics e manutenção
       ..post('/api/holyrics/<acao>', _holyrics)
       ..post('/api/projetar/oracoes-respondidas', _projetarRespondidas)
@@ -197,8 +228,18 @@ class Servidor {
         .addMiddleware(_cabecalhosSeguranca)
         .addMiddleware(_tratarErros)
         .addMiddleware(auth.middleware(_rotaPublica))
+        .addMiddleware(_verificarPermissao)
         .addHandler(cascata);
   }
+
+  /// Confere a permissão do perfil para a rota (tabela em permissoes.dart; rota nova sem regra = só admin).
+  static Middleware get _verificarPermissao => (inner) => (req) {
+        final conta = Auth.contaDa(req);
+        if (conta == null) return inner(req); // rota pública
+        final precisa = permissaoDaRota(req.method, req.url.path);
+        if (conta.pode(precisa)) return inner(req);
+        return _erro(403, 'Seu perfil (${conta.perfil.nome}) não permite: ${precisa.descricao}.');
+      };
 
   String _ip(Request req) => ipDe(req, confiarProxy: confiarProxy);
 
@@ -230,8 +271,9 @@ class Servidor {
   Future<Response> _login(Request req) async {
     final corpo = await _corpo(req);
     try {
-      final token = await auth.login(corpo['senha'] as String? ?? '', _ip(req));
-      if (token == null) return _erro(401, 'Senha incorreta.');
+      final usuario = corpo['usuario'] as String? ?? '';
+      final token = await auth.login(corpo['senha'] as String? ?? '', _ip(req), usuario: usuario);
+      if (token == null) return _erro(401, usuario.trim().isEmpty ? 'Senha incorreta.' : 'Usuário ou senha incorretos.');
       return _json({'token': token});
     } on LimiteExcedido {
       return _erro(429, 'Muitas tentativas. Aguarde um minuto.');
@@ -241,6 +283,111 @@ class Servidor {
   Future<Response> _logout(Request req) async {
     final t = Auth.tokenDe(req);
     if (t != null) await auth.logout(t);
+    return _json({'ok': true});
+  }
+
+  // ---------- Usuários e perfis ----------
+
+  /// GET /api/eu — quem está logado e o que pode fazer (o painel e o app escondem o resto).
+  Response _eu(Request req) {
+    final c = Auth.contaDa(req)!;
+    return _json({
+      'id': c.id,
+      'nome': c.nome,
+      'login': c.login,
+      'principal': c.ehPrincipal,
+      'perfil': c.perfil.name,
+      'perfilNome': c.perfil.nome,
+      'permissoes': [for (final p in c.perfil.permissoes) p.name],
+      'site': {'ativo': cfg?.siteAtivo ?? false, 'galeria': cfg?.siteGaleria ?? false},
+    });
+  }
+
+  /// Corpo: {"atual": "...", "nova": "..."} — cada pessoa troca a própria senha.
+  /// A conta principal usa a mesma senha do /admin › Senha e aparelhos.
+  Future<Response> _minhaSenha(Request req) async {
+    final c = Auth.contaDa(req)!;
+    final corpo = await _corpo(req);
+    final atual = corpo['atual'] as String? ?? '', nova = (corpo['nova'] as String? ?? '').trim();
+    if (c.ehPrincipal) {
+      if (!auth.conferir(atual)) return _erro(403, 'Senha atual incorreta.');
+      final config = cfg;
+      if (config == null) return _erro(501, 'Configurações indisponíveis.');
+      try {
+        await config.trocarSenha(nova, minimo: senhaMinima);
+      } on FormatException catch (e) {
+        return _erro(400, e.message);
+      }
+    } else {
+      final usuarios = auth.usuarios!;
+      if (!usuarios.conferirSenha(c.id, atual)) return _erro(403, 'Senha atual incorreta.');
+      if (nova.length < senhaMinima) return _erro(400, 'A senha precisa ter pelo menos $senhaMinima caracteres.');
+      await usuarios.definirSenha(c.id, nova);
+    }
+    final saiu = await auth.encerrarDoUsuario(c.id, manter: Auth.tokenDe(req));
+    return _json({'ok': true, 'sessoesEncerradas': saiu});
+  }
+
+  Usuarios? get _usuarios => auth.usuarios;
+
+  Response _listarUsuarios(Request _) => _json({
+        'usuarios': [for (final u in _usuarios?.lista ?? const <Usuario>[]) u.toJson()],
+        'perfis': [for (final p in Perfil.values) p.toJson()],
+        'permissoes': [
+          for (final p in Permissao.values)
+            if (p != Permissao.sessao) {'id': p.name, 'descricao': p.descricao}
+        ],
+      });
+
+  /// Corpo: {"nome", "login", "perfil"} — devolve a senha temporária (mostrada uma única vez).
+  Future<Response> _criarUsuario(Request req) async {
+    final usuarios = _usuarios;
+    if (usuarios == null) return _erro(501, 'Usuários indisponíveis.');
+    final corpo = await _corpo(req);
+    final perfil = Perfil.porNome(corpo['perfil'] as String? ?? '');
+    if (perfil == null) return _erro(400, 'Escolha o perfil.');
+    final senha = gerarSenhaTemporaria(senhaMinima < 10 ? 10 : senhaMinima);
+    try {
+      final u = await usuarios.criar(
+          nome: corpo['nome'] as String? ?? '', login: corpo['login'] as String? ?? '', perfil: perfil, senha: senha);
+      return _json({'usuario': u.toJson(), 'senhaTemporaria': senha}, status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  /// Corpo: {"nome", "perfil", "ativo"} (só o que mudar). Trocar perfil ou desativar desconecta a pessoa.
+  Future<Response> _atualizarUsuario(Request req, String id) async {
+    final usuarios = _usuarios;
+    final atual = usuarios?.buscar(id);
+    if (usuarios == null || atual == null) return _erro(404, 'Usuário não encontrado.');
+    final corpo = await _corpo(req);
+    final perfil = corpo['perfil'] == null ? null : Perfil.porNome(corpo['perfil'] as String);
+    if (corpo['perfil'] != null && perfil == null) return _erro(400, 'Perfil inválido.');
+    if (corpo.containsKey('ativo') && corpo['ativo'] is! bool) return _erro(400, '"ativo" deve ser verdadeiro ou falso.');
+    final perfilAntes = atual.perfil, ativoAntes = atual.ativo;
+    try {
+      final u = await usuarios.atualizar(id, nome: corpo['nome'] as String?, perfil: perfil, ativo: corpo['ativo'] as bool?);
+      if (u.perfil != perfilAntes || u.ativo != ativoAntes) await auth.encerrarDoUsuario(id);
+      return _json(u.toJson());
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  /// Gera uma senha temporária nova (mostrada uma única vez) e desconecta a pessoa.
+  Future<Response> _redefinirSenhaUsuario(Request _, String id) async {
+    final usuarios = _usuarios;
+    if (usuarios?.buscar(id) == null) return _erro(404, 'Usuário não encontrado.');
+    final senha = gerarSenhaTemporaria(senhaMinima < 10 ? 10 : senhaMinima);
+    await usuarios!.definirSenha(id, senha);
+    await auth.encerrarDoUsuario(id);
+    return _json({'senhaTemporaria': senha});
+  }
+
+  Future<Response> _excluirUsuario(Request _, String id) async {
+    if (!(await _usuarios?.excluir(id) ?? false)) return _erro(404, 'Usuário não encontrado.');
+    await auth.encerrarDoUsuario(id);
     return _json({'ok': true});
   }
 
@@ -332,6 +479,29 @@ class Servidor {
 
   // ---------- Motivos ----------
 
+  /// Pode ver/mexer neste pedido: públicos para todos com acesso; particulares só com a permissão.
+  static bool _podeMotivo(Request req, Map<String, dynamic> m) =>
+      m['publico'] != false || (Auth.contaDa(req)?.pode(Permissao.motivosParticulares) ?? false);
+
+  static Response get _semAcessoParticular =>
+      _erro(403, 'Pedido particular: só o pastor e o administrador têm acesso.');
+
+  /// Sem a permissão de particulares: só os públicos e sem o nome de quem enviou.
+  Response _listarMotivos(Request req) {
+    final completo = Auth.contaDa(req)?.pode(Permissao.motivosParticulares) ?? false;
+    return _json([
+      for (final m in store.listar('motivos'))
+        if (completo) m else if (m['publico'] != false) {...m, 'enviadoPor': ''},
+    ]);
+  }
+
+  Future<Response> _excluirMotivo(Request req, String id) async {
+    final atual = store.buscar('motivos', id);
+    if (atual == null) return _erro(404, 'Não encontrado.');
+    if (!_podeMotivo(req, atual)) return _semAcessoParticular;
+    return _excluir('motivos', id);
+  }
+
   Future<Response> _criarMotivo(Request req) async {
     final corpo = await _corpo(req);
     final origem = OrigemMotivo.fromName(corpo['origem'] as String?);
@@ -352,8 +522,10 @@ class Servidor {
   Future<Response> _atualizarMotivo(Request req, String id) async {
     final atual = store.buscar('motivos', id);
     if (atual == null) return _erro(404, 'Motivo não encontrado.');
+    if (!_podeMotivo(req, atual)) return _semAcessoParticular;
     final corpo = await _corpo(req);
-    // Origem e data de criação não mudam; a data de atendimento é do servidor.
+    // Origem e data de criação não mudam; a data de atendimento é do servidor. Quem não vê o nome
+    // de quem enviou (recebeu vazio) não pode apagá-lo sem querer.
     final motivo = Motivo.fromJson({
       ...atual,
       ...corpo,
@@ -361,6 +533,8 @@ class Servidor {
       'origem': atual['origem'],
       'criadoEm': atual['criadoEm'],
       'atendidoEm': atual['atendidoEm'],
+      'aprovadoPor': atual['aprovadoPor'],
+      if (!(Auth.contaDa(req)?.pode(Permissao.motivosParticulares) ?? false)) 'enviadoPor': atual['enviadoPor'],
     });
     final antes = StatusMotivo.fromName(atual['status'] as String?);
     if (motivo.atendido && antes != StatusMotivo.atendido) motivo.atendidoEm = _agora();
@@ -371,10 +545,13 @@ class Servidor {
     return _json(motivo.toJson());
   }
 
-  Future<Response> _aprovarMotivo(Request _, String id) async {
+  Future<Response> _aprovarMotivo(Request req, String id) async {
     final atual = store.buscar('motivos', id);
     if (atual == null) return _erro(404, 'Motivo não encontrado.');
-    final m = Motivo.fromJson(atual)..status = StatusMotivo.pendente;
+    if (!_podeMotivo(req, atual)) return _semAcessoParticular;
+    final m = Motivo.fromJson(atual)
+      ..status = StatusMotivo.pendente
+      ..aprovadoPor = Auth.contaDa(req)?.nome ?? '';
     await store.salvar('motivos', m.toJson());
     return _json(m.toJson());
   }
@@ -556,18 +733,119 @@ class Servidor {
     return _json({'ok': true});
   }
 
+  // ---------- Galeria do site (carrossel da página inicial) ----------
+
+  /// Fotos na ordem do carrossel.
+  List<Map<String, dynamic>> _fotos() => [...store.listar('galeria')]
+    ..sort((a, b) => ((a['ordem'] as num?) ?? 0).compareTo((b['ordem'] as num?) ?? 0));
+
+  static Map<String, dynamic> _fotoJson(Map<String, dynamic> f) => {
+        ...f,
+        'url': '/galeria/${f['arquivo']}',
+        'urlMiniatura': '/galeria/${f['miniatura']}',
+      };
+
+  static String? _validarLegenda(Object? v) =>
+      v is String && v.trim().length > 140 ? 'Legenda muito longa (máximo 140 letras).' : null;
+
+  static String? _validarLink(Object? v) {
+    if (v is! String || v.trim().isEmpty) return null;
+    return RegExp(r'^https://\S+$').hasMatch(v.trim()) ? null : 'O link precisa começar com https://';
+  }
+
+  /// Corpo: bytes da foto; legenda opcional em ?legenda=
+  Future<Response> _enviarFoto(Request req) async {
+    if (store.listar('galeria').length >= Galeria.maximoFotos) {
+      return _erro(400, 'A galeria já tem ${Galeria.maximoFotos} fotos. Exclua alguma antes de enviar outra.');
+    }
+    final tamanho = req.contentLength;
+    if (tamanho != null && tamanho > Galeria.tamanhoMaximo) return _erro(413, 'Foto maior que 15 MB.');
+    final bytes = await _lerBytes(req, Galeria.tamanhoMaximo);
+    if (bytes == null) return _erro(413, 'Foto maior que 15 MB.');
+    final legenda = (req.url.queryParameters['legenda'] ?? '').trim();
+    final erro = _validarLegenda(legenda);
+    if (erro != null) return _erro(400, erro);
+    try {
+      final r = await galeria.salvar(bytes);
+      final ordens = [for (final f in store.listar('galeria')) (f['ordem'] as num?)?.toInt() ?? 0];
+      final doc = <String, dynamic>{
+        'id': novoId(),
+        'arquivo': r.arquivo,
+        'miniatura': r.miniatura,
+        'largura': r.largura,
+        'altura': r.altura,
+        'legenda': legenda,
+        'link': '',
+        'ativo': true,
+        'ordem': ordens.isEmpty ? 0 : ordens.reduce((a, b) => a > b ? a : b) + 1,
+        'criadoEm': _agora().toIso8601String(),
+      };
+      await store.salvar('galeria', doc);
+      return _json(_fotoJson(doc), status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  /// Corpo: {"legenda", "link", "ativo"} (só os campos a mudar).
+  Future<Response> _atualizarFoto(Request req, String id) async {
+    final atual = store.buscar('galeria', id);
+    if (atual == null) return _erro(404, 'Foto não encontrada.');
+    final corpo = await _corpo(req);
+    final erro = _validarLegenda(corpo['legenda']) ?? _validarLink(corpo['link']);
+    if (erro != null) return _erro(400, erro);
+    if (corpo.containsKey('ativo') && corpo['ativo'] is! bool) return _erro(400, '"ativo" deve ser verdadeiro ou falso.');
+    final doc = {
+      ...atual,
+      if (corpo['legenda'] is String) 'legenda': (corpo['legenda'] as String).trim(),
+      if (corpo['link'] is String) 'link': (corpo['link'] as String).trim(),
+      if (corpo['ativo'] is bool) 'ativo': corpo['ativo'],
+    };
+    await store.salvar('galeria', doc);
+    return _json(_fotoJson(doc));
+  }
+
+  /// Corpo: lista de ids na nova ordem (a primeira é a capa).
+  Future<Response> _ordenarGaleria(Request req) async {
+    final ids = jsonDecode(await req.readAsString());
+    if (ids is! List) return _erro(400, 'Envie a lista de ids.');
+    final docs = <Map<String, dynamic>>[];
+    for (var i = 0; i < ids.length; i++) {
+      final atual = store.buscar('galeria', ids[i] as String);
+      if (atual != null) docs.add({...atual, 'ordem': i});
+    }
+    await store.salvarVarios('galeria', docs);
+    return _json({'ok': true});
+  }
+
+  Future<Response> _excluirFoto(Request _, String id) async {
+    final atual = store.buscar('galeria', id);
+    if (atual == null) return _erro(404, 'Foto não encontrada.');
+    await galeria.excluir([atual['arquivo'] as String, atual['miniatura'] as String]);
+    await store.excluir('galeria', id);
+    return _json({'ok': true});
+  }
+
+  /// GET /galeria/<arquivo> — foto pública (o nome é aleatório e muda a cada envio: cache longo).
+  Future<Response> _fotoGaleria(Request _, String arquivo) async {
+    final f = galeria.arquivo(arquivo);
+    if (f == null || !await f.exists()) return Response.notFound('Não encontrado');
+    return Response.ok(f.openRead(),
+        headers: {'content-type': 'image/jpeg', 'cache-control': 'public, max-age=31536000, immutable'});
+  }
+
   // ---------- Holyrics / backup / tempo real ----------
 
   Future<Response> _holyrics(Request req, String acao) async {
     if (!acoesPermitidas.contains(acao)) return _erro(403, 'Ação não permitida: $acao');
-    return _chamarHolyrics(acao, await req.readAsString());
+    return _chamarHolyrics(acao, await req.readAsString(), usuario: Auth.contaDa(req)?.nome ?? '');
   }
 
-  /// Chama o Holyrics e, se deu certo, registra no histórico.
-  Future<Response> _chamarHolyrics(String acao, String corpo) async {
+  /// Chama o Holyrics e, se deu certo, registra no histórico (com o nome de quem projetou).
+  Future<Response> _chamarHolyrics(String acao, String corpo, {String usuario = ''}) async {
     final r = await holyrics.chamar(acao, corpo);
     if (_ok(r.corpo) && Historico.acoes.contains(acao)) {
-      await historico.registrar(acao, corpo);
+      await historico.registrar(acao, corpo, usuario: usuario);
       store.avisar('historico');
     }
     return Response(r.status, body: r.corpo, headers: jsonHeaders);
@@ -591,6 +869,7 @@ class Servidor {
     final segundos = (corpo['segundos'] as num?)?.toInt() ?? cfg?.segundosPorSlide ?? 10;
     final tema = corpo['tema'] as String? ?? cfg?.temaPadrao ?? '';
     return _chamarHolyrics(
+      usuario: Auth.contaDa(req)?.nome ?? '',
       'ShowQuickPresentation',
       jsonEncode({
         'slides': [for (final s in slides) {'text': s, 'duration': segundos}],
@@ -810,7 +1089,7 @@ class Servidor {
           if (r.ehImagem && _urlCartaz(r.imagemHolyrics!) != null) 'imagem': _urlCartaz(r.imagemHolyrics!),
         };
     final eventos = _eventosDoSite();
-    final pix = c.sitePixChave.isNotEmpty && c.sitePixNome.isNotEmpty && c.sitePixCidade.isNotEmpty;
+    final pix = c.pixNoSite;
     return _json({
       'igreja': nomeIgreja,
       'urgentes': [for (final r in noSite.where((r) => r.urgente)) aviso(r)],
@@ -827,6 +1106,17 @@ class Servidor {
             'local': e.local,
             'ics': '/api/public/eventos/${Uri.encodeComponent(e.id)}.ics',
           },
+      ],
+      'galeria': [
+        if (c.siteGaleria)
+          for (final f in _fotos().where((f) => f['ativo'] != false))
+            {
+              'url': '/galeria/${f['arquivo']}',
+              'legenda': f['legenda'] ?? '',
+              'link': f['link'] ?? '',
+              'largura': f['largura'],
+              'altura': f['altura'],
+            },
       ],
       'cultos': lerCultos(c.siteCultos),
       'endereco': c.siteEndereco,
@@ -864,7 +1154,7 @@ class Servidor {
   /// GET /pix.png — QR do PIX (copia e cola) para a página inicial.
   Response _pngPix(Request _) {
     final c = cfg;
-    if (c == null || !c.siteAtivo || c.sitePixChave.isEmpty || c.sitePixNome.isEmpty || c.sitePixCidade.isEmpty) {
+    if (c == null || !c.siteAtivo || !c.pixNoSite) {
       return Response.notFound('PIX não configurado.');
     }
     final payload = payloadPix(chave: c.sitePixChave, nome: c.sitePixNome, cidade: c.sitePixCidade);

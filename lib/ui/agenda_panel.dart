@@ -30,6 +30,8 @@ class _AgendaPanelState extends State<AgendaPanel> {
     final scope = AppScope.of(context);
     final agenda = scope.agenda;
     final esquema = Theme.of(context).colorScheme;
+    // Criar/editar exige a agenda ligada pela conta de serviço e um perfil que possa editar.
+    final editavel = agenda.editavel && scope.conta.pode('agendaEditar');
 
     return ListenableBuilder(
       listenable: agenda,
@@ -61,13 +63,13 @@ class _AgendaPanelState extends State<AgendaPanel> {
                           child: Text(
                             agenda.erro != null
                                 ? 'Mostrando a última cópia: ${agenda.erro}'
-                                : agenda.editavel
+                                : editavel
                                     ? 'Próximos 30 dias · crie e edite por aqui'
                                     : 'Próximos 30 dias · editados no Google Agenda',
                             style: TextStyle(color: agenda.erro != null ? esquema.error : esquema.outline),
                           ),
                         ),
-                        if (agenda.editavel) ...[
+                        if (editavel) ...[
                           FilledButton.tonalIcon(
                             onPressed: () => _abrirForm(null),
                             icon: const Icon(Icons.add),
@@ -108,7 +110,7 @@ class _AgendaPanelState extends State<AgendaPanel> {
               flex: 4,
               child: _Previa(
                 evento: focado,
-                agendaEditavel: agenda.editavel,
+                agendaEditavel: editavel,
                 onVirarRecado: widget.onVirarRecado,
                 onEditar: _abrirForm,
               ),
@@ -242,7 +244,7 @@ class _Previa extends StatelessWidget {
           SizedBox(
             height: 64,
             child: FilledButton.icon(
-              onPressed: e == null ? null : projetar,
+              onPressed: e == null || !scope.conta.pode('projetar') ? null : projetar,
               icon: const Icon(Icons.play_arrow, size: 32),
               label: const Text('PROJETAR', style: TextStyle(fontSize: 20)),
             ),
@@ -256,7 +258,7 @@ class _Previa extends StatelessWidget {
               label: const Text('Virar recado'),
             ),
           ),
-          if (e != null && e.editavel) ...[
+          if (e != null && e.editavel && agendaEditavel) ...[
             const SizedBox(height: 12),
             SizedBox(
               height: 52,

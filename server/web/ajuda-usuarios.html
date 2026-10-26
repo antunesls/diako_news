@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ajuda: usuários e perfis — DiakoNews</title>
+<link rel="stylesheet" href="/estilo.css?v=4">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  .topo-ajuda { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-bottom: 18px; margin-bottom: 28px; border-bottom: 1px solid var(--linha); }
+  .topo-ajuda img { height: 40px; width: auto; }
+  .topo-ajuda .espaco { flex: 1; }
+  h1 { font-size: 34px; margin-bottom: 8px; }
+  .lead { font-size: 18px; color: var(--suave); margin: 0 0 24px; }
+  h2 { font-size: 25px; margin: 40px 0 10px; scroll-margin-top: 16px; }
+  p, li { line-height: 1.6; }
+  .nota { padding: 14px 18px; border-radius: 14px; background: var(--primaria-suave); color: var(--primaria-escura); margin: 16px 0; }
+  .nota.atencao { background: #fbefe2; color: #6b3d00; }
+  .nota p { margin: 0; }
+  .perfis { display: grid; gap: 12px; }
+  .perfis .cartao h3 { margin: 0 0 4px; font-size: 18px; }
+  .perfis .cartao p { margin: 0; color: var(--suave); }
+  .rolagem { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--superficie); border-radius: 14px; }
+  th, td { padding: 9px 10px; border-bottom: 1px solid var(--linha); text-align: center; }
+  th:first-child, td:first-child { text-align: left; }
+  td.nao { color: var(--suave); }
+  code { padding: 1px 6px; border-radius: 6px; background: var(--neutro); font-size: 14px; }
+  @media (max-width: 520px) { h1 { font-size: 28px; } h2 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="topo-ajuda">
+    <a href="/painel"><img src="/logo.png" alt="Igreja Diakonia Tulipas"></a>
+    <span class="espaco"></span>
+    <a class="botao secundario pequeno" href="/admin#usuarios">Ir para Usuários e perfis</a>
+  </header>
+
+  <p class="sobretitulo">Ajuda</p>
+  <h1>Usuários e perfis de acesso</h1>
+  <p class="lead">Cada pessoa da equipe entra no painel e no tablet com o próprio usuário e senha. O <strong>perfil</strong> define o que ela vê e pode fazer.</p>
+
+  <h2 id="perfis">Os perfis</h2>
+  <div class="perfis" id="lista-perfis"><p class="dica">Carregando…</p></div>
+
+  <h2 id="matriz">O que cada perfil pode fazer</h2>
+  <div class="rolagem"><table id="matriz-perfis"></table></div>
+  <div class="nota"><p><strong>Pedidos de oração particulares</strong> (e o nome de quem pediu) aparecem só para Pastor e Administrador, como o formulário promete. Os outros perfis veem apenas os pedidos públicos, sem o nome de quem enviou.</p></div>
+
+  <h2 id="criar">Cadastrar uma pessoa</h2>
+  <ol>
+    <li>Em <a href="/admin#usuarios">Administração › Usuários e perfis</a>, preencha o nome, o usuário (ex.: <code>maria.silva</code>) e escolha o perfil.</li>
+    <li>Clique em <strong>Adicionar pessoa</strong>. Aparece uma <strong>senha temporária</strong>: anote e entregue à pessoa. Ela não aparece de novo.</li>
+    <li>A pessoa entra no painel com o usuário e essa senha, e troca em <strong>Minha senha</strong> (no topo do painel).</li>
+  </ol>
+
+  <h2 id="dia-a-dia">No dia a dia</h2>
+  <ul>
+    <li><strong>Trocar o perfil</strong>: escolha outro na lista. A pessoa sai dos aparelhos e entra de novo já com o novo acesso.</li>
+    <li><strong>Esqueceu a senha</strong>: o administrador clica em <strong>Nova senha</strong> e entrega a senha temporária.</li>
+    <li><strong>Alguém saiu da equipe</strong>: <strong>Desativar</strong> (pode reativar depois) ou <strong>Excluir</strong>. O acesso acaba na hora, em todos os aparelhos.</li>
+    <li><strong>Quem fez o quê</strong>: o Histórico mostra quem projetou cada coisa, e os pedidos aprovados guardam quem aprovou.</li>
+  </ul>
+
+  <h2 id="tablet">Tablet do culto</h2>
+  <p>Crie um usuário com o perfil <strong>Telão (tablet)</strong> (ex.: <code>telao</code>) e entre com ele no app, em Configurações. Ele projeta, mexe nos recados e vê os pedidos públicos, mas não vê pedidos particulares nem as configurações.</p>
+  <div class="nota atencao"><p>O campo de usuário aparece na versão nova do app. Até instalar, o tablet continua entrando só com a senha principal (acesso total).</p></div>
+
+  <h2 id="principal">A conta principal ("admin")</h2>
+  <p>A senha definida na instalação continua valendo como a conta <strong>admin</strong>, com acesso total: no login, deixe o usuário em branco ou escreva <code>admin</code>. Troque essa senha em Administração › Senha e aparelhos e guarde-a em lugar seguro: é ela que cria e recupera os outros acessos.</p>
+  <p>Os usuários e senhas <strong>não</strong> vão para o backup (por segurança). Ao restaurar um backup em outro servidor, cadastre as pessoas de novo.</p>
+</main>
+<script>
+  'use strict';
+  const el = (tag, props = {}, ...filhos) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) if (v !== undefined && v !== null && v !== false) e.setAttribute(k === 'class' ? 'class' : k, v);
+    for (const f of filhos.flat()) if (f !== null && f !== undefined) e.append(f);
+    return e;
+  };
+  fetch('/api/public/perfis').then((r) => r.json()).then(({ perfis, permissoes }) => {
+    document.getElementById('lista-perfis').replaceChildren(...perfis.map((p) =>
+      el('div', { class: 'cartao' }, el('h3', {}, p.nome), el('p', {}, p.descricao))));
+    document.getElementById('matriz-perfis').replaceChildren(
+      el('thead', {}, el('tr', {}, el('th', {}, 'Pode'), perfis.map((p) => el('th', {}, p.nome)))),
+      el('tbody', {}, permissoes.map((perm) => el('tr', {}, el('td', {}, perm.descricao),
+        perfis.map((p) => p.permissoes.includes(perm.id) ? el('td', {}, '✓') : el('td', { class: 'nao' }, '—'))))));
+  }).catch(() => {
+    document.getElementById('lista-perfis').replaceChildren(el('p', { class: 'dica' }, 'Não foi possível carregar os perfis agora.'));
+  });
+</script>
+</body>
+</html>

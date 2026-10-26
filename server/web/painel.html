@@ -79,6 +79,16 @@
   .par strong { text-align: right; }
   .vazio-ck { margin: 0; color: var(--suave); font-size: 14px; }
   .acoes-ck { display: inline-flex; gap: 14px; }
+  .sem-permissao { display: none !important; }
+  /* Galeria do site */
+  .grade-galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .foto { background: var(--superficie); border: 1px solid var(--linha); border-radius: var(--raio); overflow: hidden; display: flex; flex-direction: column; }
+  .foto.oculta img { opacity: .45; }
+  .foto img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: var(--neutro); }
+  .foto .corpo { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .foto .corpo input { padding: 9px 12px; font-size: 14px; }
+  .foto .topo-foto { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--suave); }
+  .foto .acoes { display: flex; flex-wrap: wrap; gap: 6px; }
   .grade-evento { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 12px; }
 </style>
 </head>
@@ -88,6 +98,11 @@
   <img src="/logo.png" alt="Igreja Diakonia Tulipas">
   <form id="form-login" class="cartao">
     <h1 style="font-size:20px">Painel DiakoNews</h1>
+    <div class="campo">
+      <label for="usuario">Usuário</label>
+      <input type="text" id="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="ex.: maria.silva">
+      <span class="dica">Conta principal: deixe em branco ou use "admin".</span>
+    </div>
     <div class="campo">
       <label for="senha">Senha</label>
       <input type="password" id="senha" autocomplete="current-password" required>
@@ -102,18 +117,21 @@
     <img src="/logo.png" alt="Igreja Diakonia Tulipas">
     <span class="espaco"></span>
     <span id="conexao" class="dica"></span>
-    <a class="botao secundario pequeno" href="/admin">Administração</a>
+    <span id="quem" class="dica"></span>
+    <button class="botao secundario pequeno" id="minha-senha" type="button">Minha senha</button>
+    <a class="botao secundario pequeno" href="/admin" data-permissao="admin">Administração</a>
     <button class="botao secundario pequeno" id="sair">Sair</button>
   </header>
   <nav class="abas" role="tablist" aria-label="Seções">
     <button role="tab" data-aba="inicio" aria-selected="true">Início</button>
-    <button role="tab" data-aba="motivos" aria-selected="false">Motivos de oração<span id="badge" class="badge" hidden></span></button>
-    <button role="tab" data-aba="mensagens" aria-selected="false">Mensagens<span id="badge-mensagens" class="badge" hidden></span></button>
-    <button role="tab" data-aba="recados" aria-selected="false">Recados</button>
-    <button role="tab" data-aba="agenda" aria-selected="false">Agenda</button>
-    <button role="tab" data-aba="cartazes" aria-selected="false">Cartazes</button>
-    <button role="tab" data-aba="membros" aria-selected="false">Aniversariantes</button>
-    <button role="tab" data-aba="resumo" aria-selected="false">Resumo da semana</button>
+    <button role="tab" data-permissao="motivosVer" data-aba="motivos" aria-selected="false">Motivos de oração<span id="badge" class="badge" hidden></span></button>
+    <button role="tab" data-permissao="mensagens" data-aba="mensagens" aria-selected="false">Mensagens<span id="badge-mensagens" class="badge" hidden></span></button>
+    <button role="tab" data-permissao="recados" data-aba="recados" aria-selected="false">Recados</button>
+    <button role="tab" data-permissao="agendaVer" data-aba="agenda" aria-selected="false">Agenda</button>
+    <button role="tab" data-permissao="cartazes" data-aba="cartazes" aria-selected="false">Cartazes</button>
+    <button role="tab" data-permissao="galeria" data-aba="galeria" aria-selected="false">Galeria</button>
+    <button role="tab" data-permissao="membros" data-aba="membros" aria-selected="false">Aniversariantes</button>
+    <button role="tab" data-permissao="resumo" data-aba="resumo" aria-selected="false">Resumo da semana</button>
     <button role="tab" data-aba="historico" aria-selected="false">Histórico</button>
     <button role="tab" data-aba="status" aria-selected="false">Status</button>
   </nav>
@@ -122,15 +140,15 @@
       <div class="saudacao"><h1 id="saudacao">Olá!</h1><span class="dica" id="hoje"></span></div>
       <div class="indicadores">
         <button type="button" class="indicador" id="ind-pedidos" data-ir="motivos"><span>Pedidos aguardando</span><strong>–</strong><small></small></button>
-        <button type="button" class="indicador" id="ind-mensagens" data-ir="mensagens"><span>Mensagens novas</span><strong>–</strong><small></small></button>
+        <button type="button" class="indicador" id="ind-mensagens" data-permissao="mensagens" data-ir="mensagens"><span>Mensagens novas</span><strong>–</strong><small></small></button>
         <button type="button" class="indicador" id="ind-recados" data-ir="recados"><span>Recados no tablet</span><strong>–</strong><small></small></button>
         <button type="button" class="indicador" id="ind-eventos" data-ir="agenda"><span>Eventos em 7 dias</span><strong>–</strong><small></small></button>
       </div>
       <div class="cockpit">
         <section class="cartao"><h2>Pedidos para aprovar <button type="button" class="link" data-ir="motivos">Ver todos</button></h2><div id="ck-pedidos"></div></section>
-        <section class="cartao"><h2>Próximos eventos <span class="acoes-ck"><button type="button" class="link" id="ck-novo-evento" hidden>Novo</button><button type="button" class="link" data-ir="agenda">Agenda</button></span></h2><div id="ck-eventos"></div></section>
-        <section class="cartao"><h2>Mensagens novas <button type="button" class="link" data-ir="mensagens">Abrir</button></h2><div id="ck-mensagens"></div></section>
-        <section class="cartao"><h2>Aniversariantes da semana <button type="button" class="link" data-ir="membros">Ver todos</button></h2><div id="ck-aniversarios"></div></section>
+        <section class="cartao"><h2>Próximos eventos <span class="acoes-ck"><button type="button" class="link" id="ck-novo-evento" data-permissao="agendaEditar" hidden>Novo</button><button type="button" class="link" data-ir="agenda">Agenda</button></span></h2><div id="ck-eventos"></div></section>
+        <section class="cartao" data-permissao="mensagens"><h2>Mensagens novas <button type="button" class="link" data-ir="mensagens">Abrir</button></h2><div id="ck-mensagens"></div></section>
+        <section class="cartao" data-permissao="membros"><h2>Aniversariantes da semana <button type="button" class="link" data-ir="membros">Ver todos</button></h2><div id="ck-aniversarios"></div></section>
         <section class="cartao"><h2>Recados no tablet <button type="button" class="link" data-ir="recados">Editar</button></h2><div id="ck-recados"></div></section>
         <section class="cartao"><h2>Sistema <button type="button" class="link" data-ir="status">Detalhes</button></h2><div id="ck-sistema"></div></section>
       </div>
@@ -144,8 +162,8 @@
           <label><input type="radio" name="filtro-motivo" value="atendido">Atendidos</label>
         </div>
         <span class="espaco"></span>
-        <button class="botao secundario" id="projetar-respondidas" hidden>Projetar orações respondidas</button>
-        <button class="botao" id="novo-motivo">Novo motivo</button>
+        <button class="botao secundario" id="projetar-respondidas" data-permissao="projetar" hidden>Projetar orações respondidas</button>
+        <button class="botao" id="novo-motivo" data-permissao="motivosEditar">Novo motivo</button>
       </div>
       <p id="resultado-motivos" role="status"></p>
       <div class="lista" id="lista-motivos"></div>
@@ -162,7 +180,7 @@
       <div class="barra">
         <span class="dica" id="estado-agenda-painel">Eventos do Google Agenda nos próximos 30 dias. Para criar ou mudar um evento, use o Google Agenda.</span>
         <span class="espaco"></span>
-        <button class="botao" id="novo-evento" hidden>Novo evento</button>
+        <button class="botao" id="novo-evento" data-permissao="agendaEditar" hidden>Novo evento</button>
       </div>
       <p id="resultado-agenda" role="status"></p>
       <div class="lista" id="lista-agenda"></div>
@@ -218,6 +236,18 @@
       <div class="grade" id="lista-cartazes"></div>
     </section>
 
+    <section data-painel="galeria" hidden>
+      <div class="barra">
+        <span class="dica">Fotos do carrossel no topo da página inicial. A primeira é a capa. Prefira fotos na horizontal (JPG ou PNG até 15 MB).</span>
+        <span class="espaco"></span>
+        <button class="botao" type="button" id="botao-fotos">Enviar fotos</button>
+        <input type="file" id="arquivo-fotos" accept="image/jpeg,image/png" multiple hidden>
+      </div>
+      <p id="aviso-galeria" class="dica" hidden></p>
+      <p id="resultado-galeria" role="status"></p>
+      <div class="grade-galeria" id="lista-galeria"></div>
+    </section>
+
     <section data-painel="membros" hidden>
       <div class="duas">
         <div>
@@ -247,9 +277,9 @@
           <h2 style="font-size:18px">Situação</h2>
           <div id="status-linhas"></div>
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-            <button class="botao secundario" id="backup-agora">Fazer backup agora</button>
-            <button class="botao secundario" id="projetar-qr">Projetar QR no telão</button>
-            <button class="botao secundario" id="projetar-qr-mensagens">Projetar QR de mensagens</button>
+            <button class="botao secundario" id="backup-agora" data-permissao="admin">Fazer backup agora</button>
+            <button class="botao secundario" id="projetar-qr" data-permissao="projetar">Projetar QR no telão</button>
+            <button class="botao secundario" id="projetar-qr-mensagens" data-permissao="projetar">Projetar QR de mensagens</button>
           </div>
           <p id="resultado-status" role="status"></p>
         </div>
@@ -290,6 +320,21 @@
     <div class="dialogo-acoes">
       <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
       <button class="botao" value="salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-senha">
+  <form method="dialog" id="form-senha">
+    <h2 style="font-size:20px">Minha senha</h2>
+    <div class="campo"><label for="senha-atual">Senha atual</label><input type="password" id="senha-atual" autocomplete="current-password"></div>
+    <div class="campo"><label for="senha-nova">Nova senha</label><input type="password" id="senha-nova" autocomplete="new-password"><span class="dica" id="dica-senha-nova"></span></div>
+    <div class="campo"><label for="senha-confirma">Repita a nova senha</label><input type="password" id="senha-confirma" autocomplete="new-password"></div>
+    <p class="dica">Os outros aparelhos com a sua conta saem e precisam entrar de novo.</p>
+    <p class="erro" id="erro-senha" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Trocar senha</button>
     </div>
   </form>
 </dialog>
@@ -355,6 +400,6 @@
 </dialog>
 
 <script src="/comum.js?v=2"></script>
-<script src="/painel.js?v=5"></script>
+<script src="/painel.js?v=7"></script>
 </body>
 </html>

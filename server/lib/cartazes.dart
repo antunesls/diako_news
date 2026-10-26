@@ -42,7 +42,7 @@ class Cartazes {
   Future<String> salvar(String nomeOriginal, Uint8List bytes) async {
     if (bytes.isEmpty) throw const FormatException('Arquivo vazio.');
     if (bytes.length > tamanhoMaximo) throw const FormatException('Imagem maior que 10 MB.');
-    final tipo = _tipo(bytes);
+    final tipo = tipoImagem(bytes);
     if (tipo == null) throw const FormatException('Envie uma imagem JPG ou PNG.');
 
     var base = nomeSeguro(p.basenameWithoutExtension(nomeOriginal));
@@ -70,8 +70,8 @@ class Cartazes {
     return File(p.join(pasta, nome));
   }
 
-  /// Confere a assinatura do arquivo, sem confiar na extensão enviada.
-  static String? _tipo(Uint8List b) {
+  /// Confere a assinatura do arquivo, sem confiar na extensão enviada ('jpg', 'png' ou null).
+  static String? tipoImagem(Uint8List b) {
     if (b.length > 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return 'jpg';
     if (b.length > 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return 'png';
     return null;
