@@ -57,6 +57,23 @@ void main() {
     expect(() => decifrarBackup(zip, 'uma senha bem longa'), throwsFormatException);
   });
 
+  test('definir várias vezes ao mesmo tempo (clique repetido): todas terminam e a última vale', () async {
+    final senha = SenhaBackup(tmp.path, iteracoes: 1000);
+    await Future.wait([
+      senha.definir('primeira senha longa'),
+      senha.definir('segunda senha longa'),
+      senha.definir('terceira senha longa'),
+      senha.remover(),
+      senha.definir('quarta senha bem longa'),
+    ]);
+    final recarregada = SenhaBackup(tmp.path);
+    await recarregada.carregar();
+    // O que está em memória é o mesmo que está gravado.
+    expect(decifrarBackup(recarregada.cifrar(zip), 'quarta senha bem longa'), zip);
+    expect(decifrarBackup(senha.cifrar(zip), 'quarta senha bem longa'), zip);
+    expect(Directory(tmp.path).listSync().map((e) => p.basename(e.path)), ['backup-senha.json']);
+  });
+
   test('guarda só sal e chave derivada; recarrega; remover desliga', () async {
     final senha = SenhaBackup(tmp.path, iteracoes: 1000);
     expect(senha.definida, isFalse);

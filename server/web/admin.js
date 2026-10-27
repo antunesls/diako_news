@@ -487,6 +487,10 @@ $('form-senha-backup').addEventListener('submit', async (e) => {
     mensagem(saida, 'As duas senhas não conferem.', false);
     return;
   }
+  // Proteger a senha leva alguns segundos: um clique só.
+  const botaoDefinir = e.submitter || $('form-senha-backup').querySelector('button:not([type])');
+  botaoDefinir.disabled = true;
+  mensagem(saida, 'Definindo… (leva alguns segundos)');
   try {
     await api('PUT', '/api/backup/senha', { senha: $('senha-backup').value });
     $('form-senha-backup').reset();
@@ -494,6 +498,8 @@ $('form-senha-backup').addEventListener('submit', async (e) => {
     await carregarBackups();
   } catch (err) {
     mensagem(saida, err.message, false);
+  } finally {
+    botaoDefinir.disabled = false;
   }
 });
 

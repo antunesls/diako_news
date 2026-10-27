@@ -77,6 +77,14 @@ Uint8List decifrarBackup(Uint8List arquivo, String senha) {
 Future<Uint8List> decifrarBackupEmSegundoPlano(Uint8List arquivo, String senha) =>
     Isolate.run(() => decifrarBackup(arquivo, senha));
 
+// Funções de nível superior: um closure criado dentro de um método levaria o objeto junto
+// para o outro isolate (e a fila de SenhaBackup não pode ser enviada).
+Future<Uint8List> _derivarEmSegundoPlano(String senha, Uint8List sal, int iteracoes) =>
+    Isolate.run(() => derivarChaveBackup(senha, sal, iteracoes));
+
+Future<Uint8List> _cifrarEmSegundoPlano(Uint8List zip, Uint8List chave, Uint8List sal, int iteracoes) =>
+    Isolate.run(() => cifrarBackup(zip, chave: chave, sal: sal, iteracoes: iteracoes));
+
 /// Senha do backup (data/backup-senha.json). Guarda só o sal e a chave derivada, nunca a senha;
 /// o arquivo não entra nos backups. Sem senha definida, a cópia no PC da igreja fica desligada.
 class SenhaBackup {
@@ -107,33 +115,47 @@ class SenhaBackup {
     }
   }
 
-  Future<void> definir(String senha) async {
-    if (senha.length < senhaBackupMinima) {
-      throw FormatException('A senha do backup precisa ter pelo menos $senhaBackupMinima caracteres.');
-    }
-    final sal = _aleatorios(16);
-    final chave = derivarChaveBackup(senha, sal, iteracoes);
-    final quando = _agora();
-    await _arquivo.parent.create(recursive: true);
-    final tmp = File('${_arquivo.path}.tmp');
-    await tmp.writeAsString(jsonEncode({
-      'sal': base64Encode(sal),
-      'chave': base64Encode(chave),
-      'iteracoes': iteracoes,
-      'definidaEm': quando.toIso8601String(),
-    }), flush: true);
-    await tmp.rename(_arquivo.path);
-    _sal = sal;
-    _chave = chave;
-    _iteracoesChave = iteracoes;
-    definidaEm = quando;
+  /// Uma operação por vez (dois cliques em "Definir senha" não gravam o mesmo arquivo temporário),
+  /// na ordem pedida: no fim, memória e arquivo têm a mesma senha.
+  Future<void> _fila = Future.value();
+
+  Future<void> _naVez(Future<void> Function() acao) {
+    final r = _fila.then((_) => acao());
+    _fila = r.then((_) {}, onError: (_) {});
+    return r;
   }
 
-  Future<void> remover() async {
-    if (await _arquivo.exists()) await _arquivo.delete();
-    _chave = _sal = null;
-    definidaEm = null;
+  Future<void> definir(String senha) {
+    if (senha.length < senhaBackupMinima) {
+      return Future.error(FormatException('A senha do backup precisa ter pelo menos $senhaBackupMinima caracteres.'));
+    }
+    return _naVez(() async {
+      final sal = _aleatorios(16);
+      final n = iteracoes;
+      // A derivação leva alguns segundos: em outro isolate, para não travar as outras requisições.
+      final chave = await _derivarEmSegundoPlano(senha, sal, n);
+      final quando = _agora();
+      await _arquivo.parent.create(recursive: true);
+      final tmp = File('${_arquivo.path}.tmp');
+      await tmp.writeAsString(jsonEncode({
+        'sal': base64Encode(sal),
+        'chave': base64Encode(chave),
+        'iteracoes': n,
+        'definidaEm': quando.toIso8601String(),
+      }), flush: true);
+      await tmp.rename(_arquivo.path);
+      _sal = sal;
+      _chave = chave;
+      _iteracoesChave = n;
+      definidaEm = quando;
+    });
   }
+
+  Future<void> remover() => _naVez(() async {
+        if (await _arquivo.exists()) await _arquivo.delete();
+        _chave = _sal = null;
+        definidaEm = null;
+      });
 
   Uint8List cifrar(Uint8List zip) {
     final chave = _chave;
@@ -145,7 +167,6 @@ class SenhaBackup {
   Future<Uint8List> cifrarEmSegundoPlano(Uint8List zip) {
     final chave = _chave;
     if (chave == null) throw StateError('Senha do backup não definida.');
-    final (sal, iteracoes) = (_sal!, _iteracoesChave);
-    return Isolate.run(() => cifrarBackup(zip, chave: chave, sal: sal, iteracoes: iteracoes));
+    return _cifrarEmSegundoPlano(zip, chave, _sal!, _iteracoesChave);
   }
 }
