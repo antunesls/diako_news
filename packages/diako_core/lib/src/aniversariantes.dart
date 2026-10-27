@@ -12,13 +12,18 @@ List<DateTime> diasDaSemana(DateTime hoje) {
 
 bool _bissexto(int ano) => (ano % 4 == 0 && ano % 100 != 0) || ano % 400 == 0;
 
-/// Membros ativos que fazem aniversário na semana de [hoje], em ordem de data.
+/// Pode ter o nome divulgado (telão, mural, resumo): ativo e com autorização da LGPD
+/// vigente. A revogação apaga [Membro.consentimentoEm]; quem autoriza de novo volta.
+bool podeDivulgarAniversario(Membro m) => m.ativo && Membro.dataDe(m.consentimentoEm) != null;
+
+/// Pessoas que podem ser divulgadas ([podeDivulgarAniversario]) e fazem aniversário
+/// na semana de [hoje], em ordem de data.
 /// Quem nasceu em 29/02 comemora em 28/02 nos anos não bissextos.
 List<({Membro membro, DateTime data})> aniversariantesDaSemana(List<Membro> membros, DateTime hoje) {
   final resultado = <({Membro membro, DateTime data})>[];
   for (final dia in diasDaSemana(hoje)) {
     for (final m in membros) {
-      if (!m.ativo) continue;
+      if (!podeDivulgarAniversario(m)) continue;
       var (d, mes) = (m.dia, m.mes);
       if (d == 29 && mes == 2 && !_bissexto(dia.year)) d = 28;
       if (d == dia.day && mes == dia.month) resultado.add((membro: m, data: dia));

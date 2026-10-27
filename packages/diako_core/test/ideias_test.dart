@@ -59,7 +59,10 @@ void main() {
           Motivo(id: 'm3', motivo: 'Do site', status: StatusMotivo.aguardando),
           _atendido('m4', 'Ana', 'Emprego', DateTime(2026, 10, 26), testemunho: 'Contratada!'),
         ],
-        membros: [Membro(id: 'x', nome: 'Pedro', dia: 31, mes: 10)],
+        membros: [
+          Membro(id: 'x', nome: 'Pedro', dia: 31, mes: 10, consentimentoEm: '2026-01-10'),
+          Membro(id: 'y', nome: 'Sem Autorização', dia: 30, mes: 10),
+        ],
         agora: agora,
         urlPedidos: 'http://192.168.0.10:8080/oracao',
       );

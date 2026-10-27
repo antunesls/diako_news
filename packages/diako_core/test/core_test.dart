@@ -4,8 +4,8 @@ import 'package:test/test.dart';
 Motivo _m(String para, String motivo, {StatusMotivo status = StatusMotivo.pendente, bool publico = true}) =>
     Motivo(id: para + motivo, para: para, motivo: motivo, status: status, publico: publico);
 
-Membro _membro(String nome, int dia, int mes, {bool ativo = true}) =>
-    Membro(id: nome, nome: nome, dia: dia, mes: mes, ativo: ativo);
+Membro _membro(String nome, int dia, int mes, {bool ativo = true, String? consentimentoEm = '2026-01-10'}) =>
+    Membro(id: nome, nome: nome, dia: dia, mes: mes, ativo: ativo, consentimentoEm: consentimentoEm);
 
 void main() {
   group('Recado', () {
@@ -133,6 +133,27 @@ void main() {
 
     test('sem ninguém, sem recado', () {
       expect(recadoAniversariantes([_membro('Ana', 1, 1)], DateTime(2026, 6, 10)), isNull);
+    });
+
+    test('só divulga quem autorizou o uso dos dados (LGPD)', () {
+      final revogada = Membro.fromJson({
+        'id': 'Rui', 'nome': 'Rui', 'dia': 28, 'mes': 10, 'status': 'membro',
+        'consentimentoRevogado': {'em': '2026-10-01T12:00:00Z', 'autorizadoEm': '2026-01-10'},
+      });
+      final reautorizada = Membro.fromJson({
+        'id': 'Lia', 'nome': 'Lia', 'dia': 29, 'mes': 10, 'status': 'membro', 'consentimentoEm': '2026-10-05',
+        'consentimentoRevogado': {'em': '2026-10-01T12:00:00Z', 'autorizadoEm': '2026-01-10'},
+      });
+      final membros = [
+        _membro('Ana', 26, 10),
+        _membro('Sem autorização', 27, 10, consentimentoEm: null),
+        _membro('Data inválida', 27, 10, consentimentoEm: 'ontem'),
+        _membro('Inativa', 30, 10, ativo: false),
+        revogada,
+        reautorizada,
+      ];
+      expect(recadoAniversariantes(membros, DateTime(2026, 10, 28))!.texto, 'Ana (26/10)\nLia (29/10)');
+      expect(recadoAniversariantes([membros[1], membros[3], revogada], DateTime(2026, 10, 28)), isNull);
     });
   });
 

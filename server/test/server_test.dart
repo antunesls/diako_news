@@ -192,11 +192,17 @@ void main() {
     test('recado automático aparece e não pode ser editado', () async {
       await store.fechar();
       await criar(agora: DateTime(2026, 10, 28));
-      await req('POST', '/api/membros', json: {'nome': 'Ana', 'dia': 26, 'mes': 10});
-      await req('POST', '/api/membros', json: {'nome': 'Bia', 'dia': 5, 'mes': 11});
+      await req('POST', '/api/membros', json: {'nome': 'Ana', 'dia': 26, 'mes': 10, 'consentimentoEm': '2026-01-10'});
+      await req('POST', '/api/membros', json: {'nome': 'Bia', 'dia': 5, 'mes': 11, 'consentimentoEm': '2026-01-10'});
+      // Aniversário na semana, mas sem autorização da LGPD: fica só na ficha.
+      await req('POST', '/api/membros', json: {'nome': 'Caio', 'dia': 27, 'mes': 10});
       final lista = await corpo(await req('GET', '/api/recados')) as List;
       expect(lista.single['id'], 'auto-aniversariantes');
       expect(lista.single['texto'], 'Ana (26/10)');
+      final resumo = await corpo(await req('GET', '/api/resumo-semanal')) as Map;
+      expect(resumo['texto'], contains('Ana (26/10)'));
+      expect(resumo['texto'], isNot(contains('Caio')));
+      expect((await corpo(await req('GET', '/api/membros')) as List).map((m) => m['nome']), contains('Caio'));
       expect((await req('PUT', '/api/recados/auto-aniversariantes', json: {'titulo': 'x'})).statusCode, 400);
     });
 
@@ -392,7 +398,7 @@ void main() {
 
     test('resumo semanal', () async {
       await req('POST', '/api/recados', json: {'titulo': 'Santa Ceia', 'texto': 'Domingo'});
-      await req('POST', '/api/membros', json: {'nome': 'Pedro', 'dia': 31, 'mes': 10});
+      await req('POST', '/api/membros', json: {'nome': 'Pedro', 'dia': 31, 'mes': 10, 'consentimentoEm': '2026-01-10'});
       final t = (await corpo(await req('GET', '/api/resumo-semanal')))['texto'] as String;
       expect(t, contains('• *Santa Ceia* — Domingo'));
       expect(t, contains('• Pedro (31/10)'));

@@ -17,7 +17,7 @@ No painel também ficam o **resumo da semana para o WhatsApp**, o **histórico**
 | `packages/diako_core/` | Modelos e regras usados pelo app e pelo servidor (recados, motivos, slides, aniversariantes). |
 
 ## Funções do app
-- **Recados** com categorias (Aviso, Evento, Aniversário), fixos no topo, validade (expirados vão para uma aba própria) e ordenação arrastando. O recado **Aniversariantes da semana** é gerado sozinho pelo servidor.
+- **Recados** com categorias (Aviso, Evento, Aniversário), fixos no topo, validade (expirados vão para uma aba própria) e ordenação arrastando. O recado **Aniversariantes da semana** é gerado sozinho pelo servidor, só com quem autorizou o uso dos dados (LGPD).
 - **Projetar** um recado com um toque, ou a **Sequência** dos selecionados passando sozinha.
 - **Cartazes:** escolha uma imagem já enviada ou **envie uma foto do tablet**. Ela vai direto para o Holyrics.
 - **Motivos de oração:** pedidos enviados pelo site chegam em **Aguardando**, com um aviso na hora. O pastor aprova ou recusa. Pedidos particulares (cadeado) nunca vão para o telão. **Projetar motivos** mostra vários por slide, e há um botão para **projetar o QR** do formulário de pedidos.
