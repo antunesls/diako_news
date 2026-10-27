@@ -88,6 +88,8 @@ void main() {
   test('limita tentativas de senha e bloqueia Host não local', () async {
     final externo = await cliente.get(base.resolve('/api/estado'), headers: {'Host': 'site.externo'});
     expect(externo.statusCode, 403);
+    final local = await cliente.get(base.resolve('/'), headers: {'Host': 'localhost:${monitor.porta}'});
+    expect(local.statusCode, 200);
     for (var i = 0; i < 5; i++) {
       expect((await post('/api/login', {'senha': 'errada'}, autenticado: false)).statusCode, 401);
     }

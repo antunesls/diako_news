@@ -36,6 +36,13 @@ class MonitorAgente {
     await _servidor?.close(force: true);
   }
 
+  /// Aceita só o próprio PC, por nome ou IP. Evita "DNS rebinding" com Host estranho.
+  bool _hostLocal(String? host) {
+    if (host == null) return false;
+    final p = porta;
+    return p != null && (host == '127.0.0.1:$p' || host == 'localhost:$p');
+  }
+
   Future<void> _atender(HttpRequest req) async {
     final res = req.response;
     res.headers.set('Cache-Control', 'no-store');
@@ -46,8 +53,8 @@ class MonitorAgente {
         "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
     try {
       final host = req.headers.value(HttpHeaders.hostHeader);
-      if (host != '127.0.0.1:${porta}') return _json(res, 403, {'erro': 'Apenas acesso local.'});
-      if (req.method == 'POST' && req.headers.value('origin') != 'http://127.0.0.1:${porta}') {
+      if (!_hostLocal(host)) return _json(res, 403, {'erro': 'Apenas acesso local.'});
+      if (req.method == 'POST' && !_hostLocal(req.headers.value('origin')?.replaceFirst('http://', ''))) {
         return _json(res, 403, {'erro': 'Origem inválida.'});
       }
       final uri = req.uri;
