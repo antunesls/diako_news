@@ -112,6 +112,9 @@ Para testar o Holyrics **real** neste PC sem projetar nada, rode na raiz do proj
 `powershell -NoProfile -ExecutionPolicy Bypass -File .\tool\diagnosticar_holyrics.ps1`
 O script testa a porta 8091, pede o token em entrada oculta e consulta apenas `GetCPInfo` e `GetCurrentPresentation`.
 Use `-SemToken` para verificar só a porta; nesse caso não há confirmação da autenticação nem da API.
+Para **projetar um texto de teste** (opcional), acrescente `-ProjetarTexto`. O script só envia
+`ShowQuickPresentation` após confirmar que não há apresentação ativa e pedir que você digite `SIM`;
+qualquer outra resposta cancela. Não rode durante um culto. O script não fecha a projeção de teste.
 Se um token foi compartilhado fora do PC, revogue-o e crie outro antes de testar.
 Não use `tool/rodar_local.ps1` para diagnosticar a instalação real sem revisar a configuração:
 ele configura o token de desenvolvimento `teste` e pode iniciar um Holyrics simulado.
