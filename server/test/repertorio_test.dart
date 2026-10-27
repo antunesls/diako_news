@@ -2,6 +2,15 @@ import 'package:diako_server/repertorio.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('referência do YouTube aceita somente vídeo e domínio confiáveis', () {
+    expect(idVideoYoutube('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42'), 'dQw4w9WgXcQ');
+    expect(idVideoYoutube('https://youtu.be/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+    expect(idVideoYoutube('https://m.youtube.com/shorts/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+    expect(idVideoYoutube('https://youtube.com.evil.test/watch?v=dQw4w9WgXcQ'), isNull);
+    expect(idVideoYoutube('javascript:alert(1)'), isNull);
+    expect(idVideoYoutube('https://youtube.com/redirect?q=https://example.com'), isNull);
+  });
+
   test('tom escolhido substitui sugestão antiga sem apagar anotação importada', () {
     final m = RepertorioMusica.fromJson({
       'titulo': 'Canção', 'cantor': 'Banda', 'tomDiakonia': 'Em\nIntro: C', 'tomSelecionado': 'F#m',

@@ -235,6 +235,8 @@ void main() {
       final nov = await mes('2026-11');
       await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-01')['id']}', token: admin, json: {'tipo': 'louvor', 'funcao': 'Violão', 'membros': [bruno]});
       final abertura = await musica('Abertura', tom: 'G');
+      await chamar('PUT', '/api/repertorio/$abertura', token: admin,
+          json: {'referencia': 'https://youtu.be/dQw4w9WgXcQ?t=10'});
       await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-01')['id']}', token: admin, json: {'musicas': [{'repertorioId': abertura, 'tom': 'G'}]});
       await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-04')['id']}', token: admin, json: {'tipo': 'louvor', 'funcao': 'Vocal', 'membros': [ana]});
 
@@ -257,7 +259,10 @@ void main() {
       expect(minha['nome'], 'Bruno');
       expect((minha['cultos'] as List).map((c) => c['data']), ['2026-11-01']);
       expect(minha['cultos'].single['funcoes'], [{'tipo': 'louvor', 'funcao': 'Violão'}]);
-      expect(minha['cultos'].single['musicas'].single, {'repertorioId': abertura, 'titulo': 'Abertura', 'tom': 'G'});
+      expect(minha['cultos'].single['musicas'].single, {
+        'repertorioId': abertura, 'titulo': 'Abertura', 'tom': 'G',
+        'youtube': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      });
 
       expect((await chamar('POST', '/api/minha-escala/indisponivel', token: acesso, json: {'de': '2026-10-01'})).$1, 400);
       final (stInd, ind) = await chamar('POST', '/api/minha-escala/indisponivel', token: acesso,
@@ -279,11 +284,18 @@ void main() {
       // Pastor existente pode ser vinculado sem criar segunda conta.
       final pastor = await criarUsuario('pastor1', Perfil.pastor);
       final pr = await membro('Pr. João', funcao: 'Pastor');
+      await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-01')['id']}', token: admin,
+          json: {'tipo': 'pastoral', 'funcao': 'Pregação', 'membros': [pr]});
       final usuarios = (await chamar('GET', '/api/acessos-escala', token: secretaria)).$2['usuarios'] as List;
       final pastorId = usuarios.firstWhere((u) => u['login'] == 'pastor1')['id'];
       expect((await chamar('POST', '/api/acessos-escala/vincular', token: secretaria,
           json: {'usuarioId': pastorId, 'membroId': pr})).$1, 200);
-      expect((await chamar('GET', '/api/minha-escala', token: pastor)).$1, 200);
+      final (stPastor, minhaPastoral) = await chamar('GET', '/api/minha-escala', token: pastor);
+      expect(stPastor, 200);
+      expect(minhaPastoral['cultos'].single['musicas'].single['youtube'], 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+      await chamar('PUT', '/api/repertorio/$abertura', token: admin,
+          json: {'referencia': 'https://youtube.com.evil.test/watch?v=dQw4w9WgXcQ'});
+      expect((await chamar('GET', '/api/minha-escala', token: pastor)).$2['cultos'].single['musicas'].single.containsKey('youtube'), false);
       expect((await chamar('POST', '/api/acessos-escala/$pastorId/senha', token: secretaria)).$1, 404);
     });
 

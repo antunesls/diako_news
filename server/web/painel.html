@@ -235,6 +235,21 @@
   .musicas-lista { display: flex; flex-direction: column; gap: 8px; }
   .musicas-lista .musica { display: grid; grid-template-columns: 28px minmax(0, 1fr) 90px 40px; gap: 8px; align-items: center; }
   .musicas-lista .musica .ordem { font-weight: 600; color: var(--suave); text-align: center; }
+  #dlg-selecionar-musica { width: min(780px, calc(100vw - 32px)); max-height: 90dvh; overflow-y: auto; }
+  .seletor-musica-lista { display: flex; flex-direction: column; gap: 10px; max-height: 60dvh; overflow-y: auto; margin: 12px 0; }
+  .seletor-musica-cartao { display: flex; align-items: center; gap: 14px; padding: 12px; border: 1px solid var(--linha); border-radius: 14px; }
+  .seletor-musica-cartao img { flex: 0 0 130px; width: 130px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; }
+  .seletor-musica-cartao .info { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .seletor-musica-cartao .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .musica-resumo { min-width: 0; overflow-wrap: anywhere; }
+  .musica-resumo strong { display: block; }
+  @media (max-width: 560px) {
+    .musicas-lista .musica { grid-template-columns: 25px minmax(0, 1fr) 42px; }
+    .musicas-lista .musica input { grid-column: 2; grid-row: 2; width: 100%; }
+    .musicas-lista .musica > button:last-child { grid-column: 3; grid-row: 1; }
+    .seletor-musica-cartao { flex-wrap: wrap; }
+    .seletor-musica-cartao img { flex: 0 0 100px; width: 100px; }
+  }
   @media print {
     body { background: #fff; }
     body > *:not(#impressao-membros) { display: none !important; }
@@ -599,6 +614,14 @@
       <button class="botao" value="salvar" id="musicas-salvar">Salvar</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="dlg-selecionar-musica" aria-labelledby="seletor-musica-titulo">
+  <h2 id="seletor-musica-titulo">Escolher música do repertório</h2>
+  <div class="campo"><label for="seletor-musica-busca">Pesquisar por título, cantor ou compositor</label><input id="seletor-musica-busca" type="search" autocomplete="off" placeholder="Ex.: santo, intérprete ou compositor"></div>
+  <p class="dica" id="seletor-musica-contagem" role="status"></p>
+  <div id="seletor-musica-lista" class="seletor-musica-lista"></div>
+  <div class="dialogo-acoes"><button type="button" class="botao secundario" id="seletor-musica-fechar">Voltar à escala</button></div>
 </dialog>
 
 <dialog id="dlg-repertorio">
@@ -988,8 +1011,9 @@
 <script src="/painel.js?v=15"></script>
 <script src="/acessos-escala.js?v=1"></script>
 <script src="/repertorio-busca.js?v=1"></script>
+<script src="/musica-youtube.js?v=1"></script>
 <script src="/repertorio.js?v=2"></script>
 <script src="/escala-impressao.js?v=1"></script>
-<script src="/escalas.js?v=4"></script>
+<script src="/escalas.js?v=5"></script>
 </body>
 </html>

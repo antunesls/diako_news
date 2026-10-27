@@ -2161,6 +2161,7 @@ class Servidor {
     final hoje = diaEscala(_agora());
     final limite = diaEscala(_agora().add(const Duration(days: 60)));
     final membro = Membro.fromJson(store.buscar('membros', id)!);
+    final referencias = {for (final m in store.listar('repertorio')) m['id']: m['referencia']};
     return _json({
       'igreja': _termo.igreja,
       'nome': membro.nome.split(' ').first,
@@ -2175,8 +2176,14 @@ class Servidor {
               'nome': c.nome,
               'ceia': c.ceia,
               'funcoes': [for (final s in c.servindo) if (s.membroId == id) {'tipo': s.tipo.name, 'funcao': s.funcao}],
-              if (c.servindo.any((s) => s.membroId == id && s.tipo == TipoEscala.louvor))
-                'musicas': [for (final m in c.musicas) m.toJson()],
+              'musicas': [
+                for (final m in c.musicas)
+                  {
+                    ...m.toJson(),
+                    if (idVideoYoutube(referencias[m.repertorioId] is String ? referencias[m.repertorioId] as String : '') case final video?)
+                      'youtube': 'https://www.youtube.com/watch?v=$video',
+                  },
+              ],
             },
       ],
       'indisponibilidades': [

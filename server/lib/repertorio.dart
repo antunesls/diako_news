@@ -1,5 +1,20 @@
 import 'package:diako_core/diako_core.dart';
 
+/// Extrai somente vídeos de URLs HTTPS do YouTube (sem expor links externos arbitrários).
+String? idVideoYoutube(String referencia) {
+  final uri = Uri.tryParse(referencia.trim());
+  if (uri == null || uri.scheme != 'https' || uri.userInfo.isNotEmpty || uri.hasPort) return null;
+  final partes = uri.pathSegments;
+  String? id;
+  if (uri.host == 'youtu.be' && partes.length == 1) {
+    id = partes.single;
+  } else if (const {'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'}.contains(uri.host)) {
+    if (uri.path == '/watch') id = uri.queryParameters['v'];
+    if (partes.length == 2 && const {'shorts', 'live', 'embed'}.contains(partes.first)) id = partes.last;
+  }
+  return id != null && RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(id) ? id : null;
+}
+
 /// Música cadastrada pela equipe; a planilha serve apenas para importação inicial.
 class RepertorioMusica {
   const RepertorioMusica({

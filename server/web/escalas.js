@@ -211,6 +211,38 @@ $('escalar-todos').addEventListener('change', () => escalarAtual && desenharEsca
 
 // ---------- Músicas ----------
 
+let aoSelecionarMusica = null;
+
+function desenharSeletorMusica() {
+  const musicas = buscarRepertorio(repertorioMusicas.filter((r) => r.ativo), {
+    busca: $('seletor-musica-busca').value,
+  });
+  $('seletor-musica-contagem').textContent = `${musicas.length} ${musicas.length === 1 ? 'música disponível' : 'músicas disponíveis'}.`;
+  $('seletor-musica-lista').replaceChildren(...(musicas.length ? musicas.map((r) => {
+    const thumb = miniaturaYoutube(r.referencia);
+    const link = linkYoutube(r.referencia);
+    return el('div', { class: 'seletor-musica-cartao' },
+      thumb ? el('img', { src: thumb, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
+      el('div', { class: 'info' }, el('strong', {}, r.titulo),
+        el('div', { class: 'dica' }, [r.cantor, r.compositor && `Compositor: ${r.compositor}`,
+          tomDaMusica(r) && `Tom: ${tomDaMusica(r)}`, r.bpm && `${r.bpm} BPM`].filter(Boolean).join(' · ')),
+        el('div', { class: 'acoes' },
+          botao('Escolher', () => { aoSelecionarMusica?.(r); $('dlg-selecionar-musica').close(); }),
+          link ? el('a', { class: 'botao secundario pequeno', href: link, target: '_blank', rel: 'noopener noreferrer' }, 'Ver no YouTube') : null)));
+  }) : [el('p', { class: 'dica' }, 'Nenhuma música disponível encontrada. Tente outra busca ou confira o status no Repertório.') ]));
+}
+
+function abrirSeletorMusica(selecionar) {
+  aoSelecionarMusica = selecionar;
+  $('seletor-musica-busca').value = '';
+  desenharSeletorMusica();
+  $('dlg-selecionar-musica').showModal();
+  $('seletor-musica-busca').focus();
+}
+$('seletor-musica-busca').addEventListener('input', desenharSeletorMusica);
+$('seletor-musica-fechar').addEventListener('click', () => $('dlg-selecionar-musica').close());
+$('dlg-selecionar-musica').addEventListener('close', () => { aoSelecionarMusica = null; });
+
 function linhaMusica(m = { titulo: '', tom: '' }, editavel = true) {
   const escolha = el('select', { 'aria-label': 'Música do repertório' });
   const musicaAtual = repertorioMusicas.find((r) => r.id === m.repertorioId);
@@ -227,15 +259,31 @@ function linhaMusica(m = { titulo: '', tom: '' }, editavel = true) {
   tom.value = m.tom || '';
   escolha.disabled = tom.disabled = !editavel;
   let primeiroVinculo = !!escolha.dataset.tituloAntigo;
+  const resumo = el('div', { class: 'musica-resumo' });
+  function atualizarResumo() {
+    const r = repertorioMusicas.find((x) => x.id === escolha.value);
+    const link = linkYoutube(r?.referencia);
+    resumo.replaceChildren(el('strong', {}, r?.titulo || m.titulo || 'Nenhuma música selecionada'),
+      r ? el('span', { class: 'dica' }, `${r.cantor}${r.compositor ? ' · ' + r.compositor : ''}`) : null,
+      link ? el('a', { href: link, target: '_blank', rel: 'noopener noreferrer', style: 'display:block' }, 'Ver no YouTube ↗') : null,
+      editavel ? botao(r ? 'Trocar música' : 'Escolher música', () => abrirSeletorMusica((selecionada) => {
+        if (escolha.value === selecionada.id) return;
+        escolha.value = selecionada.id;
+        escolha.dispatchEvent(new Event('change'));
+      })) : null);
+  }
   escolha.addEventListener('change', () => {
     const r = repertorioMusicas.find((x) => x.id === escolha.value);
     tom.value = r ? (primeiroVinculo ? escolha.dataset.tomAntigo :
       r.tomSelecionado != null ? r.tomSelecionado : tomPadraoRepertorio(r.tomDiakonia)) : escolha.dataset.tomAntigo;
     if (r) primeiroVinculo = false;
     tom.readOnly = !r;
+    atualizarResumo();
   });
   tom.readOnly = !m.repertorioId;
-  const linha = el('div', { class: 'musica' }, el('span', { class: 'ordem' }), escolha, tom,
+  escolha.hidden = true;
+  atualizarResumo();
+  const linha = el('div', { class: 'musica' }, el('span', { class: 'ordem' }), resumo, escolha, tom,
     editavel ? el('button', { type: 'button', class: 'botao secundario pequeno', 'aria-label': 'Remover música', style: 'padding:0', onclick: () => { linha.remove(); numerarMusicas(); } }, '×') : el('span'));
   return linha;
 }
@@ -273,8 +321,10 @@ async function abrirMusicas(c, editavel) {
   });
 }
 $('musicas-adicionar').addEventListener('click', () => {
-  $('musicas-lista').append(linhaMusica());
+  const linha = linhaMusica();
+  $('musicas-lista').append(linha);
   numerarMusicas();
+  linha.querySelector('.musica-resumo button').click();
 });
 
 // ---------- Cultos: gerar, repetir, extra, editar ----------

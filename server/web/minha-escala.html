@@ -16,6 +16,8 @@
   .culto .funcao { font-weight: 600; }
   .culto .sub { font-size: 14px; color: var(--suave); }
   .culto .musicas { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--suave); }
+  .culto .musicas li { padding: 3px 0; }
+  .culto .musicas a { margin-left: 6px; }
   .avisos { list-style: none; margin: 0 0 12px; padding: 0; }
   .avisos li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--linha); font-size: 15px; }
   .avisos li span { flex: 1; }
@@ -129,7 +131,19 @@
       if (c.musicas && c.musicas.length) {
         const ol = document.createElement('ol');
         ol.className = 'musicas';
-        ol.append(...c.musicas.map((m) => Object.assign(document.createElement('li'), { textContent: m.tom ? `${m.titulo} (${m.tom})` : m.titulo })));
+        ol.append(...c.musicas.map((m) => {
+          const li = document.createElement('li');
+          li.append(document.createTextNode(m.tom ? `${m.titulo} (tom: ${m.tom})` : m.titulo));
+          if (m.youtube) {
+            const a = document.createElement('a');
+            a.href = m.youtube;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.textContent = 'Ouvir no YouTube ↗';
+            li.append(a);
+          }
+          return li;
+        }));
         texto.append(ol);
       }
       caixa.append(dia, texto);
