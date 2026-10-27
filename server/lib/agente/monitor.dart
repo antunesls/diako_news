@@ -191,6 +191,8 @@ class MonitorAgente {
         }
       }
       _json(res, 404, {'erro': 'Página não encontrada.'});
+    } on FormatException {
+      _json(res, 400, {'erro': 'Requisição inválida.'});
     } catch (_) {
       _json(res, 500, {'erro': 'Não foi possível concluir a operação.'});
     } finally {

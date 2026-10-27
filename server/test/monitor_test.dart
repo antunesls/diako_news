@@ -96,6 +96,16 @@ void main() {
     expect((await post('/api/login', {'senha': 'senha-do-monitor-123'}, autenticado: false)).statusCode, 429);
   });
 
+  test('corpo malformado responde 400 em vez de 500', () async {
+    await login();
+    final r = await cliente.post(base.resolve('/api/diagnostico'), headers: {
+      'Origin': base.origin, 'Content-Type': 'application/json',
+      'Cookie': cookie, 'X-CSRF-Token': csrf,
+    }, body: '{acao:backend}');
+    expect(r.statusCode, 400);
+    expect(acoes, isEmpty);
+  });
+
   test('monitor sem senha própria não inicia', () async {
     final desligado = MonitorAgente(Agente(AgenteConfig(servidor: 'https://exemplo.org',
         chaveAgente: 'chave', holyricsToken: 'token', pastaImagensHolyrics: Directory.systemTemp.path,
