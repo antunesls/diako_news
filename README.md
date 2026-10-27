@@ -8,7 +8,7 @@ Sistema da Igreja Diakonia Tulipas para projetar recados e motivos de oração n
  TV da recepção ─────────▶ /mural  │      dados, cartazes, histórico, backup
  Tablet do pastor (este app) ──────┘
 ```
-No painel também ficam o **resumo da semana para o WhatsApp**, o **histórico** do que foi projetado, o **cadastro de membros** (dados completos, foto, família e ministérios) e os **visitantes** (QR e obreiro da recepção, boas-vindas no telão e na TV, acompanhamento) — veja o [`LEIA-ME do servidor`](server/LEIA-ME.md).
+No painel também ficam o **resumo da semana para o WhatsApp**, o **histórico** do que foi projetado, o **cadastro de membros** (dados completos, foto, família e ministérios), os **visitantes** (QR e obreiro da recepção, boas-vindas no telão e na TV, acompanhamento) e as **escalas pastoral e do louvor** — veja o [`LEIA-ME do servidor`](server/LEIA-ME.md).
 
 | Pasta | O que é |
 |---|---|
@@ -24,6 +24,7 @@ No painel também ficam o **resumo da semana para o WhatsApp**, o **histórico**
 - **Caixa de mensagens:** um QR separado leva a `/mensagens`, onde qualquer pessoa envia dúvida, sugestão ou crítica, anonimamente ou com contato opcional. Painel e tablet mostram as mensagens privadas como **Nova**, **Em análise** e **Resolvida**. Na administração, configure o SMTP para receber um aviso por e-mail (sem o conteúdo da mensagem). O QR também pode ser projetado e aparece no mural.
 - **Orações respondidas:** atendidos mostram a data e o testemunho (editável). Um botão projeta as respondidas dos últimos 30 dias.
 - **Agenda (Google Agenda):** aba com os próximos eventos por dia. O pastor projeta um evento no telão ou o transforma em recado. O próximo evento aparece também no topo da aba Recados. A TV mostra "Hoje" e os próximos eventos, e o resumo semanal inclui a agenda. A configuração fica em `/admin` (veja o [LEIA-ME do servidor](server/LEIA-ME.md#agenda-do-google)).
+- **Escala:** mostra quem serve no culto de hoje (pastoral e louvor) e as músicas na ordem cadastrada. Se não houver culto hoje, mostra o próximo em até 7 dias; mantém a última cópia para consulta sem conexão. A montagem é feita no painel ([instruções](server/LEIA-ME.md#escalas-pastoral-e-do-louvor)).
 - **Barra de controle:** anterior, parar, próximo, tela vazia (F9) e tela preta (F10). Mostra o que está no ar.
 - Contagem regressiva no telão e no palco, além de mensagem no painel de comunicação.
 - **Sincronização ao vivo** com o servidor. Sem conexão, o app mostra a última cópia salva e bloqueia a edição.

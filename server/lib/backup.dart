@@ -384,6 +384,12 @@ class Restauracao {
               }
             case 'visitas':
               Visita.fromJson(doc);
+            case 'escalas':
+              CultoEscala.fromJson(doc);
+            case 'indisponibilidades':
+              Indisponibilidade.fromJson(doc);
+            case 'linksEscala':
+              if (doc['id'] is! String || doc['hash'] is! String) throw const FormatException('Link de escala inválido.');
           }
         }
         colecoes[nome] = lista;

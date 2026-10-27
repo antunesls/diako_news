@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Minha escala</title>
+<link rel="stylesheet" href="/estilo.css?v=5">
+<style>
+  .cultos { display: flex; flex-direction: column; gap: 10px; margin: 0 0 16px; }
+  .culto { display: flex; gap: 14px; align-items: center; padding: 14px 16px; background: var(--superficie); border: 1px solid var(--linha); border-radius: 18px; }
+  .culto .dia { width: 54px; flex: none; text-align: center; padding: 6px 0; border-radius: 12px; background: var(--primaria-suave); color: var(--primaria-escura); }
+  .culto .dia small { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+  .culto .dia strong { display: block; font-size: 20px; line-height: 1.1; }
+  .culto .funcao { font-weight: 600; }
+  .culto .sub { font-size: 14px; color: var(--suave); }
+  .culto .musicas { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--suave); }
+  .avisos { list-style: none; margin: 0 0 12px; padding: 0; }
+  .avisos li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--linha); font-size: 15px; }
+  .avisos li span { flex: 1; }
+  .grade2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 10px; }
+  h2 { font-size: 18px; margin-top: 4px; }
+</style>
+</head>
+<body class="publico">
+<main>
+  <header><img src="/logo.png" alt=""></header>
+
+  <section id="carregando" class="cartao"><p>Carregando…</p></section>
+
+  <section id="invalido" class="cartao" hidden>
+    <h2>Não foi possível abrir</h2>
+    <p id="invalido-texto"></p>
+  </section>
+
+  <section id="conteudo" hidden>
+    <p class="sobretitulo">Minha escala</p>
+    <h1 id="ola"></h1>
+    <p class="intro" id="resumo"></p>
+
+    <div class="cultos" id="cultos"></div>
+    <button type="button" class="botao secundario" id="agenda" style="width:100%" hidden>Pôr na minha agenda</button>
+
+    <form id="form" class="cartao" style="margin-top:18px" novalidate>
+      <h2>Não vou poder</h2>
+      <p class="dica" style="margin-top:-6px">Avise com antecedência: quem monta a escala vê o aviso na hora.</p>
+      <ul class="avisos" id="avisos"></ul>
+      <div class="grade2">
+        <div class="campo"><label for="de">De</label><input type="date" id="de" required></div>
+        <div class="campo"><label for="ate">Até</label><input type="date" id="ate"></div>
+      </div>
+      <div class="campo"><label for="motivo">Motivo <span class="dica">(opcional)</span></label><input type="text" id="motivo" maxlength="80" placeholder="Ex.: viagem"></div>
+      <p id="resultado" role="status"></p>
+      <button class="botao" style="width:100%">Avisar</button>
+    </form>
+
+    <p class="dica" style="text-align:center;margin-top:18px">Link pessoal, enviado por quem monta a escala. Mostra só a sua escala; não repasse.</p>
+  </section>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  // O token fica depois do "#": não vai para o servidor no endereço nem para os registros de acesso.
+  const token = decodeURIComponent(location.hash.slice(1));
+  let dados = null;
+
+  async function chamar(caminho, corpo) {
+    const r = await fetch(caminho, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, ...corpo }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.erro || 'Não foi possível carregar. Tente de novo.');
+    return j;
+  }
+
+  function invalido(texto) {
+    $('carregando').hidden = true;
+    $('conteudo').hidden = true;
+    $('invalido').hidden = false;
+    $('invalido-texto').textContent = texto;
+  }
+
+  const ddmm = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+  const periodo = (de, ate) => (de === ate ? ddmm(de) : `${ddmm(de)} a ${ddmm(ate)}`);
+  const nomeFuncao = (f) => f.tipo === 'louvor' ? `${f.funcao} · louvor` : f.funcao;
+
+  function desenhar() {
+    $('carregando').hidden = true;
+    $('conteudo').hidden = false;
+    $('ola').textContent = 'Olá, ' + dados.nome;
+    const n = dados.cultos.length;
+    $('resumo').textContent = n === 0
+      ? 'Você não está escalado(a) nos próximos 60 dias.'
+      : `Você serve em ${n} ${n === 1 ? 'culto' : 'cultos'} nos próximos 60 dias. ${dados.igreja}.`;
+    $('cultos').replaceChildren(...dados.cultos.map((c) => {
+      const caixa = document.createElement('div');
+      caixa.className = 'culto';
+      const dia = document.createElement('div');
+      dia.className = 'dia';
+      dia.append(Object.assign(document.createElement('small'), { textContent: c.rotulo.slice(0, 3) }),
+        Object.assign(document.createElement('strong'), { textContent: c.data.slice(8, 10) }));
+      const texto = document.createElement('div');
+      texto.style.flex = '1';
+      texto.append(Object.assign(document.createElement('div'), { className: 'funcao', textContent: c.funcoes.map(nomeFuncao).join(' e ') }),
+        Object.assign(document.createElement('div'), { className: 'sub', textContent: `${c.rotulo.slice(4)} · ${c.horaTexto} · ${c.nome}${c.ceia ? ' · Santa Ceia' : ''}` }));
+      if (c.musicas && c.musicas.length) {
+        const ol = document.createElement('ol');
+        ol.className = 'musicas';
+        ol.append(...c.musicas.map((m) => Object.assign(document.createElement('li'), { textContent: m.tom ? `${m.titulo} (${m.tom})` : m.titulo })));
+        texto.append(ol);
+      }
+      caixa.append(dia, texto);
+      return caixa;
+    }));
+    $('agenda').hidden = n === 0;
+    $('avisos').replaceChildren(...dados.indisponibilidades.map((i) => {
+      const li = document.createElement('li');
+      const remover = Object.assign(document.createElement('button'), { type: 'button', className: 'botao secundario pequeno', textContent: 'Desfazer' });
+      remover.addEventListener('click', async () => {
+        try {
+          await chamar('/api/public/minha-escala/indisponivel/remover', { id: i.id });
+          await carregar();
+        } catch (err) {
+          mensagem(err.message, false);
+        }
+      });
+      li.append(Object.assign(document.createElement('span'), { textContent: `Indisponível ${periodo(i.de, i.ate)}${i.motivo ? ' · ' + i.motivo : ''}` }), remover);
+      return li;
+    }));
+  }
+
+  function mensagem(texto, ok = true) {
+    $('resultado').textContent = texto;
+    $('resultado').className = ok ? 'sucesso' : 'erro';
+  }
+
+  async function carregar() {
+    try {
+      dados = await chamar('/api/public/minha-escala', {});
+      desenhar();
+    } catch (err) {
+      invalido(err.message);
+    }
+  }
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!$('de').value) return mensagem('Escolha a data.', false);
+    const botao = $('form').querySelector('button:not([type])');
+    botao.disabled = true;
+    try {
+      await chamar('/api/public/minha-escala/indisponivel', { de: $('de').value, ate: $('ate').value || $('de').value, motivo: $('motivo').value.trim() });
+      $('form').reset();
+      await carregar();
+      mensagem('Aviso enviado. Obrigado por avisar!');
+    } catch (err) {
+      mensagem(err.message, false);
+    } finally {
+      botao.disabled = false;
+    }
+  });
+
+  // Convite .ics feito aqui no celular (nada sai do aparelho): um evento de 2 horas por culto.
+  $('agenda').addEventListener('click', () => {
+    const esc = (s) => s.replace(/[\\;,]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
+    const linhas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DiakoNews//Minha escala//PT', 'CALSCALE:GREGORIAN'];
+    for (const c of dados.cultos) {
+      const [h, m] = c.hora.split(':').map(Number);
+      const inicio = c.data.replace(/-/g, '') + 'T' + String(h).padStart(2, '0') + String(m).padStart(2, '0') + '00';
+      const fim = c.data.replace(/-/g, '') + 'T' + String(Math.min(h + 2, 23)).padStart(2, '0') + String(m).padStart(2, '0') + '00';
+      linhas.push('BEGIN:VEVENT', `UID:escala-${c.data}-${c.hora.replace(':', '')}@diakonews`,
+        `DTSTART;TZID=America/Sao_Paulo:${inicio}`, `DTEND;TZID=America/Sao_Paulo:${fim}`,
+        `SUMMARY:${esc(c.funcoes.map(nomeFuncao).join(' e ') + ' — ' + c.nome)}`,
+        `DESCRIPTION:${esc(dados.igreja)}`, 'END:VEVENT');
+    }
+    linhas.push('END:VCALENDAR');
+    const blob = new Blob([linhas.join('\r\n')], { type: 'text/calendar' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'minha-escala.ics' });
+    document.body.append(a);
+    a.click();
+    a.remove();
+  });
+
+  if (token.length < 20) invalido('Este link está incompleto. Abra de novo o link que você recebeu.');
+  else carregar();
+</script>
+</body>
+</html>

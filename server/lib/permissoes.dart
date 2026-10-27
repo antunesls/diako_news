@@ -19,6 +19,9 @@ enum Permissao {
   visitantes('Ver os visitantes do dia e dar as boas-vindas'),
   visitantesCadastrar('Cadastrar visitantes (recepção)'),
   resumo('Resumo da semana'),
+  escalasVer('Ver as escalas'),
+  escalaPastoral('Montar a escala pastoral e os cultos do mês'),
+  escalaLouvor('Montar a escala e as músicas do louvor'),
   projetar('Projetar no telão'),
   admin('Administração'),
   usuarios('Usuários e perfis');
@@ -35,25 +38,28 @@ enum Perfil {
   administrador('Administrador', 'Tudo, inclusive configurações, backup e usuários.', {
     ..._base, Permissao.motivosParticulares, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar,
     Permissao.galeria, Permissao.membros, Permissao.resumo, Permissao.projetar, Permissao.admin, Permissao.usuarios,
-    Permissao.visitantes, Permissao.visitantesCadastrar,
+    Permissao.visitantes, Permissao.visitantesCadastrar, Permissao.escalasVer, Permissao.escalaPastoral, Permissao.escalaLouvor,
   }),
   pastor('Pastor', 'Todo o conteúdo, inclusive pedidos particulares. Sem configurações técnicas.', {
     ..._base, Permissao.motivosParticulares, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar,
     Permissao.galeria, Permissao.membros, Permissao.resumo, Permissao.projetar,
-    Permissao.visitantes, Permissao.visitantesCadastrar,
+    Permissao.visitantes, Permissao.visitantesCadastrar, Permissao.escalasVer, Permissao.escalaPastoral, Permissao.escalaLouvor,
   }),
   secretaria('Secretaria', 'Recados, agenda, mensagens, aniversariantes e pedidos públicos.', {
     ..._base, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar, Permissao.membros, Permissao.resumo,
-    Permissao.visitantes, Permissao.visitantesCadastrar,
+    Permissao.visitantes, Permissao.visitantesCadastrar, Permissao.escalasVer, Permissao.escalaPastoral, Permissao.escalaLouvor,
   }),
   midia('Mídia', 'Cartazes, galeria do site, recados e projeção no telão.', {
-    ..._base, Permissao.galeria, Permissao.projetar,
+    ..._base, Permissao.galeria, Permissao.projetar, Permissao.escalasVer,
   }),
   telao('Telão (tablet)', 'Operar o telão no culto: recados, pedidos públicos, boas-vindas e projeção.', {
-    ..._base, Permissao.projetar, Permissao.visitantes,
+    ..._base, Permissao.projetar, Permissao.visitantes, Permissao.escalasVer,
   }),
   recepcao('Recepção', 'Obreiro da recepção: cadastra visitantes pelo celular (/recepcao) e vê os do dia. Nada mais.', {
     Permissao.sessao, Permissao.visitantes, Permissao.visitantesCadastrar,
+  }),
+  louvor('Louvor', 'Líder do louvor: monta a escala e as músicas do louvor e vê a escala pastoral e a agenda.', {
+    Permissao.sessao, Permissao.painel, Permissao.agendaVer, Permissao.escalasVer, Permissao.escalaLouvor,
   });
 
   const Perfil(this.nome, this.descricao, this.permissoes);
@@ -92,6 +98,8 @@ Permissao permissaoDaRota(String metodo, String caminho) {
     return Permissao.visitantesCadastrar;
   }
   if (caminho == 'api/resumo-semanal') return Permissao.resumo;
+  // Ver basta para entrar; cada alteração confere no handler se é da pastoral ou do louvor.
+  if (comeca('api/escalas')) return Permissao.escalasVer;
   if (caminho == 'api/temas' || comeca('api/holyrics') || comeca('api/projetar')) return Permissao.projetar;
   if (comeca('api/agente-local')) return Permissao.projetar; // parear o tablet com o agente da rede local
   if (comeca('api/admin/usuarios')) return Permissao.usuarios;

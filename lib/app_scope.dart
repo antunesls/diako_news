@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'data/agenda_repo.dart';
 import 'data/conta_repo.dart';
+import 'data/escala_repo.dart';
 import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
@@ -20,6 +21,7 @@ class AppScope extends InheritedWidget {
     required this.repo,
     required this.motivos,
     required this.agenda,
+    required this.escalas,
     required this.mensagens,
     required this.visitas,
     required this.conta,
@@ -35,6 +37,9 @@ class AppScope extends InheritedWidget {
   final RecadoRepo repo;
   final MotivoRepo motivos;
   final AgendaRepo agenda;
+
+  /// Escala de hoje (pastoral e louvor) para o culto.
+  final EscalaRepo escalas;
   final MensagemRepo mensagens;
   final VisitaRepo visitas;
 
@@ -58,6 +63,7 @@ class AppScope extends InheritedWidget {
       if (conta.pode('recados')) repo.sincronizar(),
       if (conta.pode('motivosVer')) motivos.sincronizar(),
       if (conta.pode('agendaVer')) agenda.sincronizar(),
+      if (conta.pode('escalasVer')) escalas.sincronizar(),
       if (conta.pode('mensagens')) mensagens.sincronizar(),
       if (conta.pode('visitantes')) visitas.sincronizar(),
       status.atualizar(),

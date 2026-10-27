@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_scope.dart';
 import 'data/agenda_repo.dart';
+import 'data/escala_repo.dart';
 import 'data/conta_repo.dart';
 import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
@@ -37,6 +38,7 @@ Future<void> main() async {
   final repo = RecadoRepo(api: api, cache: () => arquivo('cache_recados.json'));
   final motivos = MotivoRepo(api: api, cache: () => arquivo('cache_motivos.json'));
   final agenda = AgendaRepo(api: api, cache: () => arquivo('cache_agenda.json'));
+  final escalas = EscalaRepo(api: api, cache: () => arquivo('cache_escala.json'));
   final mensagens = MensagemRepo(api: api, cache: () => arquivo('cache_mensagens.json'));
   final visitas = VisitaRepo(api: api, cache: () => arquivo('cache_visitas.json'));
   final conta = ContaRepo(api: api, cache: () => arquivo('cache_conta.json'));
@@ -47,6 +49,7 @@ Future<void> main() async {
   if (conta.pode('recados')) unawaited(repo.carregar());
   if (conta.pode('motivosVer')) unawaited(motivos.carregar());
   if (conta.pode('agendaVer')) unawaited(agenda.carregar());
+  if (conta.pode('escalasVer')) unawaited(escalas.carregar());
   if (conta.pode('mensagens')) unawaited(mensagens.carregar());
   if (conta.pode('visitantes')) unawaited(visitas.carregar());
 
@@ -60,6 +63,7 @@ Future<void> main() async {
       if ((tipo == 'recados' || tipo == 'membros') && conta.pode('recados')) repo.sincronizar();
       if (tipo == 'motivos' && conta.pode('motivosVer')) motivos.sincronizar();
       if (tipo == 'agenda' && conta.pode('agendaVer')) agenda.sincronizar();
+      if ((tipo == 'escalas' || tipo == 'membros') && conta.pode('escalasVer')) escalas.sincronizar();
       if (tipo == 'mensagens' && conta.pode('mensagens')) mensagens.sincronizar();
       if (tipo == 'visitas' && conta.pode('visitantes')) visitas.sincronizar();
     },
@@ -68,6 +72,7 @@ Future<void> main() async {
       if (conta.pode('recados')) repo.sincronizar();
       if (conta.pode('motivosVer')) motivos.sincronizar();
       if (conta.pode('agendaVer')) agenda.sincronizar();
+      if (conta.pode('escalasVer')) escalas.sincronizar();
       if (conta.pode('mensagens')) mensagens.sincronizar();
       if (conta.pode('visitantes')) visitas.sincronizar();
     },
@@ -78,6 +83,7 @@ Future<void> main() async {
     repo: repo,
     motivos: motivos,
     agenda: agenda,
+    escalas: escalas,
     mensagens: mensagens,
     visitas: visitas,
     conta: conta,

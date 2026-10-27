@@ -98,6 +98,9 @@ class ServerApi {
 
   Future<Map<String, dynamic>> estado() async => Map<String, dynamic>.from(await _req('GET', '/api/estado') as Map);
 
+  /// Escala de hoje (ou do próximo culto em até 7 dias): {hoje, cultos: [...]}.
+  Future<Map<String, dynamic>> escalaHoje() async => Map<String, dynamic>.from(await _req('GET', '/api/escalas/hoje') as Map);
+
   Future<Map<String, dynamic>> marcarVisitaMencionada(String id, {bool desfazer = false}) async =>
       Map<String, dynamic>.from(await _req('POST', '/api/visitas/${Uri.encodeComponent(id)}/mencionada',
           json: {if (desfazer) 'desfazer': true}) as Map);

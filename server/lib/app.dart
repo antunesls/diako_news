@@ -144,6 +144,7 @@ class Servidor {
   final LimiteTaxa _limiteMensagens = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
   final LimiteTaxa _limiteLgpd = LimiteTaxa(maximo: 20, janela: const Duration(minutes: 10));
   final LimiteTaxa _limiteVisitantes = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
+  final LimiteTaxa _limiteMinhaEscala = LimiteTaxa(maximo: 30, janela: const Duration(minutes: 10));
   List<Map<String, String>> _temasCache = [];
   DateTime? _temasAtualizados;
 
@@ -161,6 +162,7 @@ class Servidor {
       ..get('/mensagens', (Request _) => _pagina('mensagens.html'))
       // LGPD: autorização pelo link (token no #, nunca na URL) e cadastro de visitante pelo QR.
       ..get('/autorizar', (Request _) => _pagina('autorizar.html'))
+      ..get('/minha-escala', (Request _) => _pagina('minha-escala.html'))
       ..get('/recepcao', (Request _) => _pagina('recepcao.html'))
       ..get('/visitante', (Request _) => cfg?.visitanteQrAtivo == false ? _paginaDesligada() : _pagina('visitante.html'))
       ..get('/qr-visitante.png', _qrVisitante)
@@ -243,6 +245,20 @@ class Servidor {
       ..post('/api/visitas/<id>/mencionada', _visitaMencionada)
       ..put('/api/visitas/<id>/contato', _contatoVisita)
       ..post('/api/projetar/boas-vindas', _projetarBoasVindas)
+      // Escalas dos pastores e do louvor (rotas fixas antes das com <id>)
+      ..get('/api/escalas', _listarEscalas)
+      ..get('/api/escalas/hoje', _escalaDeHoje)
+      ..post('/api/escalas', _criarCulto)
+      ..post('/api/escalas/gerar', _gerarCultos)
+      ..post('/api/escalas/repetir', _repetirEscala)
+      ..post('/api/escalas/indisponibilidades', _criarIndisponibilidade)
+      ..delete('/api/escalas/indisponibilidades/<id>', _excluirIndisponibilidade)
+      ..post('/api/escalas/link/<membroId>', _linkMinhaEscala)
+      ..put('/api/escalas/<id>', _atualizarCulto)
+      ..delete('/api/escalas/<id>', _excluirCulto)
+      ..post('/api/public/minha-escala', _minhaEscala)
+      ..post('/api/public/minha-escala/indisponivel', _minhaIndisponibilidade)
+      ..post('/api/public/minha-escala/indisponivel/remover', _removerMinhaIndisponibilidade)
       // Cartazes
       ..get('/api/cartazes', _listarCartazes)
       ..post('/api/cartazes', _enviarCartaz)
@@ -1715,6 +1731,335 @@ class Servidor {
     if (m.ministerios.length > 12) return 'Muitos ministérios (máximo 12).';
     if ((m.comoConheceu ?? '').length > 200) return '"Como conheceu" muito longo.';
     return null;
+  }
+
+  // ---------- Escalas (pastoral e louvor) ----------
+
+  /// Link "Minha escala": vale 180 dias; gerar outro para a mesma pessoa invalida o anterior.
+  static const _validadeLinkEscala = Duration(days: 180);
+
+  List<CultoEscala> _cultos() => [for (final d in store.listar('escalas')) CultoEscala.fromJson(d)]
+    ..sort((a, b) => '${a.data} ${a.hora}'.compareTo('${b.data} ${b.hora}'));
+
+  List<Indisponibilidade> _indisponibilidades() =>
+      [for (final d in store.listar('indisponibilidades')) Indisponibilidade.fromJson(d)];
+
+  Map<String, Membro> _membrosPorId() => {for (final m in _membros()) m.id: m};
+
+  static String Function(String) _nomeDe(Map<String, Membro> membros) => (id) => membros[id]?.nome ?? '(pessoa removida)';
+
+  bool _podeEscala(Request req, TipoEscala tipo) =>
+      Auth.contaDa(req)?.pode(tipo == TipoEscala.pastoral ? Permissao.escalaPastoral : Permissao.escalaLouvor) ?? false;
+
+  bool _podeAlgumaEscala(Request req) => TipoEscala.values.any((t) => _podeEscala(req, t));
+
+  static Response _semPermissaoEscala(TipoEscala? tipo) => _erro(403,
+      tipo == null ? 'Seu perfil não pode montar escalas.' : 'Seu perfil não pode alterar a escala ${tipo == TipoEscala.pastoral ? 'pastoral' : 'do louvor'}.');
+
+  /// "2026-11" → (2026, 11).
+  static ({int ano, int mes})? _mesDe(Object? v) {
+    final m = RegExp(r'^(\d{4})-(\d{2})$').firstMatch(v is String ? v : '');
+    if (m == null) return null;
+    final mes = int.parse(m.group(2)!);
+    return mes < 1 || mes > 12 ? null : (ano: int.parse(m.group(1)!), mes: mes);
+  }
+
+  static String _prefixoMes(int ano, int mes) => '$ano-${mes.toString().padLeft(2, '0')}';
+
+  /// Culto como o painel e o tablet mostram: nomes e avisos já resolvidos por função.
+  Map<String, dynamic> _cultoParaTela(CultoEscala c, Map<String, Membro> membros, List<Indisponibilidade> ind) => {
+        ...c.toJson(),
+        'rotulo': rotuloDia(c.data),
+        'horaTexto': horaCurtaEscala(c.hora),
+        'funcoes': {for (final t in TipoEscala.values) t.name: c.funcoes(t)},
+        for (final t in TipoEscala.values)
+          t.name: {
+            for (final f in c.funcoes(t))
+              f: [
+                for (final id in c.da(t)[f] ?? const <String>[])
+                  {
+                    'id': id,
+                    'nome': membros[id]?.nome ?? '(pessoa removida)',
+                    if (avisoDaPessoa(c, t, f, id, ind) case final aviso?) 'aviso': aviso,
+                  },
+              ],
+          },
+      };
+
+  /// GET /api/escalas?mes=aaaa-mm — cultos do mês com as duas escalas, avisos e textos do WhatsApp.
+  Response _listarEscalas(Request req) {
+    final agora = _agora();
+    final mes = _mesDe(req.url.queryParameters['mes']) ?? (ano: agora.year, mes: agora.month);
+    final prefixo = _prefixoMes(mes.ano, mes.mes);
+    final membros = _membrosPorId();
+    final ind = _indisponibilidades();
+    final nome = _nomeDe(membros);
+    final cultos = _cultos().where((c) => c.data.startsWith(prefixo)).toList();
+    final editor = _podeAlgumaEscala(req);
+    return _json({
+      'mes': prefixo,
+      'titulo': '${nomesMeses[mes.mes - 1]} de ${mes.ano}',
+      'horariosConfigurados': horariosDosCultos(cfg?.siteCultos ?? '').isNotEmpty,
+      'cultos': [for (final c in cultos) _cultoParaTela(c, membros, ind)],
+      'avisos': {
+        for (final t in TipoEscala.values)
+          t.name: [for (final a in avisosDoMes(cultos, t, nome, ind)) {'tipo': a.tipo, 'titulo': a.titulo, 'texto': a.texto}],
+      },
+      'whatsapp': {for (final t in TipoEscala.values) t.name: textoEscalaWhatsapp(cultos, t, mes.mes, nome)},
+      // Nomes de quem pode ser escalado: só para quem monta escala.
+      'pessoas': editor
+          ? ([
+              for (final m in membros.values)
+                if (m.ativo) {'id': m.id, 'nome': m.nome, 'pastoral': podeServir(m, TipoEscala.pastoral), 'louvor': podeServir(m, TipoEscala.louvor)},
+            ]..sort((a, b) => (a['nome'] as String).compareTo(b['nome'] as String)))
+          : const [],
+      'indisponibilidades': [
+        for (final i in ind)
+          if (i.ate.compareTo('$prefixo-01') >= 0 && i.de.compareTo('$prefixo-31') <= 0) {...i.toJson(), 'nome': nome(i.membroId)},
+      ],
+      'pode': {'pastoral': _podeEscala(req, TipoEscala.pastoral), 'louvor': _podeEscala(req, TipoEscala.louvor)},
+    });
+  }
+
+  /// GET /api/escalas/hoje — cultos de hoje para o tablet; sem culto hoje, o próximo em até 7 dias.
+  Response _escalaDeHoje(Request _) {
+    final hoje = diaEscala(_agora());
+    final limite = diaEscala(_agora().add(const Duration(days: 7)));
+    final cultos = _cultos();
+    var lista = cultos.where((c) => c.data == hoje).toList();
+    final ehHoje = lista.isNotEmpty;
+    if (!ehHoje) {
+      final proximo = cultos.where((c) => c.data.compareTo(hoje) > 0 && c.data.compareTo(limite) <= 0).firstOrNull;
+      lista = [if (proximo != null) ...cultos.where((c) => c.data == proximo.data)];
+    }
+    final membros = _membrosPorId();
+    final ind = _indisponibilidades();
+    return _json({'hoje': ehHoje, 'cultos': [for (final c in lista) _cultoParaTela(c, membros, ind)]});
+  }
+
+  /// POST /api/escalas/gerar {mes} — cria os cultos do mês a partir dos horários da página inicial.
+  Future<Response> _gerarCultos(Request req) async {
+    if (!_podeEscala(req, TipoEscala.pastoral)) return _semPermissaoEscala(TipoEscala.pastoral);
+    final mes = _mesDe((await _corpo(req))['mes']);
+    if (mes == null) return _erro(400, 'Mês inválido.');
+    final horarios = horariosDosCultos(cfg?.siteCultos ?? '');
+    if (horarios.isEmpty) {
+      return _erro(400, 'Cadastre os horários dos cultos em /admin › Página inicial (um por linha, ex.: "Domingo — 19h").');
+    }
+    final existentes = {for (final c in _cultos()) '${c.data} ${c.hora}'};
+    final novos = [
+      for (final c in cultosDoMes(mes.ano, mes.mes, horarios))
+        if (!existentes.contains('${c.data} ${c.hora}'))
+          CultoEscala(id: novoId(), data: c.data, hora: c.hora, nome: c.nome, ceia: c.ceia).toJson(),
+    ];
+    if (novos.isNotEmpty) await store.salvarVarios('escalas', novos);
+    return _json({'criados': novos.length});
+  }
+
+  /// POST /api/escalas/repetir {mes, tipo} — preenche as funções vazias com quem serviu no mesmo
+  /// culto do mês anterior (mesmo dia da semana, hora e ocorrência no mês: 1ª quarta com 1ª quarta).
+  Future<Response> _repetirEscala(Request req) async {
+    final corpo = await _corpo(req);
+    final tipo = TipoEscala.porNome(corpo['tipo']);
+    final mes = _mesDe(corpo['mes']);
+    if (tipo == null || mes == null) return _erro(400, 'Mês ou escala inválidos.');
+    if (!_podeEscala(req, tipo)) return _semPermissaoEscala(tipo);
+    final anterior = DateTime(mes.ano, mes.mes - 1);
+    final prefixoAnterior = _prefixoMes(anterior.year, anterior.month);
+    final todos = _cultos();
+    final atuais = todos.where((c) => c.data.startsWith(_prefixoMes(mes.ano, mes.mes))).toList();
+    if (atuais.isEmpty) return _erro(400, 'Gere os cultos do mês antes de repetir a escala.');
+    final anteriores = todos.where((c) => c.data.startsWith(prefixoAnterior)).toList();
+    var preenchidas = 0;
+    final alterados = <Map<String, dynamic>>[];
+    for (final c in atuais) {
+      final parecidos = anteriores.where((a) => a.dia.weekday == c.dia.weekday && a.hora == c.hora).toList();
+      // 5ª quarta sem par no mês anterior: usa a última.
+      final base = parecidos.where((a) => ocorrenciaNoMes(a.data) == ocorrenciaNoMes(c.data)).firstOrNull ?? parecidos.lastOrNull;
+      if (base == null) continue;
+      final escala = {...c.da(tipo)};
+      var mudou = false;
+      for (final f in c.funcoes(tipo)) {
+        final origem = base.da(tipo)[f] ?? const <String>[];
+        if ((escala[f] ?? const []).isNotEmpty || origem.isEmpty) continue;
+        escala[f] = [...origem];
+        mudou = true;
+        preenchidas++;
+      }
+      if (mudou) alterados.add((tipo == TipoEscala.pastoral ? c.copiar(pastoral: escala) : c.copiar(louvor: escala)).toJson());
+    }
+    if (alterados.isNotEmpty) await store.salvarVarios('escalas', alterados);
+    return _json({'preenchidas': preenchidas});
+  }
+
+  /// POST /api/escalas {data, hora, nome?, ceia?} — culto extra (fora dos horários de sempre).
+  Future<Response> _criarCulto(Request req) async {
+    if (!_podeEscala(req, TipoEscala.pastoral)) return _semPermissaoEscala(TipoEscala.pastoral);
+    final corpo = await _corpo(req);
+    final CultoEscala culto;
+    try {
+      culto = CultoEscala.fromJson({'id': novoId(), 'data': corpo['data'], 'hora': corpo['hora'], 'nome': corpo['nome'], 'ceia': corpo['ceia']});
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+    if (_cultos().any((c) => c.data == culto.data && c.hora == culto.hora)) {
+      return _erro(409, 'Já existe um culto nesse dia e horário.');
+    }
+    await store.salvar('escalas', culto.toJson());
+    return _json(_cultoParaTela(culto, _membrosPorId(), _indisponibilidades()), status: 201);
+  }
+
+  /// PUT /api/escalas/<id> — {tipo, funcao, membros: [ids]} (quem serve numa função), {musicas} (louvor)
+  /// ou {nome, hora, ceia, tema} (dados do culto: pastoral). Cada parte confere a permissão da sua escala.
+  Future<Response> _atualizarCulto(Request req, String id) async {
+    final atual = store.buscar('escalas', id);
+    if (atual == null) return _erro(404, 'Culto não encontrado.');
+    final corpo = await _corpo(req);
+    final doc = {...atual};
+    if (corpo.containsKey('funcao')) {
+      final tipo = TipoEscala.porNome(corpo['tipo']);
+      if (tipo == null) return _erro(400, 'Escala inválida.');
+      if (!_podeEscala(req, tipo)) return _semPermissaoEscala(tipo);
+      final membros = corpo['membros'];
+      final existentes = _membrosPorId();
+      if (membros is! List || membros.any((m) => !existentes.containsKey(m))) return _erro(400, 'Pessoa não encontrada no cadastro.');
+      doc[tipo.name] = {...Map<String, dynamic>.from(doc[tipo.name] as Map? ?? const {}), corpo['funcao'] as String: membros};
+    }
+    if (corpo.containsKey('musicas')) {
+      if (!_podeEscala(req, TipoEscala.louvor)) return _semPermissaoEscala(TipoEscala.louvor);
+      doc['musicas'] = corpo['musicas'];
+    }
+    for (final k in const ['nome', 'hora', 'ceia', 'tema']) {
+      if (!corpo.containsKey(k)) continue;
+      if (!_podeEscala(req, TipoEscala.pastoral)) return _semPermissaoEscala(TipoEscala.pastoral);
+      doc[k] = corpo[k];
+    }
+    final CultoEscala culto;
+    try {
+      culto = CultoEscala.fromJson(doc);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+    await store.salvar('escalas', culto.toJson());
+    return _json(_cultoParaTela(culto, _membrosPorId(), _indisponibilidades()));
+  }
+
+  Future<Response> _excluirCulto(Request req, String id) async {
+    if (!_podeEscala(req, TipoEscala.pastoral)) return _semPermissaoEscala(TipoEscala.pastoral);
+    return _excluir('escalas', id);
+  }
+
+  /// POST /api/escalas/indisponibilidades {membroId, de, ate, motivo?} — avisado à secretaria ou ao líder.
+  Future<Response> _criarIndisponibilidade(Request req) async {
+    if (!_podeAlgumaEscala(req)) return _semPermissaoEscala(null);
+    final corpo = await _corpo(req);
+    if (store.buscar('membros', corpo['membroId'] as String? ?? '') == null) return _erro(400, 'Pessoa não encontrada no cadastro.');
+    return _salvarIndisponibilidade(corpo['membroId'] as String, corpo);
+  }
+
+  Future<Response> _salvarIndisponibilidade(String membroId, Map<String, dynamic> corpo) async {
+    final Indisponibilidade ind;
+    try {
+      ind = Indisponibilidade.fromJson({'id': novoId(), 'membroId': membroId, 'de': corpo['de'], 'ate': corpo['ate'] ?? corpo['de'], 'motivo': corpo['motivo']});
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+    await store.salvar('indisponibilidades', ind.toJson());
+    return _json(ind.toJson(), status: 201);
+  }
+
+  Future<Response> _excluirIndisponibilidade(Request req, String id) async {
+    if (!_podeAlgumaEscala(req)) return _semPermissaoEscala(null);
+    return _excluir('indisponibilidades', id);
+  }
+
+  /// POST /api/escalas/link/<membroId> — link "Minha escala" para mandar à pessoa (só o hash fica guardado).
+  Future<Response> _linkMinhaEscala(Request req, String membroId) async {
+    if (!_podeAlgumaEscala(req)) return _semPermissaoEscala(null);
+    final membro = store.buscar('membros', membroId);
+    if (membro == null) return _erro(404, 'Pessoa não encontrada no cadastro.');
+    final token = novoTokenLgpd();
+    final agora = _agora();
+    final expira = agora.add(_validadeLinkEscala);
+    await store.salvar('linksEscala', {
+      'id': membroId,
+      'hash': hashTokenLgpd(token),
+      'criadoEm': agora.toIso8601String(),
+      'expiraEm': expira.toUtc().toIso8601String(),
+      if (Auth.contaDa(req)?.nome case final por?) 'por': por,
+    });
+    return _json({'url': '$_urlBase/minha-escala#$token', 'nome': membro['nome'], 'validoAte': expira.toUtc().toIso8601String()},
+        status: 201);
+  }
+
+  /// Membro dono do link "Minha escala", ou a resposta de erro (link inválido, vencido ou tentativas demais).
+  ({String? membroId, Response? erro}) _donoDoLink(Request req, Object? token) {
+    if (!_limiteMinhaEscala.permitir(_ip(req))) return (membroId: null, erro: _erro(429, 'Muitas tentativas. Aguarde alguns minutos.'));
+    // 410 e não 404: o Cascade trata 404 como "rota inexistente" e a mensagem se perderia.
+    final invalido = _erro(410, 'Este link não vale mais. Peça um novo a quem monta a escala.');
+    if (token is! String || token.length < 20 || token.length > 100) return (membroId: null, erro: invalido);
+    final hash = hashTokenLgpd(token);
+    for (final l in store.listar('linksEscala')) {
+      if (!iguaisSeguro(l['hash'] as String? ?? '', hash)) continue;
+      final expira = DateTime.tryParse(l['expiraEm'] as String? ?? '');
+      final id = l['id'] as String;
+      if (expira == null || !expira.isAfter(_agora()) || store.buscar('membros', id) == null) return (membroId: null, erro: invalido);
+      return (membroId: id, erro: null);
+    }
+    return (membroId: null, erro: invalido);
+  }
+
+  /// POST /api/public/minha-escala {token} — os cultos da pessoa nos próximos 60 dias (só os dela).
+  Future<Response> _minhaEscala(Request req) async {
+    final dono = _donoDoLink(req, (await _corpo(req))['token']);
+    if (dono.erro != null) return dono.erro!;
+    final id = dono.membroId!;
+    final hoje = diaEscala(_agora());
+    final limite = diaEscala(_agora().add(const Duration(days: 60)));
+    final membro = Membro.fromJson(store.buscar('membros', id)!);
+    return _json({
+      'igreja': _termo.igreja,
+      'nome': membro.nome.split(' ').first,
+      'cultos': [
+        for (final c in _cultos())
+          if (c.data.compareTo(hoje) >= 0 && c.data.compareTo(limite) <= 0 && c.servindo.any((s) => s.membroId == id))
+            {
+              'data': c.data,
+              'hora': c.hora,
+              'rotulo': rotuloDia(c.data),
+              'horaTexto': horaCurtaEscala(c.hora),
+              'nome': c.nome,
+              'ceia': c.ceia,
+              'funcoes': [for (final s in c.servindo) if (s.membroId == id) {'tipo': s.tipo.name, 'funcao': s.funcao}],
+              if (c.servindo.any((s) => s.membroId == id && s.tipo == TipoEscala.louvor))
+                'musicas': [for (final m in c.musicas) m.toJson()],
+            },
+      ],
+      'indisponibilidades': [
+        for (final i in _indisponibilidades())
+          if (i.membroId == id && i.ate.compareTo(hoje) >= 0) {'id': i.id, 'de': i.de, 'ate': i.ate, 'motivo': i.motivo},
+      ],
+    });
+  }
+
+  /// POST /api/public/minha-escala/indisponivel {token, de, ate?, motivo?}
+  Future<Response> _minhaIndisponibilidade(Request req) async {
+    final corpo = await _corpo(req);
+    final dono = _donoDoLink(req, corpo['token']);
+    if (dono.erro != null) return dono.erro!;
+    if ((dataEscala(corpo['de']) ?? '').compareTo(diaEscala(_agora())) < 0) return _erro(400, 'Escolha uma data a partir de hoje.');
+    return _salvarIndisponibilidade(dono.membroId!, corpo);
+  }
+
+  /// POST /api/public/minha-escala/indisponivel/remover {token, id} — só uma indisponibilidade da própria pessoa.
+  Future<Response> _removerMinhaIndisponibilidade(Request req) async {
+    final corpo = await _corpo(req);
+    final dono = _donoDoLink(req, corpo['token']);
+    if (dono.erro != null) return dono.erro!;
+    final ind = store.buscar('indisponibilidades', corpo['id'] as String? ?? '');
+    if (ind == null || ind['membroId'] != dono.membroId) return _erro(410, 'Aviso não encontrado.');
+    await store.excluir('indisponibilidades', ind['id'] as String);
+    return _json({'ok': true});
   }
 
   // ---------- Cartazes ----------

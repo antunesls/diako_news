@@ -168,6 +168,57 @@
     .filtros-membros .espaco { display: none; }
     .filtros-membros .acoes-lista { flex-basis: 100%; }
   }
+  /* Escalas */
+  .grade2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; }
+  .tabela-rolagem { overflow-x: auto; }
+  .escala-topo { gap: 12px; }
+  .escala-mes { display: flex; align-items: center; gap: 4px; padding: 4px; background: var(--superficie); border: 1px solid var(--linha); border-radius: 24px; }
+  .escala-mes strong { min-width: 150px; text-align: center; }
+  .escala-mes .icone { width: 36px; height: 36px; border: 0; border-radius: 18px; background: transparent; font-size: 22px; line-height: 1; cursor: pointer; }
+  .escala-mes .icone:hover { background: var(--neutro); }
+  .segmentos { display: flex; gap: 4px; padding: 4px; background: var(--neutro); border-radius: 24px; }
+  .segmentos button { min-height: 36px; padding: 0 18px; border: 0; border-radius: 18px; background: transparent; color: var(--suave); font-weight: 600; font-size: 14px; cursor: pointer; }
+  .segmentos button[aria-selected=true] { background: var(--superficie); color: var(--primaria); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .escala-resumo { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .escala-resumo span { padding: 6px 14px; border-radius: 16px; background: var(--superficie); border: 1px solid var(--linha); font-size: 14px; }
+  .escala-resumo span.alerta { background: #f9ece7; border-color: #f9ece7; color: #8a3b12; font-weight: 600; }
+  .escala-grade-cartao { padding: 0; overflow: hidden; margin-bottom: 20px; }
+  .escala-grade { width: 100%; min-width: 900px; border-collapse: collapse; }
+  .escala-grade th { padding: 14px 12px; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); text-align: left; border-bottom: 1px solid var(--linha); }
+  .escala-grade td { padding: 10px; vertical-align: top; border-top: 1px solid var(--neutro); }
+  .escala-grade tbody tr:nth-child(even) td { background: var(--campo); }
+  .escala-grade .culto { padding: 12px 16px; min-width: 170px; }
+  .escala-grade .culto .sub { font-size: 13px; color: var(--suave); }
+  .escala-grade .culto .ceia { display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 10px; background: var(--primaria-suave); color: var(--primaria-escura); font-size: 12px; font-weight: 600; }
+  .escala-celula { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; font: inherit; color: inherit; }
+  button.escala-celula { cursor: pointer; border-radius: 12px; }
+  button.escala-celula:hover .pessoa { outline: 2px solid var(--primaria-suave); }
+  .escala-celula .pessoa { display: flex; flex-direction: column; padding: 6px 12px; border-radius: 12px; background: var(--primaria-suave); color: var(--primaria-escura); font-size: 14px; font-weight: 500; }
+  .escala-celula .pessoa.conflito { background: #f9ece7; color: var(--texto); }
+  .escala-celula .pessoa.indisponivel { background: #fbebeb; color: var(--texto); }
+  .escala-celula .pessoa small { font-size: 12px; font-weight: 600; color: #8a3b12; }
+  .escala-celula .pessoa.indisponivel small { color: var(--perigo); }
+  .escala-celula .vaga { display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border-radius: 17px; border: 1px dashed var(--borda); font-size: 13px; color: var(--suave); }
+  .escala-celula .musicas { font-size: 14px; color: var(--primaria); font-weight: 600; text-decoration: underline; }
+  .escala-avisos { display: flex; flex-direction: column; gap: 10px; }
+  .escala-aviso { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: var(--neutro); }
+  .escala-aviso .marca { flex: none; margin-top: 2px; width: 22px; height: 22px; border-radius: 11px; background: var(--suave); color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .escala-aviso.conflito { background: #f9ece7; } .escala-aviso.conflito .marca { background: #b45309; }
+  .escala-aviso.indisponivel { background: #fbebeb; } .escala-aviso.indisponivel .marca { background: var(--perigo); }
+  .escala-aviso .texto { font-size: 14px; color: var(--suave); }
+  .escalar-lista { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; }
+  .escalar-lista label { display: flex; align-items: center; gap: 12px; margin: 0; padding: 10px 14px; border-radius: 16px; border: 1px solid var(--linha); background: var(--superficie); font-weight: 400; cursor: pointer; }
+  .escalar-lista label:has(input:checked) { border: 2px solid var(--primaria); background: var(--primaria-suave); }
+  .escalar-lista label.indisponivel { background: #fbebeb; }
+  .escalar-lista input { width: 20px; height: 20px; accent-color: var(--primaria); }
+  .escalar-lista .iniciais { flex: none; width: 38px; height: 38px; border-radius: 19px; background: var(--neutro); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; }
+  .escalar-lista .nome { display: block; font-weight: 600; }
+  .escalar-lista .situacao { display: block; font-size: 13px; color: var(--suave); }
+  .escalar-lista .situacao.conflito { color: #8a3b12; font-weight: 500; }
+  .escalar-lista .situacao.indisponivel { color: var(--perigo); font-weight: 500; }
+  .musicas-lista { display: flex; flex-direction: column; gap: 8px; }
+  .musicas-lista .musica { display: grid; grid-template-columns: 28px minmax(0, 1fr) 90px 40px; gap: 8px; align-items: center; }
+  .musicas-lista .musica .ordem { font-weight: 600; color: var(--suave); text-align: center; }
   @media print {
     body { background: #fff; }
     body > *:not(#impressao-membros) { display: none !important; }
@@ -219,6 +270,7 @@
     <button role="tab" data-permissao="mensagens" data-aba="mensagens" aria-selected="false">Mensagens<span id="badge-mensagens" class="badge" hidden></span></button>
     <button role="tab" data-permissao="recados" data-aba="recados" aria-selected="false">Recados</button>
     <button role="tab" data-permissao="agendaVer" data-aba="agenda" aria-selected="false">Agenda</button>
+    <button role="tab" data-permissao="escalasVer" data-aba="escalas" aria-selected="false">Escalas</button>
     <button role="tab" data-permissao="cartazes" data-aba="cartazes" aria-selected="false">Cartazes</button>
     <button role="tab" data-permissao="galeria" data-aba="galeria" aria-selected="false">Galeria</button>
     <button role="tab" data-permissao="membros" data-aba="membros" aria-selected="false">Membros</button>
@@ -276,6 +328,53 @@
       </div>
       <p id="resultado-agenda" role="status"></p>
       <div class="lista" id="lista-agenda"></div>
+    </section>
+
+    <section data-painel="escalas" hidden>
+      <div class="barra escala-topo">
+        <div class="escala-mes">
+          <button type="button" class="icone" id="escala-anterior" aria-label="Mês anterior">‹</button>
+          <strong id="escala-titulo"></strong>
+          <button type="button" class="icone" id="escala-proximo" aria-label="Próximo mês">›</button>
+        </div>
+        <div class="segmentos" role="tablist" aria-label="Escala">
+          <button type="button" role="tab" data-escala="pastoral" aria-selected="false">Pastores</button>
+          <button type="button" role="tab" data-escala="louvor" aria-selected="true">Louvor</button>
+        </div>
+        <span class="espaco"></span>
+        <button type="button" class="botao secundario pequeno" id="escala-repetir" hidden></button>
+        <button type="button" class="botao secundario pequeno" id="escala-link" hidden>Link "Minha escala"</button>
+        <button type="button" class="botao secundario pequeno" id="escala-indisponivel" hidden>Indisponibilidade</button>
+        <button type="button" class="botao secundario pequeno" id="escala-imprimir">Imprimir</button>
+        <button type="button" class="botao pequeno" id="escala-extra" hidden>+ Culto extra</button>
+      </div>
+      <p id="resultado-escala" role="status"></p>
+      <div class="cartao escala-vazia" id="escala-vazia" hidden>
+        <p style="margin:0 0 12px">Nenhum culto em <span id="escala-vazia-mes"></span> ainda.</p>
+        <button type="button" class="botao" id="escala-gerar" hidden>Gerar cultos do mês</button>
+        <p class="dica" id="escala-sem-horarios" hidden style="margin:12px 0 0">Os cultos são gerados dos horários da página inicial: cadastre em <a href="/admin#pagina-inicial">Administração › Página inicial</a> (um por linha, ex.: "Domingo — 19h").</p>
+      </div>
+      <div id="escala-conteudo">
+        <div class="escala-resumo" id="escala-resumo"></div>
+        <div class="cartao escala-grade-cartao"><div class="tabela-rolagem"><table class="escala-grade" id="escala-grade"></table></div></div>
+        <div class="duas">
+          <div class="cartao">
+            <h2 style="font-size:18px">Avisos do mês</h2>
+            <div id="escala-avisos" class="escala-avisos"></div>
+            <div id="escala-indisponiveis"></div>
+          </div>
+          <div class="cartao">
+            <h2 style="font-size:18px">Texto para o WhatsApp</h2>
+            <p class="dica">Revise e envie no grupo da equipe. O sistema não manda mensagens sozinho.</p>
+            <label for="escala-whatsapp" class="escondido">Texto da escala</label>
+            <textarea id="escala-whatsapp" style="min-height:240px;font-family:inherit"></textarea>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+              <button type="button" class="botao secundario pequeno" id="escala-copiar">Copiar</button>
+              <a class="botao pequeno" id="escala-abrir-whatsapp" target="_blank" rel="noopener" href="https://wa.me/">Abrir no WhatsApp</a>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section data-painel="resumo" hidden>
@@ -416,6 +515,95 @@
     </section>
   </main>
 </div>
+
+<dialog id="dlg-escalar">
+  <form method="dialog">
+    <p class="sobretitulo" id="escalar-funcao"></p>
+    <h2 style="font-size:22px;margin:0" id="escalar-culto"></h2>
+    <p class="dica" id="escalar-nome-culto" style="margin:2px 0 14px"></p>
+    <div class="campo" style="margin-bottom:10px"><label for="escalar-busca" id="escalar-pergunta"></label><input type="search" id="escalar-busca" placeholder="Buscar pelo nome" autocomplete="off"></div>
+    <div class="campo" style="margin-bottom:10px"><label class="marcar"><input type="checkbox" id="escalar-todos"><span>Mostrar todos os membros ativos</span></label></div>
+    <div class="escalar-lista" id="escalar-lista" role="group" aria-labelledby="escalar-pergunta"></div>
+    <p class="dica" id="escalar-dica" style="margin:10px 0 0"></p>
+    <p class="erro" id="erro-escalar" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-musicas">
+  <form method="dialog">
+    <h2 style="font-size:20px;margin:0">Músicas</h2>
+    <p class="dica" id="musicas-culto" style="margin:2px 0 14px"></p>
+    <div id="musicas-lista" class="musicas-lista"></div>
+    <button type="button" class="botao secundario pequeno" id="musicas-adicionar" style="margin-top:8px">+ Música</button>
+    <p class="erro" id="erro-musicas" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar" id="musicas-salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-culto">
+  <form method="dialog">
+    <h2 style="font-size:20px" id="culto-titulo">Culto</h2>
+    <div class="grade2">
+      <div class="campo"><label for="culto-data">Data</label><input type="date" id="culto-data" required></div>
+      <div class="campo"><label for="culto-hora">Horário</label><input type="time" id="culto-hora" required></div>
+    </div>
+    <div class="campo"><label for="culto-nome">Nome</label><input type="text" id="culto-nome" maxlength="80" placeholder="Culto"></div>
+    <div class="campo"><label for="culto-tema">Tema da pregação <span class="dica">(opcional)</span></label><input type="text" id="culto-tema" maxlength="120"></div>
+    <div class="campo"><label class="marcar"><input type="checkbox" id="culto-ceia"><span>Culto de Santa Ceia</span></label></div>
+    <p class="erro" id="erro-culto" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao perigo" type="button" id="culto-excluir" hidden>Excluir culto</button>
+      <span class="espaco" style="flex:1"></span>
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-link-escala">
+  <form method="dialog">
+    <h2 style="font-size:20px">Link "Minha escala"</h2>
+    <p class="dica">A pessoa vê só os cultos em que serve nos próximos 60 dias, põe na agenda do celular e avisa quando não puder. O link vale 180 dias; gerar outro para a mesma pessoa invalida o anterior.</p>
+    <div class="campo"><label for="link-escala-pessoa">Pessoa</label><select id="link-escala-pessoa"></select></div>
+    <div id="link-escala-resultado" hidden>
+      <div class="campo"><label for="link-escala-url">Link</label><input type="text" id="link-escala-url" readonly></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button type="button" class="botao secundario pequeno" id="link-escala-copiar">Copiar</button>
+        <a class="botao pequeno" id="link-escala-whatsapp" target="_blank" rel="noopener" href="https://wa.me/">Enviar pelo WhatsApp</a>
+      </div>
+    </div>
+    <p class="erro" id="erro-link-escala" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Fechar</button>
+      <button class="botao" value="salvar" id="link-escala-gerar">Gerar link</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-indisponivel">
+  <form method="dialog">
+    <h2 style="font-size:20px">Indisponibilidade</h2>
+    <p class="dica">Quem não pode servir num período. A pessoa continua aparecendo para escalar, com o aviso.</p>
+    <div class="campo"><label for="ind-pessoa">Pessoa</label><select id="ind-pessoa" required></select></div>
+    <div class="grade2">
+      <div class="campo"><label for="ind-de">De</label><input type="date" id="ind-de" required></div>
+      <div class="campo"><label for="ind-ate">Até</label><input type="date" id="ind-ate"></div>
+    </div>
+    <div class="campo"><label for="ind-motivo">Motivo <span class="dica">(opcional)</span></label><input type="text" id="ind-motivo" maxlength="80" placeholder="Ex.: viagem"></div>
+    <p class="erro" id="erro-indisponivel" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="dlg-motivo">
   <form method="dialog" id="form-motivo">
@@ -710,6 +898,7 @@
 
 <script src="/comum.js?v=5"></script>
 <script src="/form-visitante.js?v=1"></script>
-<script src="/painel.js?v=12"></script>
+<script src="/painel.js?v=13"></script>
+<script src="/escalas.js?v=1"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ library;
 
 export 'src/agenda.dart';
 export 'src/aniversariantes.dart';
+export 'src/escala.dart';
 export 'src/membro.dart';
 export 'src/mensagem.dart';
 export 'src/motivo.dart';

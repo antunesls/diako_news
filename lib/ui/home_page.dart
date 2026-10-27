@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../app_scope.dart';
 import '../holyrics/status_controller.dart';
 import 'agenda_panel.dart';
+import 'escala_panel.dart';
 import 'mensagem_panel.dart';
 import 'control_bar.dart';
 import 'oracao_panel.dart';
@@ -21,7 +22,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-enum _Secao { recados, oracao, visitantes, agenda, mensagens }
+enum _Secao { recados, oracao, visitantes, agenda, escala, mensagens }
 
 class _HomePageState extends State<HomePage> {
   final Set<String> _selecionados = {};
@@ -126,7 +127,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scope = _scope;
     return ListenableBuilder(
-      listenable: Listenable.merge([scope.repo, scope.motivos, scope.agenda, scope.mensagens, scope.visitas, scope.conta]),
+      listenable: Listenable.merge([scope.repo, scope.motivos, scope.agenda, scope.escalas, scope.mensagens, scope.visitas, scope.conta]),
       builder: (context, _) {
         final conta = scope.conta;
         // Seções que o perfil vê; se a atual saiu (perfil trocado), volta para Recados.
@@ -135,6 +136,7 @@ class _HomePageState extends State<HomePage> {
           if (conta.pode('motivosVer')) _Secao.oracao,
           if (conta.pode('visitantes')) _Secao.visitantes,
           if (conta.pode('agendaVer')) _Secao.agenda,
+          if (conta.pode('escalasVer')) _Secao.escala,
           if (conta.pode('mensagens')) _Secao.mensagens,
         };
         if (!permitidas.contains(_secao)) _secao = _Secao.recados;
@@ -181,6 +183,8 @@ class _HomePageState extends State<HomePage> {
                       ),
                     if (permitidas.contains(_Secao.agenda))
                       const ButtonSegment(value: _Secao.agenda, icon: Icon(Icons.event_outlined), label: Text('Agenda')),
+                    if (permitidas.contains(_Secao.escala))
+                      const ButtonSegment(value: _Secao.escala, icon: Icon(Icons.groups_outlined), label: Text('Escala')),
                     if (permitidas.contains(_Secao.mensagens))
                     ButtonSegment(value: _Secao.mensagens,
                       icon: Badge(isLabelVisible: scope.mensagens.novas > 0,
@@ -220,6 +224,7 @@ class _HomePageState extends State<HomePage> {
                   _Secao.oracao => const OracaoPanel(),
                   _Secao.visitantes => const VisitantesPanel(),
                   _Secao.agenda => AgendaPanel(onVirarRecado: _recadoDoEvento),
+                  _Secao.escala => const EscalaPanel(),
                   _Secao.mensagens => const MensagemPanel(),
                   _Secao.recados => Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
