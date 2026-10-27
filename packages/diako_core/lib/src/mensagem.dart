@@ -7,7 +7,8 @@ class Mensagem {
       required this.criadoEm,
       this.nome = '',
       this.contato = '',
-      this.status = 'nova',
+       this.status = 'nova',
+       this.observacao = '',
       this.avisoEmail = 'pendente'});
 
   final String id;
@@ -17,6 +18,8 @@ class Mensagem {
   final String contato;
   final String status;
   final String avisoEmail;
+  /// Nota interna; não é enviada ao remetente nem por e-mail.
+  final String observacao;
   final DateTime criadoEm;
 
   static const tipos = {'duvida', 'sugestao', 'critica'};
@@ -29,6 +32,7 @@ class Mensagem {
         nome: j['nome'] as String? ?? '',
         contato: j['contato'] as String? ?? '',
         status: j['status'] as String? ?? 'nova',
+        observacao: j['observacao'] as String? ?? '',
         avisoEmail: j['avisoEmail'] as String? ?? 'pendente',
         criadoEm: DateTime.parse(j['criadoEm'] as String),
       );
@@ -41,6 +45,7 @@ class Mensagem {
         'contato': contato,
         'status': status,
         'avisoEmail': avisoEmail,
+        'observacao': observacao,
         'criadoEm': criadoEm.toIso8601String(),
       };
 }

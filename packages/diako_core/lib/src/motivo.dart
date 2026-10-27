@@ -48,6 +48,7 @@ class Motivo {
     this.enviadoPor = '',
     this.atendidoEm,
     this.testemunho = '',
+    this.observacao = '',
     this.aprovadoPor = '',
   }) : criadoEm = criadoEm ?? DateTime.now();
 
@@ -72,6 +73,9 @@ class Motivo {
 
   /// Como a oração foi respondida (opcional), para os testemunhos.
   String testemunho;
+
+  /// Nota interna do painel. Não compõe texto público nem slides.
+  String observacao;
 
   /// Nome de quem aprovou o pedido vindo do site (vazio em pedidos antigos ou criados já aprovados).
   String aprovadoPor;
@@ -104,6 +108,7 @@ class Motivo {
         'enviadoPor': enviadoPor,
         'atendidoEm': atendidoEm?.toIso8601String(),
         'testemunho': testemunho,
+        'observacao': observacao,
         if (aprovadoPor.isNotEmpty) 'aprovadoPor': aprovadoPor,
       };
 
@@ -122,6 +127,7 @@ class Motivo {
         enviadoPor: j['enviadoPor'] as String? ?? '',
         atendidoEm: DateTime.tryParse(j['atendidoEm'] as String? ?? ''),
         testemunho: j['testemunho'] as String? ?? '',
+        observacao: j['observacao'] as String? ?? '',
         aprovadoPor: j['aprovadoPor'] as String? ?? '',
       );
 }

@@ -3,7 +3,7 @@ import 'membro.dart';
 /// As duas escalas do culto.
 enum TipoEscala {
   pastoral('Pastoral', ['Direção', 'Pregação', 'Oração e ofertas', funcaoCeia]),
-  louvor('Louvor', ['Ministro', 'Vocal', 'Teclado', 'Violão', 'Baixo', 'Bateria']);
+  louvor('Louvor', ['Ministro', 'Vocal', 'Teclado', 'Violão', 'Guitarra', 'Baixo', 'Bateria', 'Técnico de som', 'Projeção']);
 
   const TipoEscala(this.nome, this.funcoes);
   final String nome;
@@ -289,6 +289,9 @@ String naFuncao(String funcao) => switch (funcao) {
       funcaoCeia => 'na Santa Ceia',
       'Ministro' => 'como ministro',
       'Bateria' => 'na bateria',
+      'Guitarra' => 'na guitarra',
+      'Técnico de som' => 'na mesa de som',
+      'Projeção' => 'na projeção',
       _ => 'no ${funcao.toLowerCase()}',
     };
 

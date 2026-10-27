@@ -303,17 +303,26 @@ async function carregarMensagens() {
     el('div', { class: 'conteudo' },
       el('div', { class: 'titulo' }, nomesMensagem[m.tipo] || m.tipo, ' · ', dataCurta(m.criadoEm)),
       el('div', { style: 'white-space:pre-wrap;overflow-wrap:anywhere' }, m.texto),
+      m.observacao ? el('div', { class: 'sub', style: 'white-space:pre-wrap' }, 'Observação interna: ' + m.observacao) : null,
       el('div', { class: 'sub' }, m.nome ? 'Nome: ' + m.nome : 'Anônima', m.contato ? ' · Contato: ' + m.contato : ''),
       el('div', { class: 'sub' }, 'Aviso por e-mail: ' + (m.avisoEmail === 'enviado' ? 'enviado' : m.avisoEmail === 'falhou' ? 'falhou' : 'pendente / SMTP não configurado'))),
     el('div', { class: 'acoes' },
       m.status !== 'nova' ? botao('Nova', () => mudarMensagem(m, 'nova'), 'pequeno') : null,
       m.status !== 'emAnalise' ? botao('Em análise', () => mudarMensagem(m, 'emAnalise'), 'pequeno') : null,
       m.status !== 'resolvida' ? botao('Resolvida', () => mudarMensagem(m, 'resolvida'), 'pequeno') : null,
+      botao('Observação', () => editarObservacaoMensagem(m), 'pequeno'),
       m.avisoEmail !== 'enviado' ? botao('Tentar e-mail', async () => {
         try { await api('POST', '/api/mensagens/' + m.id + '/avisar'); await carregarMensagens(); }
         catch (e) { mensagem($('resultado-mensagens'), e.message, false); }
       }, 'pequeno') : null)));
   $('lista-mensagens').replaceChildren(...(cartoes.length ? cartoes : [el('p', { class: 'vazio' }, 'Nenhuma mensagem neste filtro.')]));
+}
+function editarObservacaoMensagem(m) {
+  $('observacao-mensagem').value = m.observacao || '';
+  abrirDialogo($('dlg-observacao-mensagem'), $('erro-observacao-mensagem'), async () => {
+    await api('PUT', '/api/mensagens/' + m.id, { observacao: $('observacao-mensagem').value.trim() });
+    await carregarMensagens();
+  });
 }
 function atualizarBadgeMensagens() {
   const novas = mensagensRecebidas.filter(m => m.status === 'nova').length;
@@ -367,6 +376,7 @@ function itemMotivo(m) {
         m.publico ? null : el('span', { class: 'etiqueta', title: 'Não vai para o telão' }, 'Particular')),
       m.para ? el('div', { class: 'sub' }, m.motivo) : null,
       m.testemunho ? el('div', { class: 'sub', style: 'font-style:italic' }, '“' + m.testemunho + '”') : null,
+      m.observacao ? el('div', { class: 'sub', style: 'white-space:pre-wrap' }, 'Observação interna: ' + m.observacao) : null,
       el('div', { class: 'sub' }, detalhes)),
     el('div', { class: 'acoes' }, acoes));
 }
@@ -378,9 +388,11 @@ function editarMotivo(m) {
   $('m-tipo').value = m ? m.tipo : 'outro';
   $('m-publico').checked = m ? m.publico : true;
   $('m-testemunho').value = m ? m.testemunho || '' : '';
+  $('m-observacao').value = m ? m.observacao || '' : '';
   $('campo-testemunho').hidden = !(m && m.status === 'atendido');
   abrirDialogo($('dlg-motivo'), $('erro-motivo'), async () => {
-    const dados = { para: $('m-para').value.trim(), motivo: $('m-motivo').value.trim(), tipo: $('m-tipo').value, publico: $('m-publico').checked };
+    const dados = { para: $('m-para').value.trim(), motivo: $('m-motivo').value.trim(), tipo: $('m-tipo').value, publico: $('m-publico').checked,
+      observacao: $('m-observacao').value.trim() };
     if (m && m.status === 'atendido') dados.testemunho = $('m-testemunho').value.trim();
     if (m) await api('PUT', '/api/motivos/' + m.id, dados);
     else await api('POST', '/api/motivos', { ...dados, origem: 'painel' });

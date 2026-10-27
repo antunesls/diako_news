@@ -37,6 +37,19 @@ void main() {
   });
 
   group('CultoEscala', () {
+    test('novas funções do louvor preservam os escalados anteriores', () {
+      final c = CultoEscala.fromJson({
+        'id': 'x', 'data': '2026-11-01', 'hora': '19:00',
+        'louvor': {'Violão': ['a'], 'Guitarra': ['b'], 'Técnico de som': ['c'], 'Projeção': ['a']},
+      });
+      expect(c.funcoes(TipoEscala.louvor), containsAll(['Técnico de som', 'Guitarra', 'Projeção']));
+      expect(CultoEscala.fromJson(c.toJson()).louvor, c.louvor);
+      expect(c.servindo.where((s) => s.tipo == TipoEscala.louvor).length, 4);
+      expect(naFuncao('Guitarra'), 'na guitarra');
+      expect(naFuncao('Técnico de som'), 'na mesa de som');
+      expect(naFuncao('Projeção'), 'na projeção');
+    });
+
     test('json ida e volta; Santa Ceia só no culto de ceia', () {
       final c = CultoEscala.fromJson({
         'id': 'x', 'data': '01/11/2026', 'hora': '19h', 'nome': 'Culto da família', 'ceia': true, 'tema': 'Graça',

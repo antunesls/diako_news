@@ -729,9 +729,12 @@ class Servidor {
   /// Sem a permissão de particulares: só os públicos e sem o nome de quem enviou.
   Response _listarMotivos(Request req) {
     final completo = Auth.contaDa(req)?.pode(Permissao.motivosParticulares) ?? false;
+    final notaInterna = Auth.contaDa(req)?.pode(Permissao.motivosEditar) ?? false;
     return _json([
       for (final m in store.listar('motivos'))
-        if (completo) m else if (m['publico'] != false) {...m, 'enviadoPor': ''},
+        if (completo) m else if (m['publico'] != false) {
+          for (final entry in m.entries) if (entry.key != 'observacao' || notaInterna) entry.key: entry.key == 'enviadoPor' ? '' : entry.value,
+        },
     ]);
   }
 
@@ -827,6 +830,7 @@ class Servidor {
     if (m.motivo.trim().isEmpty && m.para.trim().isEmpty) return 'Informe o motivo.';
     if (m.para.length > 100) return 'Nome muito longo.';
     if (m.motivo.length > 500) return 'Motivo muito longo (máximo 500 caracteres).';
+    if (m.observacao.length > 500) return 'Observação muito longa (máximo 500 caracteres).';
     return null;
   }
 
@@ -886,10 +890,12 @@ class Servidor {
     final atual = store.buscar('mensagens', id);
     if (atual == null) return _erro(404, 'Mensagem não encontrada.');
     final corpo = await _corpo(req);
-    if (corpo.length != 1 || !corpo.containsKey('status') || !Mensagem.statusValidos.contains(corpo['status'])) {
-      return _erro(400, 'Informe apenas um status válido.');
+    if (corpo.isEmpty || corpo.keys.any((k) => k != 'status' && k != 'observacao') ||
+        (corpo.containsKey('status') && !Mensagem.statusValidos.contains(corpo['status'])) ||
+        (corpo.containsKey('observacao') && (corpo['observacao'] is! String || (corpo['observacao'] as String).length > 500))) {
+      return _erro(400, 'Informe um status válido ou uma observação de até 500 caracteres.');
     }
-    final novo = {...atual, 'status': corpo['status']};
+    final novo = {...atual, ...corpo};
     await store.salvar('mensagens', novo);
     return _json(novo);
   }

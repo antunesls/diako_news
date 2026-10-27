@@ -675,8 +675,22 @@
       <select id="m-tipo"><option value="saude">Saúde</option><option value="familia">Família</option><option value="trabalho">Trabalho</option><option value="gratidao">Gratidão</option><option value="outro">Outro</option></select>
     </div>
     <div class="campo"><label class="marcar"><input type="checkbox" id="m-publico"><span>Pode ser lido no telão</span></label></div>
+    <div class="campo"><label for="m-observacao">Observação interna <span class="dica">(não aparece no site nem no telão)</span></label><textarea id="m-observacao" maxlength="500"></textarea></div>
     <div class="campo" id="campo-testemunho"><label for="m-testemunho">Testemunho <span class="dica">(como a oração foi respondida — aparece nas orações respondidas)</span></label><textarea id="m-testemunho" maxlength="300" style="min-height:70px"></textarea></div>
     <p class="erro" id="erro-motivo" hidden></p>
+    <div class="dialogo-acoes">
+      <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
+      <button class="botao" value="salvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-observacao-mensagem">
+  <form method="dialog">
+    <h2 style="font-size:20px">Observação interna da mensagem</h2>
+    <p class="dica">Visível somente no painel; não é enviada para a pessoa.</p>
+    <div class="campo"><label for="observacao-mensagem">Observação</label><textarea id="observacao-mensagem" maxlength="500"></textarea></div>
+    <p class="erro" id="erro-observacao-mensagem" hidden></p>
     <div class="dialogo-acoes">
       <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
       <button class="botao" value="salvar">Salvar</button>
@@ -960,9 +974,10 @@
 <script src="/comum.js?v=5"></script>
 <script src="/form-visitante.js?v=1"></script>
 <script src="/menu-lateral.js?v=1"></script>
-<script src="/painel.js?v=14"></script>
+<script src="/painel.js?v=15"></script>
 <script src="/acessos-escala.js?v=1"></script>
 <script src="/repertorio.js?v=1"></script>
-<script src="/escalas.js?v=2"></script>
+<script src="/escala-impressao.js?v=1"></script>
+<script src="/escalas.js?v=3"></script>
 </body>
 </html>

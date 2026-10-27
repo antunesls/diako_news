@@ -36,6 +36,7 @@ async function carregarEscalas() {
     escala.dados = await api('GET', '/api/escalas?mes=' + escala.mes);
     desenharEscala();
   } catch (err) {
+    console.error('Falha ao carregar ou desenhar a escala:', err);
     mensagem($('resultado-escala'), err.message, false);
   }
 }
@@ -44,7 +45,7 @@ carregar.escalas = carregarEscalas;
 /** Funções que viram colunas no mês: a Santa Ceia só se algum culto for de ceia. */
 function colunasDoMes(d, tipo) {
   const todas = new Set(d.cultos.flatMap((c) => c.funcoes[tipo]));
-  const ordem = tipo === 'pastoral' ? ['Direção', 'Pregação', 'Oração e ofertas', 'Santa Ceia'] : ['Ministro', 'Vocal', 'Teclado', 'Violão', 'Baixo', 'Bateria'];
+  const ordem = tipo === 'pastoral' ? ['Direção', 'Pregação', 'Oração e ofertas', 'Santa Ceia'] : ['Ministro', 'Vocal', 'Teclado', 'Violão', 'Guitarra', 'Baixo', 'Bateria', 'Técnico de som', 'Projeção'];
   return ordem.filter((f) => todas.has(f));
 }
 
@@ -372,13 +373,18 @@ $('escala-copiar').addEventListener('click', async () => {
 
 $('escala-imprimir').addEventListener('click', () => {
   const d = escala.dados, tipo = escala.tipo;
-  const colunas = colunasDoMes(d, tipo);
+  const cultos = cultosParaImpressao(d.cultos, tipo);
+  if (!cultos.length) {
+    mensagem($('resultado-escala'), 'Nenhuma pessoa escalada nesta aba para imprimir.', false);
+    return;
+  }
+  const colunas = colunasDoMes({ cultos }, tipo);
   $('impressao-membros').replaceChildren(
     el('h1', {}, `Escala ${tipo === 'pastoral' ? 'pastoral' : 'do louvor'} — ${d.titulo}`),
     el('p', {}, 'Igreja Diakonia Tulipas'),
     el('table', {},
       el('thead', {}, el('tr', {}, el('th', {}, 'Culto'), ...colunas.map((f) => el('th', {}, f)), tipo === 'louvor' ? el('th', {}, 'Músicas') : null)),
-      el('tbody', {}, ...d.cultos.map((c) => el('tr', {},
+      el('tbody', {}, ...cultos.map((c) => el('tr', {},
         el('td', {}, `${c.rotulo} · ${c.horaTexto}${c.ceia ? ' · Santa Ceia' : ''}`),
         ...colunas.map((f) => el('td', {}, c.funcoes[tipo].includes(f) ? (c[tipo][f] || []).map((p) => p.nome).join(', ') : '')),
         tipo === 'louvor' ? el('td', {}, (c.musicas || []).map((m) => m.tom ? `${m.titulo} (${m.tom})` : m.titulo).join('; ')) : null)))));

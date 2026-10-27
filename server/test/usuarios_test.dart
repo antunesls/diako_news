@@ -126,6 +126,31 @@ void main() {
       expect(id, isNotEmpty);
     });
 
+    test('observações internas de oração e mensagens são editáveis sem ir para o público', () async {
+      final (_, midia) = await criar('midia1', Perfil.midia);
+      final (st, motivo) = await chamar('POST', '/api/motivos', token: admin,
+          json: {'motivo': 'Saúde', 'tipo': 'saude', 'publico': true, 'observacao': 'Visitar na terça'});
+      expect(st, 201);
+      expect((await chamar('GET', '/api/motivos', token: admin)).$2.single['observacao'], 'Visitar na terça');
+      expect((await chamar('GET', '/api/motivos', token: midia)).$2.single.containsKey('observacao'), isFalse);
+      expect((await chamar('PUT', '/api/motivos/${motivo['id']}', token: admin,
+          json: {'observacao': 'Ligar antes'})).$2['observacao'], 'Ligar antes');
+      expect((await chamar('PUT', '/api/motivos/${motivo['id']}', token: admin,
+          json: {'observacao': List.filled(501, 'x').join()})).$1, 400);
+
+      await store.salvar('mensagens', {
+        'id': 'msg-1', 'tipo': 'duvida', 'texto': 'Olá', 'criadoEm': DateTime.now().toIso8601String(),
+        'status': 'nova', 'avisoEmail': 'pendente',
+      });
+      expect((await chamar('PUT', '/api/mensagens/msg-1', token: admin,
+          json: {'observacao': 'Retornar amanhã'})).$2['observacao'], 'Retornar amanhã');
+      expect((await chamar('PUT', '/api/mensagens/msg-1', token: admin,
+          json: {'status': 'resolvida'})).$2['observacao'], 'Retornar amanhã');
+      expect((await chamar('GET', '/api/mensagens', token: midia)).$1, 403);
+      expect((await chamar('PUT', '/api/mensagens/msg-1', token: admin,
+          json: {'observacao': List.filled(501, 'x').join()})).$1, 400);
+    });
+
     // Teste separado: o servidor aceita só 5 tentativas de login por minuto do mesmo IP.
     test('desativar derruba a sessão e impede novo login; logins reservados e repetidos', () async {
       final (id, token) = await criar('maria.silva', Perfil.secretaria);
