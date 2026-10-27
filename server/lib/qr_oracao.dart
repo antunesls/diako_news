@@ -11,7 +11,7 @@ const arquivoQrMensagens = 'qr-mensagens.png';
 /// PNG 1920x1080 de fundo branco com o QR code de [url] centralizado,
 /// pronto para o Holyrics projetar com ShowImage.
 Uint8List gerarPngQr(String url, {String? rotulo}) {
-  final qr = QrImage(QrCode(payload: QrPayload.fromString(url), errorCorrectLevel: QrErrorCorrectLevel.medium));
+  final qr = QrImage(QrCode.fromData(data: url, errorCorrectLevel: QrErrorCorrectLevel.M));
   const largura = 1920, altura = 1080;
   final margem = 4; // zona silenciosa exigida pelo padrão, em módulos
   final total = qr.moduleCount + margem * 2;

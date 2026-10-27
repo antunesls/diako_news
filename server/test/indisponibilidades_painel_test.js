@@ -10,7 +10,7 @@ test('Escalas oferece lista completa de indisponibilidades, autor, data e cancel
   assert.ok(html.includes('id="escala-ver-indisponibilidades"'));
   assert.ok(html.includes('id="dlg-lista-indisponibilidades"'));
   assert.ok(html.includes('id="lista-indisponibilidades"'));
-  assert.ok(html.includes('/escalas.js?v=8'));
+  assert.ok(html.includes('/escalas.js?v=9'));
   assert.match(js, /api\('GET', '\/api\/escalas\/indisponibilidades'\)/);
   assert.match(js, /api\('DELETE', '\/api\/escalas\/indisponibilidades\/'/);
   assert.match(js, /enviadoEm/);

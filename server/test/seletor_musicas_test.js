@@ -28,7 +28,7 @@ test('escala tem seletor independente com busca e Minha escala mostra link e tom
   assert.match(script, /linkYoutube\(/);
   assert.match(minha, /m\.youtube/);
   assert.match(minha, /m\.tom/);
-  assert.ok(html.indexOf('/musica-youtube.js?v=1') < html.indexOf('/escalas.js?v=8'));
+  assert.ok(html.indexOf('/musica-youtube.js?v=1') < html.indexOf('/escalas.js?v=9'));
 });
 
 test('linha vazia de música não mostra texto null no resumo', () => {

@@ -69,7 +69,7 @@ String _textoPix(String s, int max) {
 
 /// PNG quadrado (fundo branco) com o QR do PIX.
 Uint8List gerarPngQrQuadrado(String conteudo, {int tamanho = 600}) {
-  final qr = QrImage(QrCode(payload: QrPayload.fromString(conteudo), errorCorrectLevel: QrErrorCorrectLevel.medium));
+  final qr = QrImage(QrCode.fromData(data: conteudo, errorCorrectLevel: QrErrorCorrectLevel.M));
   const margem = 4;
   final total = qr.moduleCount + margem * 2;
   final escala = (tamanho / total).floor();

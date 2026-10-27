@@ -21,6 +21,7 @@ import 'backup_cifrado.dart';
 import 'cartazes.dart';
 import 'config.dart';
 import 'configuracoes.dart';
+import 'escala_pdf.dart';
 import 'historico.dart';
 import 'holyrics.dart';
 import 'email_mensagens.dart';
@@ -259,6 +260,7 @@ class Servidor {
       ..put('/api/repertorio/<id>', _editarMusicaRepertorio)
       ..get('/api/escalas', _listarEscalas)
       ..get('/api/escalas/hoje', _escalaDeHoje)
+      ..get('/api/escalas/pdf', _escalaPdf)
       ..post('/api/escalas', _criarCulto)
       ..post('/api/escalas/gerar', _gerarCultos)
        ..post('/api/escalas/repetir', _repetirEscala)
@@ -1985,6 +1987,55 @@ class Servidor {
     final membros = _membrosPorId();
     final ind = _indisponibilidades();
     return _json({'hoje': ehHoje, 'cultos': [for (final c in lista) _cultoParaTela(c, membros, ind)]});
+  }
+
+  /// GET /api/escalas/pdf?mes=aaaa-mm&tipo=...&formato=paisagem|retrato — PDF pronto para baixar.
+  /// Valem as regras da impressão: só cultos com pelo menos uma pessoa na escala pedida.
+  Future<Response> _escalaPdf(Request req) async {
+    final q = req.url.queryParameters;
+    final tipo = TipoEscala.porNome(q['tipo']);
+    final formato = q['formato'];
+    final mes = _mesDe(q['mes']);
+    if (tipo == null || mes == null || (formato != 'paisagem' && formato != 'retrato')) {
+      return _erro(400, 'Mês, escala ou formato inválidos.');
+    }
+    final prefixo = _prefixoMes(mes.ano, mes.mes);
+    final membros = _membrosPorId();
+    final cultos = _cultos()
+        .where((c) =>
+            c.data.startsWith(prefixo) &&
+            c.funcoes(tipo).any((f) => (c.da(tipo)[f] ?? const <String>[]).isNotEmpty))
+        .toList()
+      ..sort((a, b) => a.data == b.data ? a.hora.compareTo(b.hora) : a.data.compareTo(b.data));
+    if (cultos.isEmpty) return _erro(400, 'Nenhuma pessoa escalada nesta escala para gerar o PDF.');
+    final logo = File(p.join(pastaWeb, 'logo.png'));
+    final pdf = await gerarEscalaPdf(
+      cultos: [
+        for (final c in cultos)
+          CultoEscalaPdf(
+            rotulo: rotuloDia(c.data),
+            hora: horaCurtaEscala(c.hora),
+            nome: c.nome,
+            ceia: c.ceia,
+            funcoes: [
+              for (final f in c.funcoes(tipo))
+                FuncaoEscalaPdf(f, [
+                  for (final id in c.da(tipo)[f] ?? const <String>[]) membros[id]?.nome ?? '(pessoa removida)',
+                ]),
+            ],
+            musicas: [for (final m in c.musicas) MusicaEscalaPdf(m.titulo, m.tom)],
+          ),
+      ],
+      tipo: tipo.name,
+      formato: formato!,
+      tituloMes: '${nomesMeses[mes.mes - 1]} de ${mes.ano}',
+      igreja: nomeIgreja,
+      logo: logo.existsSync() ? logo.readAsBytesSync() : null,
+    );
+    return Response.ok(pdf, headers: {
+      'content-type': 'application/pdf',
+      'content-disposition': 'attachment; filename="escala-${tipo.name}-$prefixo-$formato.pdf"',
+    });
   }
 
   /// POST /api/escalas/gerar {mes} — cria os cultos do mês a partir dos horários da página inicial.

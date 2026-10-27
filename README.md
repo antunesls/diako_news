@@ -8,13 +8,13 @@ Sistema da Igreja Diakonia Tulipas para projetar recados e motivos de oração n
  TV da recepção ─────────▶ /mural  │      dados, cartazes, histórico, backup
  Tablet do pastor (este app) ──────┘
 ```
-No painel também ficam o **resumo da semana para o WhatsApp**, o **histórico** do que foi projetado, o **cadastro de membros** (dados completos, foto, família e ministérios), os **visitantes** (QR e obreiro da recepção, boas-vindas no telão e na TV, acompanhamento) e as **escalas pastoral e do louvor** — veja o [`LEIA-ME do servidor`](server/LEIA-ME.md).
+No painel também ficam o **resumo da semana para o WhatsApp**, o **histórico** do que foi projetado, o **cadastro de membros** (dados completos, foto, família e ministérios), os **visitantes** (QR e obreiro da recepção, boas-vindas no telão e na TV, acompanhamento), o **repertório** e as **escalas pastoral e do louvor** — com PDF para baixar e consulta individual em `/minha-escala` — veja o [`LEIA-ME do servidor`](server/LEIA-ME.md).
 
 | Pasta | O que é |
 |---|---|
 | `server/` | Servidor: guarda os dados, tem o site de pedidos de oração, o painel e o mural, e comanda o Holyrics. Roda no PC do Holyrics ([`server/LEIA-ME.md`](server/LEIA-ME.md)) ou na internet, num LXC/VPS, com um agente no PC da igreja ([`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md)). |
 | `lib/` | App Android (Flutter) do tablet do pastor. |
-| `packages/diako_core/` | Modelos e regras usados pelo app e pelo servidor (recados, motivos, slides, aniversariantes). |
+| `packages/diako_core/` | Modelos e regras usados pelo app e pelo servidor (recados, motivos, slides, aniversariantes, escalas, repertório e visitantes). |
 
 ## Funções do app
 - **Recados** com categorias (Aviso, Evento, Aniversário), fixos no topo, validade (expirados vão para uma aba própria) e ordenação arrastando. O recado **Aniversariantes da semana** é gerado sozinho pelo servidor, só com quem autorizou o uso dos dados (LGPD).
@@ -28,6 +28,13 @@ No painel também ficam o **resumo da semana para o WhatsApp**, o **histórico**
 - **Barra de controle:** anterior, parar, próximo, tela vazia (F9) e tela preta (F10). Mostra o que está no ar.
 - Contagem regressiva no telão e no palco, além de mensagem no painel de comunicação.
 - **Sincronização ao vivo** com o servidor. Sem conexão, o app mostra a última cópia salva e bloqueia a edição.
+
+## Escalas, repertório e PDF
+- **Repertório pesquisável:** a busca procura título, cantor e compositor sem diferenciar acentos, aceita palavras fora de ordem e tolera pequenos erros; há filtros por status e tom. O tom usa 12 maiores, 12 menores e "Não definido", e as anotações antigas ficam preservadas. O status **OK** disponibiliza a música para novas escalas; **Em análise** e **Inativo** não.
+- **Músicas da escala:** a escolha abre uma janela separada com busca, miniatura e link do YouTube, tom e BPM; a ordem e o tom de cada música são definidos na escala do culto.
+- **Minha escala (`/minha-escala`):** cada integrante entra com usuário e senha (o QR é único para todos) e vê somente os próprios cultos, com o tom e o link do YouTube de cada música; também registra e desfaz indisponibilidades.
+- **Indisponibilidades:** quem administra escalas vê todos os avisos ainda ativos, com integrante, conta que enviou, data do envio, período e motivo, e pode cancelar.
+- **PDF da escala:** o botão **Gerar PDF** baixa o arquivo direto, sem abrir a tela de impressão, no formato *quadro mensal* (A4 paisagem) ou *cartões por culto* (A4 retrato), com logo e cabeçalho da igreja. Só entram cultos com pelo menos uma pessoa escalada na aba escolhida.
 
 ## 1. Instalar o servidor
 - **No PC do Holyrics** (só na rede da igreja): siga o [`server/LEIA-ME.md`](server/LEIA-ME.md). No fim, ele mostra o **endereço** (ex: `http://192.168.0.10:8080`) e você define a **senha**.
@@ -63,6 +70,7 @@ git push origin v1.0.0
 ```
 Em alguns minutos aparece em **Releases** uma versão com:
 - `DiakoServer-1.0.0.zip`: o servidor para o PC do Holyrics (instalar com `instalar.ps1`).
+- `DiakoServer-linux-x64-1.0.0.tar.gz`: o servidor para LXC/VPS (veja [`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md)).
 - `DiakoNews-1.0.0.apk`: o app para baixar e instalar no tablet.
 
 **Assinatura do APK (fazer uma vez):** para que cada versão nova instale por cima da anterior, o APK precisa ser assinado sempre com a mesma chave.

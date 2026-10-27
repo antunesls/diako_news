@@ -467,27 +467,24 @@ $('escala-copiar').addEventListener('click', async () => {
 $('escala-imprimir').addEventListener('click', () => {
   const d = escala.dados;
   if (!d) return;
-  const tipo = escala.tipo;
-  const cultos = cultosParaImpressao(d.cultos, tipo);
-  if (!cultos.length) {
-    mensagem($('resultado-escala'), 'Nenhuma pessoa escalada nesta aba para imprimir.', false);
+  if (!cultosParaImpressao(d.cultos, escala.tipo).length) {
+    mensagem($('resultado-escala'), 'Nenhuma pessoa escalada nesta aba para gerar o PDF.', false);
     return;
   }
   $('dlg-formato-escala').showModal();
 });
 
-function imprimirEscala(formato) {
-  const d = escala.dados, tipo = escala.tipo;
-  const cultos = cultosParaImpressao(d.cultos, tipo);
-  if (!cultos.length) return;
-  const colunas = colunasDoMes({ cultos }, tipo);
-  const alvo = $('impressao-membros');
-  alvo.className = `impressao-escala ${formato}`;
-  alvo.replaceChildren(montarEscalaImpressao(cultos, tipo, formato, colunas, d.titulo, el));
+// O PDF é montado no servidor (mesmo visual dos dois formatos) e baixado com o login da sessão.
+function baixarEscalaPdf(formato) {
   $('dlg-formato-escala').close();
-  window.print();
+  mensagem($('resultado-escala'), 'Gerando o PDF…');
+  baixarArquivo(
+    `/api/escalas/pdf?mes=${escala.mes}&tipo=${escala.tipo}&formato=${formato}`,
+    `escala-${escala.tipo}-${escala.mes}-${formato}.pdf`,
+  )
+    .then(() => mensagem($('resultado-escala'), 'PDF gerado. Confira os downloads do navegador.'))
+    .catch((err) => mensagem($('resultado-escala'), err.message, false));
 }
-$('escala-formato-paisagem').addEventListener('click', () => imprimirEscala('paisagem'));
-$('escala-formato-retrato').addEventListener('click', () => imprimirEscala('retrato'));
+$('escala-formato-paisagem').addEventListener('click', () => baixarEscalaPdf('paisagem'));
+$('escala-formato-retrato').addEventListener('click', () => baixarEscalaPdf('retrato'));
 $('escala-formato-fechar').addEventListener('click', () => $('dlg-formato-escala').close());
-window.addEventListener('afterprint', () => { $('impressao-membros').className = ''; });

@@ -41,6 +41,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.1"
+  barcode:
+    dependency: transitive
+    description:
+      name: barcode
+      sha256: "7b6729c37e3b7f34233e2318d866e8c48ddb46c1f7ad01ff7bb2a8de1da2b9f4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.9"
+  bidi:
+    dependency: transitive
+    description:
+      name: bidi
+      sha256: "77f475165e94b261745cf1032c751e2032b8ed92ccb2bf5716036db79320637d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.13"
   boolean_selector:
     dependency: transitive
     description:
@@ -288,6 +304,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
+  path_parsing:
+    dependency: transitive
+    description:
+      name: path_parsing
+      sha256: "883402936929eac138ee0a45da5b0f2c80f89913e6dc3bf77eb65b84b409c6ca"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  pdf:
+    dependency: "direct main"
+    description:
+      name: pdf
+      sha256: "6e40827f370d196e97c6611724d923a3d86c431ce8e2ce1e59edd03a67a1a6e6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.13.1"
+  petitparser:
+    dependency: transitive
+    description:
+      name: petitparser
+      sha256: "2f1564aadb14215e478563b5406cb80729d022158c01dc50c96013c2f7eb4790"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.1.0"
   pointycastle:
     dependency: "direct main"
     description:
@@ -324,10 +364,10 @@ packages:
     dependency: "direct main"
     description:
       name: qr
-      sha256: "5adccca7f0274326125fcdbf97328f5d6b1b2d7fb8a52a01cef9f40d96a759d9"
+      sha256: "5a1d2586170e172b8a8c8470bbbffd5eb0cd38a66c0d77155ea138d3af3a4445"
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.0"
+    version: "3.0.2"
   shelf:
     dependency: "direct main"
     description:
@@ -456,6 +496,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  vector_math:
+    dependency: transitive
+    description:
+      name: vector_math
+      sha256: fa49e1674cb84acb900141714e6c6e1f9ae099827c24d141430ff6819db4e1bc
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.4"
   vm_service:
     dependency: transitive
     description:
@@ -504,6 +552,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.1"
+  xml:
+    dependency: transitive
+    description:
+      name: xml
+      sha256: "0fe8cc98946def31cbcbc8734aa4067031e6f65ea3a78a508060bfed2200bfeb"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.1.0"
   yaml:
     dependency: transitive
     description:

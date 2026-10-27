@@ -253,6 +253,34 @@ void main() {
       expect((await chamar('GET', '/api/escalas/indisponibilidades', token: secretaria)).$2, hasLength(1));
     });
 
+    test('baixa PDF autenticado dos dois formatos sem cultos vazios', () async {
+      await chamar('PUT', '/api/admin/configuracoes', token: admin, json: {'siteCultos': 'Domingo — 19h'});
+      await chamar('POST', '/api/escalas/gerar', token: admin, json: {'mes': '2026-11'});
+      final cultoId = culto(await mes('2026-11'), '2026-11-01')['id'];
+      final abertura = await musica('Abertura', tom: 'G');
+      await chamar('PUT', '/api/escalas/$cultoId', token: admin,
+          json: {'musicas': [{'repertorioId': abertura}]});
+      const basePdf = '/api/escalas/pdf?mes=2026-11&tipo=louvor&formato=';
+      expect((await chamar('GET', '${basePdf}paisagem')).$1, 401);
+      expect((await chamar('GET', '${basePdf}paisagem', token: admin)).$1, 400);
+      expect((await chamar('GET', '${basePdf}outro', token: admin)).$1, 400);
+      expect((await chamar('GET', '/api/escalas/pdf?mes=invalido&tipo=louvor&formato=retrato', token: admin)).$1, 400);
+      final bruno = await membro('Bruno Reis', ministerios: ['Louvor']);
+      await chamar('PUT', '/api/escalas/$cultoId', token: admin,
+          json: {'tipo': 'louvor', 'funcao': 'Vocal', 'membros': [bruno]});
+      for (final formato in ['paisagem', 'retrato']) {
+        final r = await handler(Request('GET', Uri.parse('http://x$basePdf$formato'),
+            headers: {'authorization': 'Bearer $admin'}));
+        expect(r.statusCode, 200);
+        expect(r.headers['content-type'], 'application/pdf');
+        expect(r.headers['content-disposition'], contains('attachment; filename="escala-louvor-2026-11-$formato.pdf"'));
+        final bytes = await r.read().expand((chunk) => chunk).toList();
+        expect(bytes.length, greaterThan(1000));
+        expect(latin1.decode(bytes.take(5).toList()), '%PDF-');
+      }
+      expect((await chamar('GET', '/api/escalas/pdf?mes=2026-11&tipo=pastoral&formato=retrato', token: admin)).$1, 400);
+    });
+
     test('Minha escala: login vinculado, isolamento, secretaria e QR comum', () async {
       await chamar('PUT', '/api/admin/configuracoes', token: admin, json: {'siteCultos': 'Domingo — 19h\nQuarta — 20h'});
       await chamar('POST', '/api/escalas/gerar', token: admin, json: {'mes': '2026-11'});

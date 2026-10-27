@@ -95,7 +95,7 @@ Na aba *Escalas* do painel, gere os cultos do mês a partir dos horários cadast
 
 O botão **Ver indisponibilidades**, disponível a quem administra escalas, mostra todos os avisos ainda cadastrados, mesmo de outros meses: integrante, período, motivo, conta que enviou e data do envio. Avisos anteriores a esta função não têm autor nem horário registrados e exibem “não registrado”. **Cancelar aviso** pede confirmação e remove a indisponibilidade da lista e dos avisos da escala. Os novos envios, inclusive por *Minha escala*, registram a conta autenticada e o horário no servidor; o cliente não pode definir esses dados.
 
-Em **Imprimir**, escolha a cada vez entre *Quadro mensal (A4 paisagem)*, com tabela de funções e músicas, ou *Cartões por culto (A4 retrato)*, com mais espaço para cada culto. Ambos usam o logo e o cabeçalho da igreja e incluem somente cultos com pelo menos uma pessoa escalada na aba selecionada (Pastoral ou Louvor); músicas sozinhas não fazem um culto aparecer na impressão.
+Em **Gerar PDF**, escolha a cada vez entre *Quadro mensal (A4 paisagem)*, com tabela de funções e músicas, ou *Cartões por culto (A4 retrato)*, com mais espaço para cada culto. O servidor monta o arquivo, que o navegador baixa direto, sem abrir a tela de impressão. Ambos usam o logo e o cabeçalho da igreja e incluem somente cultos com pelo menos uma pessoa escalada na aba selecionada (Pastoral ou Louvor); músicas sozinhas não fazem um culto aparecer.
 
 No louvor, as funções incluem também *Guitarra*, *Técnico de som* (mesa) e *Projeção* (letras). Em *Motivos de oração* e *Mensagens*, a observação interna pode ser anotada e alterada no painel; não é enviada pelo formulário público, pelo e-mail, para o telão ou para o site.
 
