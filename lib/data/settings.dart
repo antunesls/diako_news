@@ -22,9 +22,21 @@ class AppSettings extends ChangeNotifier {
 
   bool get configurado => servidor.isNotEmpty && sessao.isNotEmpty;
 
+  /// Agente do PC da igreja na rede local (ex: http://192.168.0.20:8097); vazio = só internet.
+  String get agenteLocal => _prefs.getString('agenteLocal') ?? '';
+
+  /// Token do pareamento com o agente (vale sem internet) e o id para desfazê-lo.
+  String get agenteLocalToken => _prefs.getString('agenteLocalToken') ?? '';
+  String get agenteLocalId => _prefs.getString('agenteLocalId') ?? '';
+
+  bool get agenteLocalPareado => agenteLocal.isNotEmpty && agenteLocalToken.isNotEmpty;
+
   Future<void> atualizar({
     String? servidor,
     String? sessao,
+    String? agenteLocal,
+    String? agenteLocalToken,
+    String? agenteLocalId,
     String? tema,
     int? segundosPorSlide,
     bool? repetirSequencia,
@@ -34,6 +46,9 @@ class AppSettings extends ChangeNotifier {
   }) async {
     if (servidor != null) await _prefs.setString('servidor', servidor);
     if (sessao != null) await _prefs.setString('sessao', sessao);
+    if (agenteLocal != null) await _prefs.setString('agenteLocal', agenteLocal);
+    if (agenteLocalToken != null) await _prefs.setString('agenteLocalToken', agenteLocalToken);
+    if (agenteLocalId != null) await _prefs.setString('agenteLocalId', agenteLocalId);
     if (tema != null) await _prefs.setString('tema', tema.trim());
     if (segundosPorSlide != null) await _prefs.setInt('segundosPorSlide', segundosPorSlide);
     if (repetirSequencia != null) await _prefs.setBool('repetirSequencia', repetirSequencia);

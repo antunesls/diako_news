@@ -7,9 +7,13 @@ import 'package:path/path.dart' as p;
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../auth.dart' show iguaisSeguro;
 import '../cartazes.dart';
 import '../config.dart';
+import '../historico.dart';
 import '../holyrics.dart';
+import '../store.dart' show novoId;
+import '../tablets_locais.dart' show hashTokenLocal;
 
 /// Configuração do agente (agente.json, ao lado do diako_agente.exe).
 class AgenteConfig {
@@ -23,6 +27,7 @@ class AgenteConfig {
     this.monitorPorta = 8096,
     this.monitorHash = '',
     this.monitorSal = '',
+    this.apiLocalPorta = 8097,
   });
 
   /// Endereço do servidor na internet, ex: https://diako.minhaigreja.com.br
@@ -35,6 +40,9 @@ class AgenteConfig {
   final int monitorPorta;
   final String monitorHash;
   final String monitorSal;
+
+  /// Porta em que os tablets pareados falam direto com o agente na rede da igreja; 0 desliga.
+  final int apiLocalPorta;
 
   /// Subpasta gerenciada pelo agente dentro da biblioteca de imagens do Holyrics.
   String get pastaCartazes => p.join(pastaImagensHolyrics, Config.subpastaHolyrics);
@@ -65,6 +73,11 @@ class AgenteConfig {
     if (pasta.isEmpty) throw const FormatException('Defina "pastaImagensHolyrics" (pasta de imagens do Holyrics).');
     final monitorPorta = (monitor['porta'] as num?)?.toInt() ?? 8096;
     if (monitorPorta < 1 || monitorPorta > 65535) throw const FormatException('Porta do monitor inválida.');
+    final apiLocal = (j['apiLocal'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final apiLocalPorta = (apiLocal['porta'] as num?)?.toInt() ?? 8097;
+    if (apiLocalPorta < 0 || apiLocalPorta > 65535 || apiLocalPorta == monitorPorta) {
+      throw const FormatException('Porta da API local inválida (use 0 para desligar).');
+    }
     return AgenteConfig(
       servidor: servidor,
       chaveAgente: chave,
@@ -75,6 +88,7 @@ class AgenteConfig {
       monitorPorta: monitorPorta,
       monitorHash: monitor['hash'] as String? ?? '',
       monitorSal: monitor['sal'] as String? ?? '',
+      apiLocalPorta: apiLocalPorta,
     );
   }
 }
@@ -141,7 +155,9 @@ class SincronizadorCartazes {
 /// Agente que roda no PC da igreja: liga o servidor da internet ao Holyrics local.
 class Agente {
   /// [cliente] fala com o servidor; [clienteHolyrics] com o Holyrics local (separados para testes).
-  Agente(this.config, {this.versao = 'dev', http.Client? cliente, http.Client? clienteHolyrics, void Function(String)? log})
+  /// [pastaDados] guarda a lista de tablets e a fila do histórico (sem ela, ficam só na memória).
+  Agente(this.config,
+      {this.versao = 'dev', this.pastaDados, http.Client? cliente, http.Client? clienteHolyrics, void Function(String)? log})
       : _http = cliente ?? http.Client(),
         _log = log ?? ((m) => stdout.writeln('[${DateTime.now().toIso8601String().substring(0, 19)}] $m')),
         _holyrics = HolyricsDireto(
@@ -156,6 +172,17 @@ class Agente {
   final http.Client _http;
   final void Function(String) _log;
   final HolyricsDireto _holyrics;
+  final String? pastaDados;
+
+  /// Tablets pareados ({id, hash, nome}), recebidos do servidor e guardados em tablets.json.
+  List<Map<String, String>> _tablets = [];
+
+  /// Projeções feitas pela rede local que o servidor ainda não confirmou (historico-pendente.json).
+  final List<Map<String, dynamic>> _historicoPendente = [];
+  static const maximoPendentes = 1000;
+  int chamadasLocais = 0;
+  DateTime? ultimaLocalEm;
+  int? ultimaLocalMs;
 
   WebSocketChannel? _canal;
   Timer? _timerSync;
@@ -213,7 +240,94 @@ class Agente {
         'cartazesRemotos': cartazesRemotos,
         'cartazesBaixados': cartazesBaixados,
         'cartazesApagados': cartazesApagados,
+        'apiLocalPorta': config.apiLocalPorta,
+        'tabletsPareados': [for (final t in _tablets) t['nome']],
+        'chamadasLocais': chamadasLocais,
+        'ultimaLocalEm': ultimaLocalEm?.toIso8601String(),
+        'ultimaLocalMs': ultimaLocalMs,
+        'historicoPendente': _historicoPendente.length,
       };
+
+  // ---------- Tablets na rede local ----------
+
+  File? _arquivo(String nome) => pastaDados == null ? null : File(p.join(pastaDados!, nome));
+
+  /// Lê a lista de tablets e a fila do histórico gravadas antes (o PC pode reiniciar sem internet).
+  Future<void> carregarDados() async {
+    try {
+      final t = _arquivo('tablets.json');
+      if (t != null && await t.exists()) _tablets = _lerTablets(jsonDecode(await t.readAsString()));
+      final h = _arquivo('historico-pendente.json');
+      if (h != null && await h.exists()) {
+        _historicoPendente.addAll([for (final e in jsonDecode(await h.readAsString()) as List) Map<String, dynamic>.from(e as Map)]);
+      }
+    } catch (_) {
+      registrar('local', 'Arquivo de tablets ou do histórico pendente ilegível; aguardando o servidor', nivel: 'erro');
+    }
+  }
+
+  static List<Map<String, String>> _lerTablets(Object? lista) => [
+        for (final t in (lista as List? ?? const []))
+          if (t is Map && t['id'] is String && t['hash'] is String)
+            {'id': t['id'] as String, 'hash': t['hash'] as String, 'nome': t['nome'] as String? ?? ''},
+      ];
+
+  Future<void> _gravar(String nome, Object dados) async {
+    final f = _arquivo(nome);
+    if (f == null) return;
+    try {
+      await f.parent.create(recursive: true);
+      final tmp = File('${f.path}.tmp');
+      await tmp.writeAsString(jsonEncode(dados), flush: true);
+      await tmp.rename(f.path);
+    } catch (_) {
+      registrar('local', 'Não foi possível gravar $nome', nivel: 'erro');
+    }
+  }
+
+  /// Tablet dono do token, ou null. Compara só hashes (o agente nunca guarda o token).
+  Map<String, String>? tabletDoToken(String token) {
+    if (token.isEmpty) return null;
+    final hash = hashTokenLocal(token);
+    Map<String, String>? achado;
+    for (final t in _tablets) {
+      if (iguaisSeguro(t['hash']!, hash)) achado = t;
+    }
+    return achado;
+  }
+
+  /// Comando vindo direto de um tablet pareado. Projeções entram na fila do histórico do servidor.
+  Future<RespostaHolyrics> chamarLocal(Map<String, String> tablet, String acao, String corpo) async {
+    final inicio = DateTime.now();
+    final r = await _holyrics.chamar(acao, corpo);
+    chamadasLocais++;
+    ultimaLocalEm = DateTime.now();
+    ultimaLocalMs = ultimaLocalEm!.difference(inicio).inMilliseconds;
+    if (!{'GetCurrentPresentation', 'GetCPInfo', 'GetThumbnail', 'GetThemes'}.contains(acao)) {
+      registrar('local', '$acao (${tablet['nome']}, ${ultimaLocalMs}ms)');
+    }
+    if (Historico.acoes.contains(acao) && _respostaOk(r.corpo)) {
+      _historicoPendente.add({'id': novoId(), 'quando': inicio.toUtc().toIso8601String(), 'acao': acao,
+        'corpo': corpo, 'tablet': tablet['id']});
+      if (_historicoPendente.length > maximoPendentes) _historicoPendente.removeAt(0);
+      await _gravar('historico-pendente.json', _historicoPendente);
+      _enviarHistorico();
+    }
+    return r;
+  }
+
+  static bool _respostaOk(String corpo) {
+    try {
+      return (jsonDecode(corpo) as Map)['status'] == 'ok';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _enviarHistorico() {
+    if (_canal == null || _historicoPendente.isEmpty) return;
+    _canal!.sink.add(jsonEncode({'tipo': 'historico', 'eventos': _historicoPendente.take(100).toList()}));
+  }
 
   Future<RespostaHolyrics> consultarHolyrics(String acao, [String corpo = '{}']) {
     if (!{'GetCPInfo', 'GetCurrentPresentation', 'GetThemes', 'GetThumbnail',
@@ -261,6 +375,7 @@ class Agente {
       _espera = const Duration(seconds: 2);
       _log('Conectado a ${config.servidor}.');
       canal.sink.add(jsonEncode({'tipo': 'ola', 'versao': versao}));
+      _enviarHistorico();
       unawaited(sincronizar());
       await for (final msg in canal.stream) {
         ultimaMensagem = DateTime.now();
@@ -299,6 +414,18 @@ class Agente {
         }
       case 'sincronizar':
         await sincronizar();
+      case 'tablets':
+        _tablets = _lerTablets(j['lista']);
+        registrar('local', '${_tablets.length} tablet(s) pareado(s)');
+        await _gravar('tablets.json', _tablets);
+      case 'historico-ok':
+        final ids = {for (final id in (j['ids'] as List? ?? const [])) '$id'};
+        final antes = _historicoPendente.length;
+        _historicoPendente.removeWhere((e) => ids.contains(e['id']));
+        if (_historicoPendente.length != antes) {
+          await _gravar('historico-pendente.json', _historicoPendente);
+          _enviarHistorico(); // próximo lote, se houver
+        }
     }
   }
 

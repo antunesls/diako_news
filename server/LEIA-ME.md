@@ -30,6 +30,10 @@ O monitor é uma página **apenas neste PC**: `http://127.0.0.1:8096`. Não abra
 
 Libere **GetThemes** e **GetThumbnail** no token do Holyrics para as miniaturas. Em versões anteriores a 2.27, `GetThemes` pode não estar disponível. A página responde apenas a `127.0.0.1`, exige senha, expira sessões após 30 minutos e não mostra chaves, tokens ou payloads pessoais.
 
+### Tablet na rede da igreja (instalação `-Modo agente`)
+
+O agente também escuta na porta `8097` da rede da igreja para os **tablets pareados**: com o tablet no mesmo Wi-Fi, os comandos do Holyrics vão direto ao PC, sem passar pela internet (e funcionam se ela cair). O instalador libera essa porta só em redes **Privadas** e mostra o IP do PC no final. No tablet: Configurações › PC da igreja › digite o IP › **Parear** (precisa de internet uma vez). A lista de tablets fica em `C:\DiakoNews\tablets.json` (só hashes) e as projeções feitas offline em `historico-pendente.json`, até o servidor confirmar. Para mudar a porta ou desligar: `"apiLocal": {"porta": 0}` no `agente.json`. Passo a passo e problemas comuns: `/ajuda/rede-local` no site.
+
 ## Instalar no PC da igreja
 1. Leve o arquivo `DiakoServer.zip` (gerado pelo `empacotar.ps1`) e descompacte.
 2. No Holyrics: **Arquivo > Configurações > API Server**. Ative, crie um token e libere estas ações:

@@ -15,6 +15,7 @@ import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
 import 'data/settings.dart';
 import 'data/visita_repo.dart';
+import 'holyrics/agente_local.dart';
 import 'holyrics/holyrics_client.dart';
 import 'holyrics/status_controller.dart';
 import 'sync/server_api.dart';
@@ -49,7 +50,8 @@ Future<void> main() async {
   if (conta.pode('mensagens')) unawaited(mensagens.carregar());
   if (conta.pode('visitantes')) unawaited(visitas.carregar());
 
-  final client = HolyricsClient(api);
+  final agenteLocal = AgenteLocal(() => (base: settings.agenteLocal, token: settings.agenteLocalToken));
+  final client = HolyricsClient(api, local: agenteLocal);
   final status = StatusController(client)..iniciar();
 
   final tempoReal = TempoReal(
@@ -82,6 +84,7 @@ Future<void> main() async {
     settings: settings,
     api: api,
     client: client,
+    agenteLocal: agenteLocal,
     status: status,
     tempoReal: tempoReal,
     child: const DiakoNewsApp(),

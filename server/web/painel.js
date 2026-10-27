@@ -420,7 +420,7 @@ async function carregarHistorico() {
           el('div', { class: 'conteudo' },
             el('div', { class: 'titulo' }, h.descricao, el('span', { class: 'etiqueta' }, ACOES[h.acao] || h.acao)),
             el('div', { class: 'sub' }, new Date(h.quando).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) +
-              (h.usuario ? ' · ' + h.usuario : '')))))
+              (h.usuario ? ' · ' + h.usuario : '') + (h.via ? ' · ' + h.via : '')))))
       : [el('p', { class: 'vazio' }, 'Nada projetado ainda.')]));
 }
 document.querySelectorAll('input[name=filtro-motivo]').forEach((r) => r.addEventListener('change', carregarMotivos));

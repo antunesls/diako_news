@@ -17,16 +17,18 @@ class Historico {
   static const acoes = {'ShowQuickPresentation', 'ShowImage', 'ShowCountdown', 'SetTextCP', 'StartCountdownCP'};
 
   /// Registra a ação se ela for de projeção. [corpo] é o JSON enviado ao Holyrics; [usuario] é
-  /// o nome de quem projetou (vazio em registros antigos).
-  Future<void> registrar(String acao, String corpo, {String usuario = ''}) {
+  /// o nome de quem projetou (vazio em registros antigos). [quando] vem do agente quando a projeção
+  /// foi feita pela rede local e chegou depois; [via] marca esse caminho ("rede local").
+  Future<void> registrar(String acao, String corpo, {String usuario = '', DateTime? quando, String via = ''}) {
     if (!acoes.contains(acao)) return Future.value();
     final descricao = descrever(acao, corpo);
     if (descricao == null) return Future.value();
     final linha = jsonEncode({
-      'quando': _agora().toIso8601String(),
+      'quando': (quando ?? _agora()).toIso8601String(),
       'acao': acao,
       'descricao': descricao,
       if (usuario.isNotEmpty) 'usuario': usuario,
+      if (via.isNotEmpty) 'via': via,
     });
     _fila = _fila.then((_) => arquivo.writeAsString('$linha\n', mode: FileMode.append, flush: true));
     return _fila;

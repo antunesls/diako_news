@@ -13,6 +13,7 @@ import 'package:diako_server/historico.dart';
 import 'package:diako_server/holyrics.dart';
 import 'package:diako_server/qr_oracao.dart';
 import 'package:diako_server/store.dart';
+import 'package:diako_server/tablets_locais.dart';
 import 'package:diako_server/usuarios.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf_io.dart' as io;
@@ -60,6 +61,8 @@ Future<void> main(List<String> args) async {
 
   final modoAgente = config.modoHolyrics == ModoHolyrics.agente;
   final agente = modoAgente ? HolyricsViaAgente() : null;
+  final tabletsLocais = TabletsLocais(config.pastaDados);
+  await tabletsLocais.carregar();
   final online = modoAgente || config.confiarProxy;
 
   // Agenda do Google: baixa a cada 15 min e avisa o painel/app quando muda. Com a chave de uma
@@ -89,6 +92,7 @@ Future<void> main(List<String> args) async {
     historico: Historico(config.pastaDados),
     versao: versao,
     agente: agente,
+    tabletsLocais: tabletsLocais,
     confiarProxy: config.confiarProxy,
     cfg: cfg,
     senhaMinima: online ? 10 : 6,

@@ -7,6 +7,7 @@ import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
 import 'data/settings.dart';
 import 'data/visita_repo.dart';
+import 'holyrics/agente_local.dart';
 import 'holyrics/holyrics_client.dart';
 import 'holyrics/status_controller.dart';
 import 'sync/server_api.dart';
@@ -25,6 +26,7 @@ class AppScope extends InheritedWidget {
     required this.settings,
     required this.api,
     required this.client,
+    required this.agenteLocal,
     required this.status,
     required this.tempoReal,
     required super.child,
@@ -41,6 +43,9 @@ class AppScope extends InheritedWidget {
   final AppSettings settings;
   final ServerApi api;
   final HolyricsClient client;
+
+  /// Atalho pela rede da igreja até o agente (Configurações › PC da igreja).
+  final AgenteLocal agenteLocal;
   final StatusController status;
   final TempoReal tempoReal;
 

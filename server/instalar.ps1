@@ -39,7 +39,8 @@ function Remover-TarefaAntiga([string]$Nome) {
 }
 
 if ($Modo -eq 'agente') {
-    # O monitor do agente escuta somente em 127.0.0.1 (sem regra de firewall).
+    # O monitor do agente escuta somente em 127.0.0.1 (sem regra de firewall); a API local
+    # dos tablets pareados escuta na rede da igreja (regra abaixo, só redes privadas).
     Parar-Tarefa 'DiakoNews Agente'
     Get-Process diako_agente -ErrorAction SilentlyContinue | Stop-Process -Force
 
@@ -63,6 +64,15 @@ if ($Modo -eq 'agente') {
         if ($LASTEXITCODE -ne 0) { throw 'Falha ao definir a senha do monitor.' }
     }
 
+    $apiLocal = (Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).apiLocal
+    $portaLocal = if ($apiLocal -and $null -ne $apiLocal.porta) { [int]$apiLocal.porta } else { 8097 }
+    Get-NetFirewallRule -DisplayName 'DiakoNews Agente (tablets)' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+    if ($portaLocal -gt 0) {
+        Write-Host "Liberando a porta $portaLocal para os tablets da igreja (somente redes privadas) ..."
+        New-NetFirewallRule -DisplayName 'DiakoNews Agente (tablets)' -Direction Inbound -Protocol TCP -LocalPort $portaLocal `
+            -Profile Private -Action Allow | Out-Null
+    }
+
     Write-Host 'Criando a tarefa que inicia o agente junto com o Windows ...'
     $log = Join-Path $Destino 'agente.log'
     Remover-TarefaAntiga 'DiakoNews Agente'
@@ -77,6 +87,11 @@ if ($Modo -eq 'agente') {
     $portaMonitor = (Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).monitor.porta
     if (-not $portaMonitor) { $portaMonitor = 8096 }
     Write-Host "Monitor local deste PC: http://127.0.0.1:$portaMonitor (senha própria)."
+    if ($portaLocal -gt 0) {
+        $ipLocal = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))' } | Select-Object -First 1).IPAddress
+        Write-Host "Tablets na rede da igreja: em Configurações › PC da igreja, use o IP $ipLocal (porta $portaLocal)."
+        Write-Host 'A rede Wi-Fi deste PC precisa estar como "Privada" no Windows.'
+    }
     exit 0
 }
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:diako_server/agente/agente.dart';
+import 'package:diako_server/agente/api_local.dart';
 import 'package:diako_server/agente/monitor.dart';
 import 'package:diako_server/auth.dart' show gerarHashSenha;
 import 'package:path/path.dart' as p;
@@ -66,7 +67,8 @@ Agente DiakoNews $versao
   Holyrics:  ${config.holyricsHost}:${config.holyricsPorta}
   Cartazes:  ${config.pastaCartazes}
 ''');
-  final agente = Agente(config, versao: versao);
+  final agente = Agente(config, versao: versao, pastaDados: p.dirname(p.absolute(arquivo)));
+  await agente.carregarDados();
   final monitor = MonitorAgente(agente);
   try {
     await monitor.iniciar();
@@ -74,7 +76,17 @@ Agente DiakoNews $versao
   } catch (_) {
     stderr.writeln('Monitor indisponível: confira senha configurada e porta local. O agente continuará ativo.');
   }
+  final apiLocal = ApiLocal(agente);
+  if (config.apiLocalPorta > 0) {
+    try {
+      await apiLocal.iniciar();
+      stdout.writeln('Tablets na rede local: porta ${apiLocal.porta}');
+    } catch (_) {
+      stderr.writeln('Porta ${config.apiLocalPorta} ocupada: os tablets usarão só a internet.');
+    }
+  }
   ProcessSignal.sigint.watch().listen((_) async {
+    await apiLocal.parar();
     await monitor.parar();
     await agente.parar();
     exit(0);

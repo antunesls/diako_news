@@ -8,8 +8,10 @@ import 'holyrics.dart';
 /// Ponte com o Holyrics quando o servidor está na internet: os comandos vão pelo
 /// WebSocket do agente instalado no PC da igreja, que os repassa ao Holyrics local.
 ///
-/// Mensagens servidor → agente: {"tipo":"holyrics","id","acao","corpo"} e {"tipo":"sincronizar"}.
-/// Mensagens agente → servidor: {"tipo":"resposta","id","status","corpo"} e {"tipo":"ola","versao"}.
+/// Mensagens servidor → agente: {"tipo":"holyrics","id","acao","corpo"}, {"tipo":"sincronizar"},
+/// {"tipo":"tablets","lista":[{id, hash, nome}]} e {"tipo":"historico-ok","ids"}.
+/// Mensagens agente → servidor: {"tipo":"resposta","id","status","corpo"}, {"tipo":"ola","versao"} e
+/// {"tipo":"historico","eventos":[{id, quando, acao, corpo, tablet}]} (projeções feitas pela rede local).
 class HolyricsViaAgente extends PonteHolyrics {
   HolyricsViaAgente({this.timeout = const Duration(seconds: 8), DateTime Function()? relogio})
       : _agora = relogio ?? DateTime.now;
@@ -27,6 +29,12 @@ class HolyricsViaAgente extends PonteHolyrics {
 
   bool get agenteConectado => _canal != null;
 
+  /// Tablets autorizados a falar direto com o agente na rede local (enviados a cada conexão).
+  List<Map<String, dynamic>> Function()? tablets;
+
+  /// Grava as projeções feitas pela rede local; retorna os ids aceitos (o agente os tira da fila).
+  Future<List<String>> Function(List<Map<String, dynamic>> eventos)? aoReceberHistorico;
+
   /// Registra a conexão do agente. Uma conexão nova substitui a anterior.
   void conectar(WebSocketChannel canal) {
     final anterior = _canal;
@@ -38,6 +46,13 @@ class HolyricsViaAgente extends PonteHolyrics {
       onDone: () => _desconectou(canal),
       onError: (_) => _desconectou(canal),
     );
+    enviarTablets();
+  }
+
+  /// Manda ao agente a lista atual de tablets pareados (depois de parear, remover ou mudar uma conta).
+  void enviarTablets() {
+    final lista = tablets?.call();
+    if (lista != null) _enviar({'tipo': 'tablets', 'lista': lista});
   }
 
   /// Derruba a conexão atual (ex: depois de trocar a chave do agente).
@@ -80,6 +95,11 @@ class HolyricsViaAgente extends PonteHolyrics {
         c?.complete(RespostaHolyrics((j['status'] as num?)?.toInt() ?? 200, j['corpo'] as String? ?? ''));
       case 'ola':
         versaoAgente = j['versao'] as String?;
+      case 'historico':
+        final eventos = [for (final e in (j['eventos'] as List? ?? const [])) if (e is Map) Map<String, dynamic>.from(e)];
+        final gravar = aoReceberHistorico;
+        if (gravar == null || eventos.isEmpty) return;
+        unawaited(gravar(eventos).then((ids) => _enviar({'tipo': 'historico-ok', 'ids': ids})));
     }
   }
 

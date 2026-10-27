@@ -1,4 +1,5 @@
 import '../sync/server_api.dart';
+import 'agente_local.dart';
 
 /// Erro com mensagem pronta para mostrar ao usuário.
 class HolyricsException extends ErroAmigavel {
@@ -28,16 +29,27 @@ class Apresentacao {
       );
 }
 
-/// Comandos para o Holyrics. As chamadas passam pelo servidor DiakoNews,
-/// que guarda o token e repassa para a API Server do Holyrics.
+/// Comandos para o Holyrics. Com o tablet pareado, vão primeiro direto ao agente do PC da igreja
+/// pela rede local; senão (ou se ele não responder), passam pelo servidor DiakoNews, que guarda
+/// o token e repassa para a API Server do Holyrics.
 /// Docs: https://github.com/holyrics/API-Server
 class HolyricsClient {
-  HolyricsClient(this._api);
+  HolyricsClient(this._api, {this.local});
 
   final ServerApi _api;
+  final AgenteLocal? local;
 
   Future<dynamic> call(String action, [Map<String, dynamic> body = const {}]) async {
-    final json = await _api.holyrics(action, body);
+    final relogio = Stopwatch()..start();
+    final viaLocal = await local?.holyrics(action, body);
+    final Map<String, dynamic> json;
+    if (viaLocal != null) {
+      json = viaLocal;
+      local!.registrar('rede local', relogio.elapsedMilliseconds);
+    } else {
+      json = await _api.holyrics(action, body);
+      if (local?.configurado ?? false) local!.registrar('internet', relogio.elapsedMilliseconds);
+    }
     if (json['status'] != 'ok') {
       final erro = json['error'];
       throw HolyricsException(

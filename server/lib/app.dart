@@ -31,6 +31,7 @@ import 'permissoes.dart';
 import 'usuarios.dart';
 import 'qr_oracao.dart';
 import 'store.dart';
+import 'tablets_locais.dart';
 
 /// Monta todas as rotas do servidor.
 class Servidor {
@@ -60,9 +61,11 @@ class Servidor {
     Galeria? galeria,
     FotosMembros? fotosMembros,
     TermosAssinados? termosAssinados,
+    TabletsLocais? tabletsLocais,
   })  : galeria = galeria ?? Galeria(store.pasta),
         fotosMembros = fotosMembros ?? FotosMembros(store.pasta),
         termosAssinados = termosAssinados ?? TermosAssinados(store.pasta),
+        tabletsLocais = tabletsLocais ?? TabletsLocais(store.pasta),
         _urlOracaoFixa = urlOracao,
         _chaveAgenteFixa = chaveAgente,
         _chaveMuralFixa = chaveMural,
@@ -71,8 +74,14 @@ class Servidor {
     // No modo agente, cada mudança nos cartazes é copiada para o PC da igreja.
     if (agente != null) {
       store.mudancas.where((t) => t == 'cartazes').listen((_) => agente!.pedirSincronizacao());
+      agente!
+        ..tablets = _tabletsParaAgente
+        ..aoReceberHistorico = _historicoDoAgente;
     }
   }
+
+  /// Tablets pareados com o agente da rede local (data/tablets-locais.json).
+  final TabletsLocais tabletsLocais;
 
   final Historico historico;
   final String versao;
@@ -153,6 +162,7 @@ class Servidor {
       ..post('/api/public/visitante', _novoVisitantePublico)
       ..get(ajudaAgenda, (Request _) => _pagina('ajuda-agenda.html'))
       ..get('/ajuda/usuarios', (Request _) => _pagina('ajuda-usuarios.html'))
+      ..get('/ajuda/rede-local', (Request _) => _pagina('ajuda-rede-local.html'))
       ..get('/ajuda/visitantes', (Request _) => _pagina('ajuda-visitantes.html'))
       // Perfis e permissões (só a descrição da matriz, para a página de ajuda).
       ..get('/api/public/perfis', (Request _) => _json({
@@ -234,6 +244,11 @@ class Servidor {
       ..delete('/api/galeria/<id>', _excluirFoto)
       // Holyrics e manutenção
        ..post('/api/holyrics/<acao>', _holyrics)
+      // Tablet falando direto com o agente na rede da igreja (pareamento feito com internet)
+      ..post('/api/agente-local/parear', _parearTablet)
+      ..delete('/api/agente-local/<id>', _desparearTablet)
+      ..get('/api/admin/tablets-locais', _listarTabletsLocais)
+      ..delete('/api/admin/tablets-locais/<id>', _removerTabletLocal)
        ..get('/api/temas', _adminTemas)
        ..get('/api/admin/temas', _adminTemas)
       ..post('/api/projetar/oracoes-respondidas', _projetarRespondidas)
@@ -413,7 +428,10 @@ class Servidor {
     final perfilAntes = atual.perfil, ativoAntes = atual.ativo;
     try {
       final u = await usuarios.atualizar(id, nome: corpo['nome'] as String?, perfil: perfil, ativo: corpo['ativo'] as bool?);
-      if (u.perfil != perfilAntes || u.ativo != ativoAntes) await auth.encerrarDoUsuario(id);
+      if (u.perfil != perfilAntes || u.ativo != ativoAntes) {
+        await auth.encerrarDoUsuario(id);
+        agente?.enviarTablets(); // sem "projetar" ou desativado: o tablet perde o acesso local
+      }
       return _json(u.toJson());
     } on FormatException catch (e) {
       return _erro(400, e.message);
@@ -433,7 +451,90 @@ class Servidor {
   Future<Response> _excluirUsuario(Request _, String id) async {
     if (!(await _usuarios?.excluir(id) ?? false)) return _erro(404, 'Usuário não encontrado.');
     await auth.encerrarDoUsuario(id);
+    await tabletsLocais.removerDoUsuario(id);
+    agente?.enviarTablets();
     return _json({'ok': true});
+  }
+
+  // ---------- Tablets na rede local ----------
+
+  /// Conta ativa dona do pareamento, ou null (excluída, desativada ou sem "projetar").
+  Conta? _contaDoTablet(TabletLocal t) {
+    if (t.usuario == Auth.idPrincipal) return Conta.principal;
+    final u = _usuarios?.buscar(t.usuario);
+    if (u == null || !u.ativo || !u.perfil.pode(Permissao.projetar)) return null;
+    return Conta(id: u.id, nome: u.nome, login: u.login, perfil: u.perfil);
+  }
+
+  /// O que o agente precisa para conferir os tablets sem internet: só o hash do token.
+  List<Map<String, dynamic>> _tabletsParaAgente() => [
+        for (final t in tabletsLocais.lista)
+          if (_contaDoTablet(t) case final c?) {'id': t.id, 'hash': t.hash, 'nome': '${c.nome} (${t.aparelho})'},
+      ];
+
+  /// Corpo: {"aparelho": "Tablet do púlpito"}. Devolve o token uma única vez.
+  Future<Response> _parearTablet(Request req) async {
+    if (agente == null) return _erro(400, 'O servidor não está no modo agente: o tablet já fala com ele pela rede.');
+    final conta = Auth.contaDa(req)!;
+    final corpo = await _corpo(req);
+    try {
+      final r = await tabletsLocais.parear(usuario: conta.id, aparelho: corpo['aparelho'] as String? ?? '');
+      agente!.enviarTablets();
+      return _json({'id': r.tablet.id, 'token': r.token, 'agenteConectado': agente!.agenteConectado}, status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  /// O próprio tablet desfaz o pareamento (ou o administrador).
+  Future<Response> _desparearTablet(Request req, String id) async {
+    final conta = Auth.contaDa(req)!;
+    final t = tabletsLocais.buscar(id);
+    if (t == null) return _json({'ok': true});
+    if (t.usuario != conta.id && !conta.pode(Permissao.admin)) return _erro(403, 'Este pareamento é de outra conta.');
+    await tabletsLocais.remover(id);
+    agente?.enviarTablets();
+    return _json({'ok': true});
+  }
+
+  Response _listarTabletsLocais(Request _) => _json({
+        'modoAgente': agente != null,
+        'tablets': [
+          for (final t in tabletsLocais.lista)
+            {
+              'id': t.id,
+              'aparelho': t.aparelho,
+              'conta': _contaDoTablet(t)?.nome ?? _usuarios?.buscar(t.usuario)?.nome ?? '(conta excluída)',
+              'ativo': _contaDoTablet(t) != null,
+              'criadoEm': t.criadoEm.toIso8601String(),
+            },
+        ],
+      });
+
+  Future<Response> _removerTabletLocal(Request _, String id) async {
+    if (!await tabletsLocais.remover(id)) return _erro(404, 'Tablet não encontrado.');
+    agente?.enviarTablets();
+    return _json({'ok': true});
+  }
+
+  /// Projeções feitas pela rede local enquanto o servidor não via; [eventos] vêm do agente.
+  Future<List<String>> _historicoDoAgente(List<Map<String, dynamic>> eventos) async {
+    final aceitos = <String>[];
+    final agora = _agora();
+    for (final e in eventos.take(200)) {
+      final id = e['id'];
+      if (id is! String || id.isEmpty || id.length > 64) continue;
+      aceitos.add(id); // inválidos também saem da fila: reenviar não os conserta
+      final acao = e['acao'], corpo = e['corpo'];
+      var quando = DateTime.tryParse(e['quando'] as String? ?? '');
+      if (acao is! String || corpo is! String || corpo.length > 100000 || !acoesPermitidas.contains(acao) || quando == null) continue;
+      if (quando.isAfter(agora)) quando = agora;
+      final t = tabletsLocais.buscar(e['tablet'] as String? ?? '');
+      final nome = t == null ? '' : (_contaDoTablet(t)?.nome ?? _usuarios?.buscar(t.usuario)?.nome ?? '');
+      await historico.registrar(acao, corpo, usuario: nome, quando: quando.toLocal(), via: 'rede local');
+    }
+    if (aceitos.isNotEmpty) store.avisar('historico');
+    return aceitos;
   }
 
   // ---------- Estado ----------

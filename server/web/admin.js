@@ -586,6 +586,24 @@ async function carregarUsuarios() {
     ? r.usuarios.map(linhaUsuario)
     : [el('tr', {}, el('td', { colspan: 5, class: 'dica' }, 'Ninguém cadastrado ainda. Hoje só a conta principal entra.'))]));
   montarMatriz(r.permissoes);
+  await carregarTablets();
+}
+
+async function carregarTablets() {
+  const r = await api('GET', '/api/admin/tablets-locais');
+  $('bloco-tablets').hidden = !r.modoAgente;
+  $('tabela-tablets').tBodies[0].replaceChildren(...(r.tablets.length
+    ? r.tablets.map((t) => el('tr', { style: t.ativo ? '' : 'opacity:.55' },
+      el('td', {}, t.aparelho),
+      el('td', {}, t.conta, t.ativo ? null : el('span', { class: 'dica' }, ' (sem acesso: conta desativada ou sem "Projetar")')),
+      el('td', { class: 'dica' }, dataCurta(t.criadoEm)),
+      el('td', { class: 'acoes-tabela' }, botao('Remover', async () => {
+        if (!await confirmar('Remover tablet?', `${t.aparelho} deixa de falar direto com o PC da igreja e passa a usar só a internet.`, 'Remover')) return;
+        await api('DELETE', '/api/admin/tablets-locais/' + t.id);
+        mensagem($('res-tablets'), 'Tablet removido.');
+        await carregarTablets();
+      }, 'perigo pequeno'))))
+    : [el('tr', {}, el('td', { colspan: 4, class: 'dica' }, 'Nenhum tablet pareado.'))]));
 }
 
 function mostrarDicaPerfil() {

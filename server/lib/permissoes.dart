@@ -93,6 +93,7 @@ Permissao permissaoDaRota(String metodo, String caminho) {
   }
   if (caminho == 'api/resumo-semanal') return Permissao.resumo;
   if (caminho == 'api/temas' || comeca('api/holyrics') || comeca('api/projetar')) return Permissao.projetar;
+  if (comeca('api/agente-local')) return Permissao.projetar; // parear o tablet com o agente da rede local
   if (comeca('api/admin/usuarios')) return Permissao.usuarios;
   return Permissao.admin; // api/admin/*, api/backup(s) e qualquer rota nova não listada
 }

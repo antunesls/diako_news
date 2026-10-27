@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ajuda: tablet na rede da igreja — DiakoNews</title>
+<link rel="stylesheet" href="/estilo.css?v=5">
+<style>
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  .topo-ajuda { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-bottom: 18px; margin-bottom: 28px; border-bottom: 1px solid var(--linha); }
+  .topo-ajuda img { height: 40px; width: auto; }
+  .topo-ajuda .espaco { flex: 1; }
+  h1 { font-size: 34px; margin-bottom: 8px; }
+  .lead { font-size: 18px; color: var(--suave); margin: 0 0 24px; }
+  h2 { font-size: 25px; margin: 40px 0 10px; scroll-margin-top: 16px; }
+  p, li { line-height: 1.6; }
+  .nota { padding: 14px 18px; border-radius: 14px; background: var(--primaria-suave); color: var(--primaria-escura); margin: 16px 0; }
+  .nota.atencao { background: #fbefe2; color: #6b3d00; }
+  .nota p { margin: 0; }
+  pre { padding: 12px 14px; border-radius: 12px; background: var(--neutro); overflow-x: auto; font-size: 14px; line-height: 1.5; }
+  code { padding: 1px 6px; border-radius: 6px; background: var(--neutro); font-size: 14px; }
+  pre code { padding: 0; background: none; }
+  dt { font-weight: 600; margin-top: 14px; }
+  dd { margin: 4px 0 0; color: var(--suave); line-height: 1.6; }
+  @media (max-width: 520px) { h1 { font-size: 28px; } h2 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="topo-ajuda">
+    <a href="/painel"><img src="/logo.png" alt="Igreja Diakonia Tulipas"></a>
+    <span class="espaco"></span>
+    <a class="botao secundario pequeno" href="/admin#usuarios">Ir para Administração</a>
+  </header>
+
+  <p class="sobretitulo">Ajuda</p>
+  <h1>Tablet na rede da igreja</h1>
+  <p class="lead">Com o tablet no mesmo Wi-Fi do PC do Holyrics, os comandos vão direto para o agente desse PC, sem dar a volta pela internet. Fica mais rápido e continua funcionando se a internet cair no meio do culto.</p>
+
+  <h2 id="como-funciona">Como funciona</h2>
+  <pre><code>1º  Tablet ──Wi-Fi──> Agente (PC da igreja) ──> Holyrics
+2º  Tablet ──internet──> Servidor ──> Agente ──> Holyrics   (se o 1º não responder)</code></pre>
+  <ul>
+    <li>O tablet <strong>tenta primeiro a rede local</strong>. Se o PC não responder (tablet fora da igreja, PC desligado), usa a internet sozinho e só tenta a rede local de novo depois de 30 segundos.</li>
+    <li>Vale para os comandos do Holyrics: projetar recados, pedidos, cartazes, avançar, telas preta e vazia, mensagens e contagens do palco. As <strong>boas-vindas aos visitantes</strong> continuam pela internet, porque a lista vem do servidor.</li>
+    <li>O que for projetado pela rede local entra no <strong>Histórico</strong> do painel com a marca “rede local”. Sem internet, o agente guarda e envia quando ela voltar.</li>
+  </ul>
+
+  <h2 id="instalar">1. Atualizar o agente no PC da igreja</h2>
+  <ol>
+    <li>Leve o pacote novo (<code>DiakoServer-&lt;versão&gt;.zip</code>) ao PC do Holyrics e descompacte.</li>
+    <li>Abra o PowerShell <strong>como administrador</strong> dentro da pasta e rode:
+      <pre><code>powershell -ExecutionPolicy Bypass -File .\instalar.ps1 -Modo agente</code></pre></li>
+    <li>O instalador libera a porta <code>8097</code> no firewall (só em redes <strong>Privadas</strong>) e, no final, mostra o <strong>IP deste PC</strong>. Anote.</li>
+  </ol>
+  <div class="nota atencao"><p>A rede Wi-Fi/cabo do PC precisa estar como <strong>Privada</strong> no Windows (Configurações › Rede e Internet › propriedades da rede). Em rede “Pública” o Windows bloqueia os tablets.</p></div>
+  <p>Para mudar a porta ou desligar o recurso, edite o <code>agente.json</code>: <code>"apiLocal": {"porta": 8097}</code> (use <code>0</code> para desligar) e rode o instalador de novo.</p>
+
+  <h2 id="parear">2. Parear o tablet</h2>
+  <ol>
+    <li>No tablet, entre no servidor normalmente (Configurações › Servidor da igreja). O pareamento usa esse login e <strong>precisa de internet</strong> só desta vez.</li>
+    <li>Em <strong>Configurações › PC da igreja (rede local)</strong>, digite o IP anotado (ex.: <code>192.168.0.20</code>) e um nome para o tablet.</li>
+    <li>Toque em <strong>Parear</strong>. Em alguns segundos aparece “O PC da igreja respondeu em … ms”.</li>
+  </ol>
+  <p>Só contas com a permissão <strong>Projetar no telão</strong> (Telão, Mídia, Pastor, Administrador) podem parear. A tela mostra por onde foi o último comando e quanto demorou.</p>
+  <div class="nota"><p>Reserve o IP do PC no roteador (DHCP fixo). Se ele mudar, o tablet passa a usar a internet até você digitar o IP novo: toque em <strong>Desfazer</strong> e pareie de novo.</p></div>
+
+  <h2 id="remover">Tirar o acesso de um tablet</h2>
+  <ul>
+    <li><strong>Administração › Usuários e perfis › Tablets na rede da igreja › Remover</strong>.</li>
+    <li>Desativar ou excluir a conta, ou trocar para um perfil sem “Projetar”, também corta o acesso.</li>
+    <li>“Sair” no tablet desfaz o pareamento dele.</li>
+  </ul>
+  <div class="nota atencao"><p>A remoção chega ao PC da igreja <strong>quando ele estiver conectado à internet</strong>. Enquanto estiver offline, o PC continua aceitando o tablet removido.</p></div>
+
+  <h2 id="problemas">Problemas comuns</h2>
+  <dl>
+    <dt>“O PC da igreja não respondeu”</dt>
+    <dd>Confira o IP, se o tablet está no mesmo Wi-Fi que o PC, se a rede do Windows está como Privada e se o agente foi atualizado (o monitor do agente mostra “Rede local: porta 8097”). Algumas redes de convidados isolam os aparelhos entre si: use a rede principal da igreja.</dd>
+    <dt>“O PC da igreja ainda não reconhece este tablet”</dt>
+    <dd>O PC recebe a lista de tablets pela internet. Confira no painel (aba Status) se o agente está conectado e toque em <strong>Testar</strong> de novo.</dd>
+    <dt>“O PC da igreja não aceita mais este tablet”</dt>
+    <dd>O pareamento foi removido no /admin ou a conta perdeu a permissão. Toque em <strong>Desfazer</strong> e pareie de novo com uma conta que possa projetar.</dd>
+  </dl>
+
+  <h2 id="seguranca">Segurança</h2>
+  <ul>
+    <li>Cada tablet recebe um código próprio no pareamento. O servidor e o PC guardam só um <em>hash</em> dele.</li>
+    <li>Esse código só serve para comandar o Holyrics. Ele não dá acesso a membros, pedidos, mensagens nem configurações.</li>
+    <li>Na rede local a conexão é sem criptografia (HTTP). Por isso a porta fica aberta só em redes Privadas. Tentativas seguidas com código errado bloqueiam o aparelho por alguns minutos.</li>
+  </ul>
+</main>
+</body>
+</html>

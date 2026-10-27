@@ -149,6 +149,12 @@ class ServerApi {
   Future<Map<String, dynamic>> holyrics(String acao, Map<String, dynamic> corpo) async =>
       Map<String, dynamic>.from(await _req('POST', '/api/holyrics/$acao', json: corpo) as Map);
 
+  /// Pareia este tablet com o agente do PC da igreja: {id, token, agenteConectado}. Precisa de internet.
+  Future<Map<String, dynamic>> parearAgenteLocal(String aparelho) async =>
+      Map<String, dynamic>.from(await _req('POST', '/api/agente-local/parear', json: {'aparelho': aparelho}) as Map);
+
+  Future<void> desparearAgenteLocal(String id) => _req('DELETE', '/api/agente-local/${Uri.encodeComponent(id)}');
+
   /// Catálogo de temas e miniaturas do backend; pode estar desatualizado quando o Holyrics estiver offline.
   Future<Map<String, dynamic>> temas() async =>
       Map<String, dynamic>.from(await _req('GET', '/api/temas', tempo: const Duration(seconds: 75)) as Map);

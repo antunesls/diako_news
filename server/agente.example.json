@@ -11,5 +11,8 @@
     "porta": 8096,
     "hash": "",
     "sal": ""
+  },
+  "apiLocal": {
+    "porta": 8097
   }
 }
