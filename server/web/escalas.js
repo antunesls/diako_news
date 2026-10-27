@@ -212,12 +212,29 @@ $('escalar-todos').addEventListener('change', () => escalarAtual && desenharEsca
 // ---------- Músicas ----------
 
 function linhaMusica(m = { titulo: '', tom: '' }, editavel = true) {
-  const titulo = el('input', { type: 'text', maxlength: '120', placeholder: 'Nome da música', 'aria-label': 'Nome da música' });
+  const escolha = el('select', { 'aria-label': 'Música do repertório' });
+  const musicaAtual = repertorioMusicas.find((r) => r.id === m.repertorioId);
+  escolha.append(el('option', { value: '' }, m.titulo && !m.repertorioId ? `Histórica: ${m.titulo} (vincule ao repertório)` : 'Escolha do repertório…'));
+  for (const r of repertorioMusicas) {
+    if (!r.ativo && r.id !== m.repertorioId) continue;
+    escolha.append(el('option', { value: r.id }, `${r.titulo} — ${r.cantor}${r.ativo ? '' : ' (inativa)'}`));
+  }
+  if (m.repertorioId && !musicaAtual) escolha.append(el('option', { value: m.repertorioId }, `${m.titulo} (fora do repertório)`));
+  escolha.value = m.repertorioId || '';
+  escolha.dataset.tituloAntigo = m.repertorioId ? '' : m.titulo || '';
+  escolha.dataset.tomAntigo = m.repertorioId ? '' : m.tom || '';
   const tom = el('input', { type: 'text', maxlength: '12', placeholder: 'Tom', 'aria-label': 'Tom' });
-  titulo.value = m.titulo || '';
   tom.value = m.tom || '';
-  titulo.disabled = tom.disabled = !editavel;
-  const linha = el('div', { class: 'musica' }, el('span', { class: 'ordem' }), titulo, tom,
+  escolha.disabled = tom.disabled = !editavel;
+  let primeiroVinculo = !!escolha.dataset.tituloAntigo;
+  escolha.addEventListener('change', () => {
+    const r = repertorioMusicas.find((x) => x.id === escolha.value);
+    tom.value = r ? (primeiroVinculo ? escolha.dataset.tomAntigo : tomPadraoRepertorio(r.tomDiakonia)) : escolha.dataset.tomAntigo;
+    if (r) primeiroVinculo = false;
+    tom.readOnly = !r;
+  });
+  tom.readOnly = !m.repertorioId;
+  const linha = el('div', { class: 'musica' }, el('span', { class: 'ordem' }), escolha, tom,
     editavel ? el('button', { type: 'button', class: 'botao secundario pequeno', 'aria-label': 'Remover música', style: 'padding:0', onclick: () => { linha.remove(); numerarMusicas(); } }, '×') : el('span'));
   return linha;
 }
@@ -226,7 +243,13 @@ function numerarMusicas() {
   $('musicas-lista').querySelectorAll('.ordem').forEach((o, i) => (o.textContent = String(i + 1)));
 }
 
-function abrirMusicas(c, editavel) {
+async function abrirMusicas(c, editavel) {
+  try {
+    repertorioMusicas = await api('GET', '/api/repertorio');
+  } catch (err) {
+    mensagem($('resultado-escala'), err.message, false);
+    return;
+  }
   $('musicas-culto').textContent = `${c.rotulo} · ${c.horaTexto} · ${c.nome}. Na ordem do ministro.`;
   const musicas = c.musicas || [];
   $('musicas-lista').replaceChildren(...(musicas.length || !editavel ? musicas : [{}]).map((m) => linhaMusica(m, editavel)));
@@ -235,8 +258,15 @@ function abrirMusicas(c, editavel) {
   $('musicas-salvar').hidden = !editavel;
   abrirDialogo($('dlg-musicas'), $('erro-musicas'), async () => {
     const lista = [...$('musicas-lista').querySelectorAll('.musica')]
-      .map((l) => ({ titulo: l.querySelectorAll('input')[0].value.trim(), tom: l.querySelectorAll('input')[1].value.trim() }))
-      .filter((m) => m.titulo);
+      .map((l) => {
+        const escolha = l.querySelector('select');
+        const tom = l.querySelector('input').value.trim();
+        return escolha.value ? { repertorioId: escolha.value, tom } :
+          escolha.dataset.tituloAntigo ? { titulo: escolha.dataset.tituloAntigo, tom: escolha.dataset.tomAntigo } : null;
+      }).filter(Boolean);
+    if ([...$('musicas-lista').querySelectorAll('select')].some((s) => !s.value && !s.dataset.tituloAntigo)) {
+      throw new Error('Escolha uma música do repertório para cada linha, ou remova a linha vazia.');
+    }
     await api('PUT', '/api/escalas/' + c.id, { musicas: lista });
     await carregarEscalas();
   });

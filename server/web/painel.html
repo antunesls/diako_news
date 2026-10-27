@@ -271,6 +271,7 @@
     <button role="tab" data-permissao="recados" data-aba="recados" aria-selected="false">Recados</button>
     <button role="tab" data-permissao="agendaVer" data-aba="agenda" aria-selected="false">Agenda</button>
     <button role="tab" data-permissao="escalasVer" data-aba="escalas" aria-selected="false">Escalas</button>
+    <button role="tab" data-permissao="escalasVer" data-aba="repertorio" aria-selected="false">Repertório</button>
     <button role="tab" data-permissao="cartazes" data-aba="cartazes" aria-selected="false">Cartazes</button>
     <button role="tab" data-permissao="galeria" data-aba="galeria" aria-selected="false">Galeria</button>
     <button role="tab" data-permissao="membros" data-aba="membros" aria-selected="false">Membros</button>
@@ -328,6 +329,18 @@
       </div>
       <p id="resultado-agenda" role="status"></p>
       <div class="lista" id="lista-agenda"></div>
+    </section>
+
+    <section data-painel="repertorio" hidden>
+      <div class="barra">
+        <h1>Repertório</h1><span class="espaco"></span>
+        <button type="button" class="botao secundario pequeno" id="repertorio-importar" data-permissao="escalaLouvor">Importar CSV</button>
+        <button type="button" class="botao pequeno" id="repertorio-novo" data-permissao="escalaLouvor">+ Música</button>
+      </div>
+      <p class="dica">As músicas ativas podem ser escolhidas na escala. A planilha serve para a importação; depois, mantenha o repertório aqui.</p>
+      <div class="campo"><label for="repertorio-busca">Buscar por título ou cantor</label><input id="repertorio-busca" type="search"></div>
+      <p id="repertorio-resultado" role="status"></p>
+      <div id="repertorio-lista"></div>
     </section>
 
     <section data-painel="escalas" hidden>
@@ -544,6 +557,42 @@
       <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
       <button class="botao" value="salvar" id="musicas-salvar">Salvar</button>
     </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-repertorio">
+  <form method="dialog">
+    <h2 id="repertorio-dialogo-titulo">Música do repertório</h2>
+    <div class="campo"><label for="rep-titulo">Louvor</label><input id="rep-titulo" maxlength="120" required></div>
+    <div class="campo"><label for="rep-cantor">Cantor / intérprete</label><input id="rep-cantor" maxlength="120" required></div>
+    <div class="campo"><label for="rep-compositor">Compositor</label><input id="rep-compositor" maxlength="400"></div>
+    <div class="grade2">
+      <div class="campo"><label for="rep-ano">Ano</label><input id="rep-ano" maxlength="40"></div>
+      <div class="campo"><label for="rep-bpm">BPM</label><input id="rep-bpm" maxlength="40"></div>
+      <div class="campo"><label for="rep-tomOriginal">Tom original</label><input id="rep-tomOriginal" maxlength="120"></div>
+      <div class="campo"><label for="rep-tomDiakonia">Tom Diakonia</label><textarea id="rep-tomDiakonia" maxlength="500"></textarea></div>
+    </div>
+    <div class="campo"><label for="rep-referencia">Referência / link da versão</label><input id="rep-referencia" maxlength="500"></div>
+    <div class="campo"><label for="rep-solicitadoPor">Solicitado por</label><input id="rep-solicitadoPor" maxlength="120"></div>
+    <div class="campo"><label for="rep-observacoes">Observações</label><textarea id="rep-observacoes" maxlength="4000"></textarea></div>
+    <div class="campo"><label for="rep-status">Status na planilha</label><input id="rep-status" maxlength="80"></div>
+    <div class="campo"><label for="rep-biografiaCantor">Biografia cantor</label><textarea id="rep-biografiaCantor" maxlength="10000"></textarea></div>
+    <div class="campo"><label for="rep-biografiaCompositor">Biografia compositor</label><textarea id="rep-biografiaCompositor" maxlength="10000"></textarea></div>
+    <label class="marcar"><input id="rep-ativo" type="checkbox"><span>Ativa (disponível para novas escalas)</span></label>
+    <p class="erro" id="rep-erro" hidden></p>
+    <div class="dialogo-acoes"><button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button><button class="botao" value="salvar">Salvar</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-importar-repertorio">
+  <form method="dialog">
+    <h2>Importar repertório</h2>
+    <p class="dica">Exporte a aba da planilha como CSV. Título + cantor identificam duplicidades; músicas existentes nunca são alteradas.</p>
+    <div class="campo"><label for="repertorio-arquivo">Arquivo CSV</label><input id="repertorio-arquivo" type="file" accept=".csv,text/csv"></div>
+    <p id="repertorio-previa" role="status"></p>
+    <div id="repertorio-preview-lista" style="max-height:240px;overflow:auto"></div>
+    <p class="erro" id="repertorio-erro" hidden></p>
+    <div class="dialogo-acoes"><button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button><button class="botao" id="repertorio-confirmar" value="salvar" disabled>Importar novas</button></div>
   </form>
 </dialog>
 
@@ -899,6 +948,7 @@
 <script src="/comum.js?v=5"></script>
 <script src="/form-visitante.js?v=1"></script>
 <script src="/painel.js?v=13"></script>
+<script src="/repertorio.js?v=1"></script>
 <script src="/escalas.js?v=1"></script>
 </body>
 </html>

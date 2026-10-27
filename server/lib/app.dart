@@ -29,6 +29,7 @@ import 'galeria.dart';
 import 'lgpd.dart';
 import 'pagina_inicial.dart';
 import 'permissoes.dart';
+import 'repertorio.dart';
 import 'usuarios.dart';
 import 'qr_oracao.dart';
 import 'store.dart';
@@ -246,6 +247,11 @@ class Servidor {
       ..put('/api/visitas/<id>/contato', _contatoVisita)
       ..post('/api/projetar/boas-vindas', _projetarBoasVindas)
       // Escalas dos pastores e do louvor (rotas fixas antes das com <id>)
+      ..get('/api/repertorio', _listarRepertorio)
+      ..post('/api/repertorio/importar/previa', _previaRepertorio)
+      ..post('/api/repertorio/importar', _importarRepertorio)
+      ..post('/api/repertorio', _criarMusicaRepertorio)
+      ..put('/api/repertorio/<id>', _editarMusicaRepertorio)
       ..get('/api/escalas', _listarEscalas)
       ..get('/api/escalas/hoje', _escalaDeHoje)
       ..post('/api/escalas', _criarCulto)
@@ -1735,6 +1741,81 @@ class Servidor {
 
   // ---------- Escalas (pastoral e louvor) ----------
 
+  bool _podeEditarRepertorio(Request req) => Auth.contaDa(req)?.pode(Permissao.escalaLouvor) ?? false;
+
+  Response _listarRepertorio(Request _) => _json([
+    for (final m in store.listar('repertorio')) m,
+  ]);
+
+  Future<Response> _criarMusicaRepertorio(Request req) async {
+    if (!_podeEditarRepertorio(req)) return _semPermissaoEscala(TipoEscala.louvor);
+    try {
+      final musica = RepertorioMusica.fromJson({...await _corpo(req), 'id': novoId()});
+      final chave = chaveRepertorio(musica.titulo, musica.cantor);
+      if (store.listar('repertorio').any((m) => chaveRepertorio(m['titulo'] as String, m['cantor'] as String) == chave)) {
+        return _erro(409, 'Esta música já está no repertório.');
+      }
+      await store.salvar('repertorio', musica.toJson());
+      return _json(musica.toJson(), status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  Future<Response> _editarMusicaRepertorio(Request req, String id) async {
+    if (!_podeEditarRepertorio(req)) return _semPermissaoEscala(TipoEscala.louvor);
+    final atual = store.buscar('repertorio', id);
+    if (atual == null) return _erro(404, 'Música não encontrada.');
+    try {
+      final musica = RepertorioMusica.fromJson({...atual, ...await _corpo(req), 'id': id});
+      final chave = chaveRepertorio(musica.titulo, musica.cantor);
+      if (store.listar('repertorio').any((m) => m['id'] != id &&
+          chaveRepertorio(m['titulo'] as String, m['cantor'] as String) == chave)) {
+        return _erro(409, 'Esta música já está no repertório.');
+      }
+      await store.salvar('repertorio', musica.toJson());
+      return _json(musica.toJson());
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  /// Prévia e importação usam a mesma identificação (título + cantor), sem sobrescrever registros existentes.
+  Future<Response> _processarImportacaoRepertorio(Request req, {required bool salvar}) async {
+    if (!_podeEditarRepertorio(req)) return _semPermissaoEscala(TipoEscala.louvor);
+    final csv = (await _corpo(req))['csv'];
+    if (csv is! String || csv.length > 2 * 1024 * 1024) return _erro(400, 'CSV inválido ou grande demais.');
+    try {
+      final lidas = lerRepertorioCsv(csv);
+      final chaves = {
+        for (final m in store.listar('repertorio'))
+          chaveRepertorio(m['titulo'] as String, m['cantor'] as String),
+      };
+      final novas = <RepertorioMusica>[];
+      var repetidas = 0;
+      for (final m in lidas) {
+        if (!chaves.add(chaveRepertorio(m.titulo, m.cantor))) {
+          repetidas++;
+        } else {
+          novas.add(m.comId(novoId()));
+        }
+      }
+      if (salvar && novas.isNotEmpty) {
+        await store.salvarVarios('repertorio', [for (final m in novas) m.toJson()]);
+      }
+      return _json({
+        if (salvar) 'importadas': novas.length else 'novas': novas.length,
+        'repetidas': repetidas,
+        'musicas': [for (final m in novas) m.toJson()],
+      });
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  Future<Response> _previaRepertorio(Request req) => _processarImportacaoRepertorio(req, salvar: false);
+  Future<Response> _importarRepertorio(Request req) => _processarImportacaoRepertorio(req, salvar: true);
+
   /// Link "Minha escala": vale 180 dias; gerar outro para a mesma pessoa invalida o anterior.
   static const _validadeLinkEscala = Duration(days: 180);
 
@@ -1927,7 +2008,33 @@ class Servidor {
     }
     if (corpo.containsKey('musicas')) {
       if (!_podeEscala(req, TipoEscala.louvor)) return _semPermissaoEscala(TipoEscala.louvor);
-      doc['musicas'] = corpo['musicas'];
+      final entradas = corpo['musicas'];
+      if (entradas is! List) return _erro(400, 'Lista de músicas inválida.');
+      final anteriores = CultoEscala.fromJson(atual).musicas;
+      final selecionadas = <Map<String, dynamic>>[];
+      for (final entrada in entradas) {
+        if (entrada is! Map) return _erro(400, 'Música inválida.');
+        final idMusica = entrada['repertorioId'];
+        if (idMusica is! String || idMusica.isEmpty) {
+          // Mantém músicas históricas não vinculadas, mas não admite novas sem repertório.
+          final titulo = entrada['titulo'];
+          final tom = entrada['tom'] ?? '';
+          if (titulo is! String || tom is! String || !anteriores.any((m) =>
+              m.repertorioId.isEmpty && m.titulo == titulo && m.tom == tom)) {
+            return _erro(400, 'Escolha uma música do repertório.');
+          }
+          selecionadas.add({'titulo': titulo, 'tom': tom});
+          continue;
+        }
+        final musica = store.buscar('repertorio', idMusica);
+        if (musica == null) return _erro(400, 'Música não encontrada no repertório.');
+        final anterior = anteriores.where((m) => m.repertorioId == idMusica).firstOrNull;
+        if (musica['ativo'] != true && anterior == null) return _erro(400, 'Música inativa no repertório.');
+        final tom = entrada['tom'] ?? RepertorioMusica.fromJson(musica).tomPadrao;
+        if (tom is! String) return _erro(400, 'Tom inválido.');
+        selecionadas.add({'repertorioId': idMusica, 'titulo': anterior?.titulo ?? musica['titulo'], 'tom': tom});
+      }
+      doc['musicas'] = selecionadas;
     }
     for (final k in const ['nome', 'hora', 'ceia', 'tema']) {
       if (!corpo.containsKey(k)) continue;

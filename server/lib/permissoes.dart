@@ -100,6 +100,7 @@ Permissao permissaoDaRota(String metodo, String caminho) {
   if (caminho == 'api/resumo-semanal') return Permissao.resumo;
   // Ver basta para entrar; cada alteração confere no handler se é da pastoral ou do louvor.
   if (comeca('api/escalas')) return Permissao.escalasVer;
+  if (comeca('api/repertorio')) return Permissao.escalasVer;
   if (caminho == 'api/temas' || comeca('api/holyrics') || comeca('api/projetar')) return Permissao.projetar;
   if (comeca('api/agente-local')) return Permissao.projetar; // parear o tablet com o agente da rede local
   if (comeca('api/admin/usuarios')) return Permissao.usuarios;

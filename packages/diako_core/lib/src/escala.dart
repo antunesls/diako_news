@@ -19,19 +19,24 @@ const funcaoCeia = 'Santa Ceia';
 
 /// Uma música do culto, na ordem do ministro.
 class Musica {
-  Musica(this.titulo, {this.tom = ''});
+  Musica(this.titulo, {this.tom = '', this.repertorioId = ''});
 
   final String titulo;
   final String tom;
+  /// Vazio apenas para músicas históricas ainda não vinculadas ao repertório.
+  final String repertorioId;
 
-  Map<String, dynamic> toJson() => {'titulo': titulo, if (tom.isNotEmpty) 'tom': tom};
+  Map<String, dynamic> toJson() => {'titulo': titulo, if (tom.isNotEmpty) 'tom': tom,
+    if (repertorioId.isNotEmpty) 'repertorioId': repertorioId};
 
   factory Musica.fromJson(Map<String, dynamic> j) {
     final titulo = (j['titulo'] as String? ?? '').trim();
     if (titulo.isEmpty || titulo.length > 120) throw const FormatException('Música sem título (ou longo demais).');
     final tom = (j['tom'] as String? ?? '').trim();
     if (tom.length > 12) throw const FormatException('Tom da música longo demais.');
-    return Musica(titulo, tom: tom);
+    final repertorioId = (j['repertorioId'] as String? ?? '').trim();
+    if (repertorioId.length > 100) throw const FormatException('Referência de repertório inválida.');
+    return Musica(titulo, tom: tom, repertorioId: repertorioId);
   }
 }
 

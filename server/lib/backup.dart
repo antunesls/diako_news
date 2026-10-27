@@ -12,6 +12,7 @@ import 'fotos_membros.dart';
 import 'lgpd.dart';
 import 'galeria.dart';
 import 'qr_oracao.dart';
+import 'repertorio.dart';
 import 'store.dart';
 
 /// Formato dos arquivos de backup (manifest.json).
@@ -390,6 +391,8 @@ class Restauracao {
               Indisponibilidade.fromJson(doc);
             case 'linksEscala':
               if (doc['id'] is! String || doc['hash'] is! String) throw const FormatException('Link de escala inválido.');
+            case 'repertorio':
+              if (RepertorioMusica.fromJson(doc).id.isEmpty) throw const FormatException('Música sem id.');
           }
         }
         colecoes[nome] = lista;

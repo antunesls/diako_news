@@ -35,6 +35,7 @@ void main() {
   group('servidor', () {
     late Directory tmp;
     late Store store;
+    late Backup backup;
     late Handler handler;
     late String admin;
     // Quarta-feira, 28/10/2026.
@@ -62,6 +63,13 @@ void main() {
       return m['id'] as String;
     }
 
+    Future<String> musica(String titulo, {String tom = ''}) async {
+      final (st, m) = await chamar('POST', '/api/repertorio', token: admin,
+          json: {'titulo': titulo, 'cantor': 'Cantor', 'tomDiakonia': tom});
+      expect(st, 201);
+      return m['id'] as String;
+    }
+
     Future<Map> mes(String m, {String? token}) async => (await chamar('GET', '/api/escalas?mes=$m', token: token ?? admin)).$2 as Map;
     Map culto(Map escalas, String data) => (escalas['cultos'] as List).firstWhere((c) => c['data'] == data) as Map;
 
@@ -73,7 +81,7 @@ void main() {
       final cfg = await Configuracoes.carregar(config, urlDetectada: 'http://192.168.0.10:8080');
       final usuarios = Usuarios(config.pastaDados);
       final auth = Auth(conferirSenha: cfg.conferirSenha, pastaDados: config.pastaDados, usuarios: usuarios);
-      final backup = Backup(pastaDados: config.pastaDados, configuracoes: cfg.publicas);
+      backup = Backup(pastaDados: config.pastaDados, configuracoes: cfg.publicas);
       handler = Servidor(
         store: store,
         auth: auth,
@@ -132,8 +140,9 @@ void main() {
       expect((await chamar('PUT', '/api/escalas/$id8', token: admin, json: {'tipo': 'louvor', 'funcao': 'Sax', 'membros': [bruno]})).$1, 400);
       expect((await chamar('PUT', '/api/escalas/$id8', token: admin, json: {'tipo': 'louvor', 'funcao': 'Violão', 'membros': ['nao-existe']})).$1, 400);
       await chamar('PUT', '/api/escalas/${dom1['id']}', token: admin, json: {'tipo': 'pastoral', 'funcao': 'Pregação', 'membros': [pr]});
+      final abertura = await musica('Abertura', tom: 'G');
       await chamar('PUT', '/api/escalas/${dom1['id']}', token: admin,
-          json: {'musicas': [{'titulo': 'Abertura', 'tom': 'G'}], 'tema': 'Graça'});
+          json: {'musicas': [{'repertorioId': abertura, 'tom': 'G'}], 'tema': 'Graça'});
 
       nov = await mes('2026-11');
       final avisosLouvor = nov['avisos']['louvor'] as List;
@@ -194,7 +203,8 @@ void main() {
       final id = culto(await mes('2026-11'), '2026-11-01')['id'];
 
       expect((await chamar('PUT', '/api/escalas/$id', token: lider, json: {'tipo': 'louvor', 'funcao': 'Violão', 'membros': [bruno]})).$1, 200);
-      expect((await chamar('PUT', '/api/escalas/$id', token: lider, json: {'musicas': [{'titulo': 'Abertura'}]})).$1, 200);
+      final abertura = await musica('Abertura');
+      expect((await chamar('PUT', '/api/escalas/$id', token: lider, json: {'musicas': [{'repertorioId': abertura}]})).$1, 200);
       expect((await chamar('PUT', '/api/escalas/$id', token: lider, json: {'tipo': 'pastoral', 'funcao': 'Pregação', 'membros': [bruno]})).$1, 403);
       expect((await chamar('PUT', '/api/escalas/$id', token: lider, json: {'ceia': false})).$1, 403);
       expect((await chamar('POST', '/api/escalas', token: lider, json: {'data': '2026-11-20', 'hora': '19h'})).$1, 403);
@@ -224,7 +234,8 @@ void main() {
       final ana = await membro('Ana Lima', ministerios: ['Louvor']);
       final nov = await mes('2026-11');
       await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-01')['id']}', token: admin, json: {'tipo': 'louvor', 'funcao': 'Violão', 'membros': [bruno]});
-      await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-01')['id']}', token: admin, json: {'musicas': [{'titulo': 'Abertura', 'tom': 'G'}]});
+      final abertura = await musica('Abertura', tom: 'G');
+      await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-01')['id']}', token: admin, json: {'musicas': [{'repertorioId': abertura, 'tom': 'G'}]});
       await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-04')['id']}', token: admin, json: {'tipo': 'louvor', 'funcao': 'Vocal', 'membros': [ana]});
 
       final (st, link) = await chamar('POST', '/api/escalas/link/$bruno', token: admin);
@@ -238,7 +249,7 @@ void main() {
       expect(minha['nome'], 'Bruno');
       expect((minha['cultos'] as List).map((c) => c['data']), ['2026-11-01']);
       expect(minha['cultos'].single['funcoes'], [{'tipo': 'louvor', 'funcao': 'Violão'}]);
-      expect(minha['cultos'].single['musicas'].single, {'titulo': 'Abertura', 'tom': 'G'});
+      expect(minha['cultos'].single['musicas'].single, {'repertorioId': abertura, 'titulo': 'Abertura', 'tom': 'G'});
 
       expect((await chamar('POST', '/api/public/minha-escala/indisponivel', json: {'token': token, 'de': '2026-10-01'})).$1, 400);
       final (stInd, ind) = await chamar('POST', '/api/public/minha-escala/indisponivel',
@@ -255,6 +266,92 @@ void main() {
       expect((await chamar('POST', '/api/public/minha-escala', json: {'token': 'x' * 30})).$1, 410);
       await chamar('POST', '/api/escalas/link/$bruno', token: admin);
       expect((await chamar('POST', '/api/public/minha-escala', json: {'token': token})).$1, 410);
+    });
+
+    test('repertório: prévia, importação sem sobrescrever, edição e músicas vinculadas na escala', () async {
+      const csv = 'Louvor,Cantor,Status,Tom Diakonia,Observações\n'
+          'Santo pra sempre,Marine Friesen,Ok,"F\nComeça com Bb",Teste\n'
+          'Em análise,Outro cantor,Pendente,D,Nota';
+      final (stPreview, previa) = await chamar('POST', '/api/repertorio/importar/previa', token: admin, json: {'csv': csv});
+      expect(stPreview, 200);
+      expect(previa['novas'], 2);
+      expect(previa['musicas'][0]['tomDiakonia'], 'F\nComeça com Bb');
+
+      final (stImport, importado) = await chamar('POST', '/api/repertorio/importar', token: admin, json: {'csv': csv});
+      expect(stImport, 200);
+      expect(importado['importadas'], 2);
+      final lista = (await chamar('GET', '/api/repertorio', token: admin)).$2 as List;
+      final ativo = lista.firstWhere((m) => m['titulo'] == 'Santo pra sempre') as Map;
+      final inativo = lista.firstWhere((m) => m['titulo'] == 'Em análise') as Map;
+      expect(ativo['ativo'], true);
+      expect(inativo['ativo'], false);
+      expect(ativo['tomDiakonia'], 'F\nComeça com Bb');
+
+      expect((await chamar('PUT', '/api/repertorio/${ativo['id']}', token: admin,
+          json: {...ativo, 'tomDiakonia': 'G'})).$1, 200);
+      expect((await chamar('POST', '/api/repertorio/importar', token: admin, json: {'csv': csv})).$2['importadas'], 0);
+      expect(((await chamar('GET', '/api/repertorio', token: admin)).$2 as List).first['tomDiakonia'], 'G');
+
+      await chamar('PUT', '/api/admin/configuracoes', token: admin, json: {'siteCultos': 'Domingo — 19h'});
+      await chamar('POST', '/api/escalas/gerar', token: admin, json: {'mes': '2026-11'});
+      final id = culto(await mes('2026-11'), '2026-11-01')['id'];
+      expect((await chamar('PUT', '/api/escalas/$id', token: admin,
+          json: {'musicas': [{'titulo': 'Inventada', 'tom': 'G'}]})).$1, 400);
+      expect((await chamar('PUT', '/api/escalas/$id', token: admin,
+          json: {'musicas': [{'repertorioId': inativo['id'], 'titulo': 'Em análise', 'tom': 'D'}]})).$1, 400);
+      final (_, padrao) = await chamar('PUT', '/api/escalas/$id', token: admin,
+          json: {'musicas': [{'repertorioId': ativo['id']}]});
+      expect(padrao['musicas'].single['tom'], 'G');
+      final (stCulto, editado) = await chamar('PUT', '/api/escalas/$id', token: admin,
+          json: {'musicas': [{'repertorioId': ativo['id'], 'titulo': 'Santo pra sempre', 'tom': 'A'}]});
+      expect(stCulto, 200);
+      expect(editado['musicas'].single['tom'], 'A');
+      expect(editado['musicas'].single['repertorioId'], ativo['id']);
+      expect((await chamar('PUT', '/api/repertorio/${ativo['id']}', token: admin,
+          json: {...ativo, 'ativo': false})).$1, 200);
+      expect(culto(await mes('2026-11'), '2026-11-01')['musicas'].single['tom'], 'A');
+      expect((await chamar('PUT', '/api/escalas/$id', token: admin,
+          json: {'musicas': [{'repertorioId': ativo['id'], 'tom': 'A'}]})).$1, 200);
+    });
+
+    test('perfil Louvor mantém repertório, Mídia só consulta', () async {
+      final lider = await criarUsuario('lider.repertorio', Perfil.louvor);
+      final midia = await criarUsuario('midia.repertorio', Perfil.midia);
+      final (st, criada) = await chamar('POST', '/api/repertorio', token: lider,
+          json: {'titulo': 'Nova música', 'cantor': 'Cantor', 'tomDiakonia': 'C'});
+      expect(st, 201);
+      expect((await chamar('GET', '/api/repertorio', token: midia)).$1, 200);
+      expect((await chamar('POST', '/api/repertorio', token: midia,
+          json: {'titulo': 'Outra', 'cantor': 'Outro'})).$1, 403);
+      expect((await chamar('PUT', '/api/repertorio/${criada['id']}', token: midia,
+          json: {'titulo': 'Outra', 'cantor': 'Outro'})).$1, 403);
+    });
+
+    test('músicas antigas são preservadas e podem ser vinculadas sem alterar o tom', () async {
+      await store.salvar('escalas', {
+        'id': 'antigo', 'data': '2026-11-01', 'hora': '19:00', 'nome': 'Culto',
+        'pastoral': <String, dynamic>{}, 'louvor': <String, dynamic>{},
+        'musicas': [{'titulo': 'Canção antiga', 'tom': 'D'}],
+      });
+      expect(culto(await mes('2026-11'), '2026-11-01')['musicas'].single['titulo'], 'Canção antiga');
+      expect((await chamar('PUT', '/api/escalas/antigo', token: admin,
+          json: {'musicas': [{'titulo': 'Canção antiga', 'tom': 'D'}]})).$1, 200);
+      final id = await musica('Canção antiga', tom: 'G');
+      final (st, c) = await chamar('PUT', '/api/escalas/antigo', token: admin,
+          json: {'musicas': [{'repertorioId': id, 'tom': 'D'}]});
+      expect(st, 200);
+      expect(c['musicas'].single, {'titulo': 'Canção antiga', 'tom': 'D', 'repertorioId': id});
+    });
+
+    test('backup e restauração preservam o repertório', () async {
+      final id = await musica('Bondade de Deus', tom: 'D');
+      final zip = await backup.gerarZip();
+      await store.substituir('repertorio', []);
+      expect(store.listar('repertorio'), isEmpty);
+      final restauracao = Restauracao(store: store, backup: backup,
+          pastaDados: store.pasta, pastaCartazes: p.join(tmp.path, 'cartazes'));
+      await restauracao.restaurar(zip);
+      expect(store.buscar('repertorio', id)?['titulo'], 'Bondade de Deus');
     });
   });
 }
