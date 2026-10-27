@@ -229,7 +229,8 @@ function linhaMusica(m = { titulo: '', tom: '' }, editavel = true) {
   let primeiroVinculo = !!escolha.dataset.tituloAntigo;
   escolha.addEventListener('change', () => {
     const r = repertorioMusicas.find((x) => x.id === escolha.value);
-    tom.value = r ? (primeiroVinculo ? escolha.dataset.tomAntigo : tomPadraoRepertorio(r.tomDiakonia)) : escolha.dataset.tomAntigo;
+    tom.value = r ? (primeiroVinculo ? escolha.dataset.tomAntigo :
+      r.tomSelecionado != null ? r.tomSelecionado : tomPadraoRepertorio(r.tomDiakonia)) : escolha.dataset.tomAntigo;
     if (r) primeiroVinculo = false;
     tom.readOnly = !r;
   });

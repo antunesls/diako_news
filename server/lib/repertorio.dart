@@ -14,6 +14,7 @@ class RepertorioMusica {
     this.status = 'Ok',
     this.tomOriginal = '',
     this.tomDiakonia = '',
+    this.tomSelecionado,
     this.bpm = '',
     this.biografiaCantor = '',
     this.biografiaCompositor = '',
@@ -22,10 +23,12 @@ class RepertorioMusica {
 
   final String id, titulo, cantor, compositor, ano, referencia, solicitadoPor, observacoes;
   final String status, tomOriginal, tomDiakonia, bpm, biografiaCantor, biografiaCompositor;
+  /// Nulo em cadastros antigos; vazio significa "Não definido" explicitamente.
+  final String? tomSelecionado;
   final bool ativo;
 
   /// O primeiro tom da anotação (ex.: "Em (Intro: C...)" → "Em").
-  String get tomPadrao => RegExp(r'(?:^|[^A-Za-z])([A-G](?:#|b)?m?)(?=$|[^A-Za-z#])', caseSensitive: false)
+  String get tomPadrao => tomSelecionado ?? RegExp(r'(?:^|[^A-Za-z])([A-G](?:#|b)?m?)(?=$|[^A-Za-z#])', caseSensitive: false)
       .firstMatch(tomDiakonia.split(RegExp(r'\r?\n')).first)?.group(1) ?? '';
 
   RepertorioMusica comId(String novoId) => RepertorioMusica.fromJson({...toJson(), 'id': novoId});
@@ -34,6 +37,7 @@ class RepertorioMusica {
         'id': id, 'titulo': titulo, 'cantor': cantor, 'compositor': compositor, 'ano': ano,
         'referencia': referencia, 'solicitadoPor': solicitadoPor, 'observacoes': observacoes,
         'status': status, 'tomOriginal': tomOriginal, 'tomDiakonia': tomDiakonia, 'bpm': bpm,
+        if (tomSelecionado != null) 'tomSelecionado': tomSelecionado,
         'biografiaCantor': biografiaCantor, 'biografiaCompositor': biografiaCompositor, 'ativo': ativo,
       };
 
@@ -49,12 +53,18 @@ class RepertorioMusica {
     final id = campo('id', 100), titulo = campo('titulo', 120), cantor = campo('cantor', 120);
     if (titulo.isEmpty || cantor.isEmpty) throw const FormatException('Título e cantor são obrigatórios.');
     if (j['ativo'] != null && j['ativo'] is! bool) throw const FormatException('Status ativo inválido.');
+    const notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    final tomSelecionado = j['tomSelecionado'] == null ? null : campo('tomSelecionado', 3);
+    if (tomSelecionado != null && tomSelecionado.isNotEmpty &&
+        !notas.any((nota) => tomSelecionado == nota || tomSelecionado == '${nota}m')) {
+      throw const FormatException('Escolha um tom válido.');
+    }
     return RepertorioMusica(
       id: id, titulo: titulo, cantor: cantor, compositor: campo('compositor', 400),
       ano: campo('ano', 40), referencia: campo('referencia', 500),
       solicitadoPor: campo('solicitadoPor', 120), observacoes: campo('observacoes', 4000),
-      status: campo('status', 80), tomOriginal: campo('tomOriginal', 120),
-      tomDiakonia: campo('tomDiakonia', 500), bpm: campo('bpm', 40),
+       status: campo('status', 80), tomOriginal: campo('tomOriginal', 120),
+       tomDiakonia: campo('tomDiakonia', 500), tomSelecionado: tomSelecionado, bpm: campo('bpm', 40),
       biografiaCantor: campo('biografiaCantor', 10000),
       biografiaCompositor: campo('biografiaCompositor', 10000), ativo: j['ativo'] as bool? ?? true,
     );

@@ -53,6 +53,9 @@
   .status-linha { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--linha); }
   .ponto { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 6px; }
   dialog { border: 0; border-radius: 16px; padding: 24px; width: min(560px, calc(100vw - 32px)); }
+  #dlg-repertorio { width: min(720px, calc(100vw - 32px)); max-height: 90dvh; overflow-y: auto; }
+  .repertorio-filtros { display: grid; grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(140px, 1fr)); gap: 12px; align-items: end; margin-bottom: 10px; }
+  @media (max-width: 740px) { .repertorio-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); } .repertorio-filtros .campo:first-child { grid-column: 1 / -1; } }
   dialog::backdrop { background: rgba(0,0,0,.45); }
   .dialogo-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 8px; }
   #login { max-width: 380px; margin: 10vh auto 0; padding: 0 16px; text-align: center; }
@@ -341,7 +344,12 @@
         <button type="button" class="botao pequeno" id="repertorio-novo" data-permissao="escalaLouvor">+ Música</button>
       </div>
       <p class="dica">As músicas ativas podem ser escolhidas na escala. A planilha serve para a importação; depois, mantenha o repertório aqui.</p>
-      <div class="campo"><label for="repertorio-busca">Buscar por título ou cantor</label><input id="repertorio-busca" type="search"></div>
+      <div class="repertorio-filtros">
+        <div class="campo"><label for="repertorio-busca">Buscar música</label><input id="repertorio-busca" type="search" placeholder="Título, cantor ou compositor; aceita pequenos erros" autocomplete="off"></div>
+        <div class="campo"><label for="repertorio-filtro-status">Status</label><select id="repertorio-filtro-status"><option value="">Todos</option><option value="OK">OK · disponível</option><option value="Em análise">Em análise</option><option value="Inativo">Inativo</option></select></div>
+        <div class="campo"><label for="repertorio-filtro-tom">Tom Diakonia</label><select id="repertorio-filtro-tom"></select></div>
+      </div>
+      <p id="repertorio-contagem" class="dica" role="status"></p>
       <p id="repertorio-resultado" role="status"></p>
       <div id="repertorio-lista"></div>
     </section>
@@ -601,16 +609,18 @@
     <div class="grade2">
       <div class="campo"><label for="rep-ano">Ano</label><input id="rep-ano" maxlength="40"></div>
       <div class="campo"><label for="rep-bpm">BPM</label><input id="rep-bpm" maxlength="40"></div>
-      <div class="campo"><label for="rep-tomOriginal">Tom original</label><input id="rep-tomOriginal" maxlength="120"></div>
-      <div class="campo"><label for="rep-tomDiakonia">Tom Diakonia</label><textarea id="rep-tomDiakonia" maxlength="500"></textarea></div>
     </div>
+    <div class="grade2">
+      <div class="campo"><label for="rep-tomOriginal">Tom original <span class="dica">(como consta na fonte)</span></label><input id="rep-tomOriginal" maxlength="120"></div>
+      <div class="campo"><label for="rep-tomSelecionado">Tom Diakonia para a escala</label><select id="rep-tomSelecionado"></select></div>
+    </div>
+    <div class="campo"><label for="rep-tomDiakonia">Anotações antigas do tom <span class="dica">(preservadas; não mudam o tom selecionado)</span></label><textarea id="rep-tomDiakonia" maxlength="500"></textarea></div>
     <div class="campo"><label for="rep-referencia">Referência / link da versão</label><input id="rep-referencia" maxlength="500"></div>
     <div class="campo"><label for="rep-solicitadoPor">Solicitado por</label><input id="rep-solicitadoPor" maxlength="120"></div>
     <div class="campo"><label for="rep-observacoes">Observações</label><textarea id="rep-observacoes" maxlength="4000"></textarea></div>
-    <div class="campo"><label for="rep-status">Status na planilha</label><input id="rep-status" maxlength="80"></div>
+    <div class="campo"><label for="rep-status">Status</label><select id="rep-status"><option value="OK">OK · disponível para novas escalas</option><option value="Em análise">Em análise · indisponível</option><option value="Inativo">Inativo · indisponível</option></select></div>
     <div class="campo"><label for="rep-biografiaCantor">Biografia cantor</label><textarea id="rep-biografiaCantor" maxlength="10000"></textarea></div>
     <div class="campo"><label for="rep-biografiaCompositor">Biografia compositor</label><textarea id="rep-biografiaCompositor" maxlength="10000"></textarea></div>
-    <label class="marcar"><input id="rep-ativo" type="checkbox"><span>Ativa (disponível para novas escalas)</span></label>
     <p class="erro" id="rep-erro" hidden></p>
     <div class="dialogo-acoes"><button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button><button class="botao" value="salvar">Salvar</button></div>
   </form>
@@ -976,8 +986,9 @@
 <script src="/menu-lateral.js?v=1"></script>
 <script src="/painel.js?v=15"></script>
 <script src="/acessos-escala.js?v=1"></script>
-<script src="/repertorio.js?v=1"></script>
+<script src="/repertorio-busca.js?v=1"></script>
+<script src="/repertorio.js?v=2"></script>
 <script src="/escala-impressao.js?v=1"></script>
-<script src="/escalas.js?v=3"></script>
+<script src="/escalas.js?v=4"></script>
 </body>
 </html>

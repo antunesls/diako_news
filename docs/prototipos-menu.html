@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Propostas de navegação — DiakoNews</title>
+  <style>
+    :root { --bg:#f7f5f0; --paper:#fff; --ink:#2e2d2a; --muted:#635f58; --line:#e4e0d6; --green:#1f5f5b; --dark:#16443f; --pale:#dceae7; --red:#b3261e; --shadow:0 18px 50px #253e3620; font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); }
+    button,select,input { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,select:focus-visible,input:focus-visible { outline:3px solid #6fb6a7; outline-offset:2px; }
+    .page { max-width:1260px; margin:auto; padding:42px 24px 80px; }
+    .eyebrow { color:var(--green); text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:.16em; margin:0 0 8px; }
+    h1,h2,h3 { font-family:Georgia,serif; letter-spacing:-.035em; }
+    h1 { font-size:clamp(34px,5vw,58px); line-height:1.08; margin:0 0 14px; }
+    .lede { max-width:740px; line-height:1.6; color:var(--muted); margin:0 0 30px; }
+    .choices { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:26px; }
+    .choice { text-align:left; border:1px solid var(--line); border-radius:18px; background:var(--paper); padding:20px; min-height:180px; transition:transform .18s,box-shadow .18s,border-color .18s; }
+    .choice:hover { transform:translateY(-3px); box-shadow:0 8px 22px #273d3614; }
+    .choice[aria-pressed=true] { border:2px solid var(--green); box-shadow:0 0 0 3px var(--pale); padding:19px; }
+    .choice .number { display:inline-grid; place-items:center; width:30px; height:30px; border-radius:9px; background:var(--pale); color:var(--dark); font-weight:800; margin-bottom:12px; }
+    .choice strong { display:block; font-size:17px; margin-bottom:6px; }
+    .choice small { display:block; color:var(--muted); line-height:1.45; font-size:13px; }
+    .recommend { color:var(--green); font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .presentation { background:var(--paper); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow); overflow:hidden; }
+    .presentation-head { display:flex; align-items:center; flex-wrap:wrap; gap:14px; padding:20px 24px; border-bottom:1px solid var(--line); }
+    .presentation-head h2 { font-size:25px; margin:0; flex:1; }
+    .controls { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+    .controls label { font-size:13px; font-weight:700; color:var(--muted); }
+    .controls select,.device { background:#fff; border:1px solid #cfcabd; border-radius:11px; padding:9px 12px; color:var(--ink); }
+    .device[aria-pressed=true] { background:var(--green); border-color:var(--green); color:#fff; }
+    .stage { min-height:565px; padding:26px; background:linear-gradient(145deg,#f3f1e9,#e9eee9); display:flex; justify-content:center; align-items:flex-start; }
+    .window { width:100%; max-width:1100px; min-height:505px; background:#f7f5f0; border:1px solid #d1d6ce; border-radius:18px; box-shadow:0 22px 48px #26463b25; overflow:hidden; transition:max-width .3s; position:relative; }
+    .window.mobile { max-width:390px; min-height:620px; }
+    .app-head { min-height:58px; display:flex; gap:13px; align-items:center; padding:11px 22px; background:#fff; border-bottom:1px solid var(--line); }
+    .brand-icon { width:32px; height:32px; flex:none; display:grid; place-items:center; border-radius:10px; background:var(--green); color:white; font-family:Georgia,serif; font-size:23px; }
+    .brand { font-family:Georgia,serif; font-weight:700; font-size:20px; color:var(--dark); }
+    .spacer { flex:1; }
+    .avatar { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; background:var(--pale); color:var(--dark); font-weight:800; font-size:13px; }
+    .user-name { color:var(--muted); font-size:13px; }
+    .mock-btn { border:0; background:transparent; color:var(--ink); border-radius:9px; padding:9px 11px; font-weight:600; white-space:nowrap; }
+    .mock-btn:hover { background:var(--pale); }
+    .mock-btn.selected { color:var(--dark); background:var(--pale); }
+    .mock-btn.primary { background:var(--green); color:#fff; border-radius:22px; }
+    .mock-btn.primary:hover { background:var(--dark); }
+    .badge { display:inline-grid; place-items:center; min-width:19px; height:19px; padding:0 5px; border-radius:10px; color:#fff; background:var(--red); font-size:11px; margin-left:5px; }
+    .navtop { display:flex; align-items:center; gap:5px; padding:7px 18px; border-bottom:1px solid var(--line); background:#fff; flex-wrap:wrap; }
+    .navtop .mock-btn { padding:10px 13px; }
+    .navtop .mock-btn.selected { box-shadow:inset 0 -3px var(--green); border-radius:0; background:none; }
+    .submenu { background:#fff; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:5px; padding:8px 20px; min-height:50px; }
+    .submenu .mock-btn.selected { background:var(--pale); border-radius:20px; }
+    .work { padding:27px; min-height:390px; }
+    .work h3 { font-size:27px; margin:0 0 4px; }
+    .work p { color:var(--muted); margin:0 0 19px; font-size:14px; }
+    .workbar { display:flex; align-items:center; gap:12px; margin-bottom:17px; }
+    .fake-card { background:#fff; border:1px solid var(--line); border-radius:15px; padding:17px; margin-top:10px; }
+    .fake-card strong { font-size:14px; }
+    .fake-card small { display:block; color:var(--muted); margin-top:4px; }
+    .fake-skeleton { height:8px; border-radius:10px; background:#e9e6df; width:58%; margin-top:12px; }
+    .fake-skeleton.short { width:35%; }
+    .layout-sidebar { display:flex; min-height:447px; }
+    .side { width:228px; flex:none; background:#fff; border-right:1px solid var(--line); padding:17px 12px; }
+    .side .group-title { text-transform:uppercase; letter-spacing:.1em; font-size:10px; font-weight:800; color:#77736a; padding:15px 11px 5px; }
+    .side .mock-btn { width:100%; display:flex; align-items:center; text-align:left; }
+    .layout-sidebar .work { flex:1; min-width:0; }
+    .mobile-toggle { display:none; }
+    .window.mobile .app-head { padding:11px 14px; }
+    .window.mobile .user-name { display:none; }
+    .window.mobile .work { padding:20px 16px; }
+    .window.mobile .navtop { overflow-x:auto; flex-wrap:nowrap; padding:6px 10px; }
+    .window.mobile .navtop .mock-btn { font-size:12px; }
+    .window.mobile .submenu { padding:6px 10px; flex-wrap:nowrap; overflow-x:auto; }
+    .window.mobile .submenu .mock-btn { font-size:12px; }
+    .window.mobile .side { position:absolute; z-index:3; top:58px; bottom:0; left:0; width:245px; box-shadow:10px 0 30px #0002; }
+    .window.mobile .side:not(.open) { display:none; }
+    .window.mobile .mobile-toggle { display:inline-block; }
+    .dropdown { position:absolute; top:113px; left:16px; z-index:4; background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px; box-shadow:0 14px 30px #0002; min-width:205px; }
+    .dropdown button { display:block; width:100%; text-align:left; }
+    .window.mobile .dropdown { top:112px; }
+    .shortcut-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .shortcut { border:1px solid var(--line); background:#fff; padding:15px; text-align:left; border-radius:13px; min-height:92px; font-weight:700; }
+    .shortcut:hover { border-color:var(--green); }
+    .shortcut span { display:block; font-size:23px; margin-bottom:5px; }
+    .window.mobile .shortcut-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .overlay { position:absolute; inset:58px 0 0; z-index:5; background:#192d2670; padding:24px; }
+    .palette { background:#fff; max-width:540px; margin:8px auto; border-radius:15px; padding:16px; box-shadow:0 18px 40px #0003; }
+    .palette input { width:100%; padding:12px; border-radius:10px; border:1px solid #cfcabd; margin-bottom:9px; }
+    .palette-results { max-height:270px; overflow:auto; }
+    .palette-results .mock-btn { display:block; width:100%; text-align:left; }
+    .foot { padding:20px 24px; border-top:1px solid var(--line); display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+    .foot p { margin:0; font-size:14px; line-height:1.55; color:var(--muted); }
+    .foot strong { color:var(--ink); }
+    .approval { margin-top:22px; padding:19px 22px; border-radius:16px; border:1px solid #b6cfc7; background:#e9f2ee; color:var(--dark); font-weight:600; }
+    @media(max-width:900px) { .choices { grid-template-columns:repeat(2,1fr); } }
+    @media(max-width:600px) { .page { padding:24px 14px 48px; } .choices { grid-template-columns:1fr 1fr; gap:8px; } .choice { padding:14px; min-height:168px; } .choice[aria-pressed=true] { padding:13px; } .choice strong { font-size:14px; } .presentation-head,.foot { padding:17px; } .foot { grid-template-columns:1fr; } .stage { padding:14px; } .work { padding:20px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <p class="eyebrow">DiakoNews · estudo de navegação</p>
+    <h1>Um menu mais simples<br>para cada tarefa.</h1>
+    <p class="lede">Compare quatro formas de organizar as 13 seções do painel. Clique nas propostas, experimente os menus e alterne entre computador e celular. Este é apenas um protótipo visual: nenhuma ação modifica o sistema.</p>
+
+    <div class="choices" role="group" aria-label="Escolha uma proposta">
+      <button class="choice" data-variant="1" aria-pressed="false"><span class="number">01</span><strong>Grupos no topo</strong><small>Menus suspensos; mantém a faixa superior familiar.</small></button>
+      <button class="choice" data-variant="2" aria-pressed="true"><span class="number">02</span><strong>Barra lateral <span class="recommend">Recomendada</span></strong><small>Áreas sempre visíveis no computador; ☰ no celular.</small></button>
+      <button class="choice" data-variant="3" aria-pressed="false"><span class="number">03</span><strong>Topo + subabas</strong><small>Primeiro escolha a área, depois a página dentro dela.</small></button>
+      <button class="choice" data-variant="4" aria-pressed="false"><span class="number">04</span><strong>Atalhos + busca</strong><small>Páginas frequentes em destaque; demais por pesquisa.</small></button>
+    </div>
+
+    <section class="presentation" aria-label="Prévia interativa">
+      <div class="presentation-head">
+        <h2 id="variant-title">02 · Barra lateral</h2>
+        <div class="controls">
+          <label for="role">Ver como</label>
+          <select id="role"><option value="admin">Administrador</option><option value="louvor">Louvor</option><option value="midia">Mídia</option></select>
+          <button class="device" data-device="desktop" aria-pressed="true">Computador</button>
+          <button class="device" data-device="mobile" aria-pressed="false">Celular</button>
+        </div>
+      </div>
+      <div class="stage"><div class="window" id="window" aria-label="Simulação do painel DiakoNews"></div></div>
+      <div class="foot"><p id="benefit"></p><p id="tradeoff"></p></div>
+    </section>
+
+    <p class="approval">Para aprovar, diga o número da proposta (1 a 4) e, se quiser, quais seções você mudaria de grupo.</p>
+  </main>
+
+  <script>
+    'use strict';
+    const groups = [
+      { name:'Início', items:[['Visão geral','inicio'],['Resumo da semana','resumo']] },
+      { name:'Atendimento', items:[['Motivos de oração','motivos'],['Mensagens','mensagens'],['Membros','membros']] },
+      { name:'Cultos', items:[['Escalas','escalas'],['Repertório','repertorio'],['Agenda','agenda']] },
+      { name:'Publicação', items:[['Recados','recados'],['Cartazes','cartazes'],['Galeria','galeria']] },
+      { name:'Sistema', items:[['Histórico','historico'],['Status','status'],['Administração','admin']] },
+    ];
+    const roles = {
+      admin: { label:'Administrador', allowed:'*' },
+      louvor: { label:'Louvor', allowed:['inicio','escalas','repertorio','agenda','historico','status'] },
+      midia: { label:'Mídia', allowed:['inicio','motivos','recados','agenda','escalas','repertorio','cartazes','galeria','historico','status'] },
+    };
+    const proposals = {
+      1: { title:'Grupos no topo', benefit:'Vantagem: pouca mudança em relação ao menu horizontal atual; as páginas passam a caber na tela.', tradeoff:'Atenção: para trocar de página é preciso abrir o grupo e escolher uma opção.' },
+      2: { title:'Barra lateral', benefit:'Vantagem: as áreas e páginas ficam visíveis, sem rolagem horizontal. Boa para uso diário no computador.', tradeoff:'Atenção: usa parte da largura da tela. No celular, a barra se recolhe no botão ☰.' },
+      3: { title:'Topo + subabas', benefit:'Vantagem: mantém a navegação por abas conhecida pela equipe, em duas camadas curtas.', tradeoff:'Atenção: ocupa duas linhas na parte superior e exige escolher a área antes da página.' },
+      4: { title:'Atalhos + busca', benefit:'Vantagem: a página inicial mostra as tarefas mais usadas; a busca encontra qualquer seção rapidamente.', tradeoff:'Atenção: áreas menos frequentes ficam menos evidentes para quem não conhece o sistema.' },
+    };
+    const state = { variant:2, device:'desktop', role:'admin', page:'escalas', group:'Cultos', menu:false, palette:false };
+    const $ = (id) => document.getElementById(id);
+    const available = () => groups.map((g) => ({...g, items:g.items.filter(([,id]) => roles[state.role].allowed === '*' || roles[state.role].allowed.includes(id))})).filter((g) => g.items.length);
+    const findGroup = (page) => available().find((g) => g.items.some(([,id]) => id === page))?.name || available()[0].name;
+    const labelOf = (page) => groups.flatMap((g) => g.items).find(([,id]) => id === page)?.[0] || 'Visão geral';
+    function navButton(label,id) {
+      const b = document.createElement('button');
+      b.className = 'mock-btn' + (state.page === id ? ' selected' : '');
+      b.type = 'button';
+      b.dataset.page = id;
+      b.textContent = label;
+      if (id === 'mensagens') { const badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = '3'; b.append(badge); }
+      return b;
+    }
+    function groupButton(name,hasArrow=false) {
+      const b = document.createElement('button');
+      b.className = 'mock-btn' + (state.group === name ? ' selected' : '');
+      b.type = 'button'; b.dataset.group = name; b.textContent = name + (hasArrow ? ' ▾' : '');
+      return b;
+    }
+    function content() {
+      const main = document.createElement('main');
+      main.className = 'work';
+      const kicker = document.createElement('p'); kicker.className = 'eyebrow'; kicker.textContent = state.group;
+      const title = document.createElement('h3'); title.textContent = labelOf(state.page);
+      const subtitle = document.createElement('p'); subtitle.textContent = 'Visualização demonstrativa — escolha outra página pelo menu.';
+      const bar = document.createElement('div'); bar.className = 'workbar';
+      const action = document.createElement('button'); action.className = 'mock-btn primary'; action.textContent = state.page === 'escalas' ? '+ Culto extra' : '+ Novo';
+      const date = document.createElement('span'); date.className = 'spacer';
+      const period = document.createElement('span'); period.style.color = 'var(--muted)'; period.style.fontSize = '13px'; period.textContent = 'Outubro 2026';
+      bar.append(action,date,period);
+      main.append(kicker,title,subtitle,bar);
+      for (const [a,b] of [['Dom 01/11 · 19h','Culto da família'],['Dom 08/11 · 19h','Culto de domingo'],['Dom 15/11 · 19h','Culto de domingo']]) {
+        const card = document.createElement('div'); card.className = 'fake-card';
+        const strong = document.createElement('strong'); strong.textContent = state.page === 'escalas' ? a : labelOf(state.page) + ' · exemplo';
+        const small = document.createElement('small'); small.textContent = state.page === 'escalas' ? b + ' · Direção, pregação e louvor' : 'Conteúdo de demonstração, sem dados reais';
+        const skeleton = document.createElement('div'); skeleton.className = 'fake-skeleton';
+        card.append(strong,small,skeleton); main.append(card);
+      }
+      return main;
+    }
+    function render() {
+      const visible = available();
+      if (!visible.some((g) => g.items.some(([,id]) => id === state.page))) state.page = visible[0].items[0][1];
+      state.group = findGroup(state.page);
+      $('variant-title').textContent = String(state.variant).padStart(2,'0') + ' · ' + proposals[state.variant].title;
+      $('benefit').textContent = proposals[state.variant].benefit;
+      $('tradeoff').textContent = proposals[state.variant].tradeoff;
+      const frame = $('window'); frame.className = 'window' + (state.device === 'mobile' ? ' mobile' : ''); frame.replaceChildren();
+      const head = document.createElement('header'); head.className = 'app-head';
+      if (state.device === 'mobile' && state.variant === 2) {
+        const toggle = document.createElement('button'); toggle.className = 'mock-btn mobile-toggle'; toggle.dataset.toggle = 'menu'; toggle.setAttribute('aria-label','Abrir menu'); toggle.textContent = '☰'; head.append(toggle);
+      }
+      const icon = document.createElement('div'); icon.className = 'brand-icon'; icon.textContent = 'D';
+      const brand = document.createElement('span'); brand.className = 'brand'; brand.textContent = 'DiakoNews';
+      const spacer = document.createElement('span'); spacer.className = 'spacer';
+      const user = document.createElement('span'); user.className = 'user-name'; user.textContent = roles[state.role].label;
+      const avatar = document.createElement('span'); avatar.className = 'avatar'; avatar.textContent = roles[state.role].label[0];
+      head.append(icon,brand,spacer,user,avatar); frame.append(head);
+
+      if (state.variant === 1) {
+        const top = document.createElement('nav'); top.className = 'navtop'; top.setAttribute('aria-label','Áreas');
+        for (const g of visible) top.append(groupButton(g.name,true));
+        frame.append(top);
+        if (state.menu) {
+          const box = document.createElement('div'); box.className = 'dropdown';
+          const current = visible.find((g) => g.name === state.menu);
+          for (const [label,id] of current?.items || []) box.append(navButton(label,id));
+          frame.append(box);
+        }
+        frame.append(content());
+      } else if (state.variant === 2) {
+        const layout = document.createElement('div'); layout.className = 'layout-sidebar';
+        const side = document.createElement('nav'); side.className = 'side' + (state.menu ? ' open' : ''); side.setAttribute('aria-label','Páginas');
+        for (const g of visible) {
+          const title = document.createElement('div'); title.className = 'group-title'; title.textContent = g.name; side.append(title);
+          for (const [label,id] of g.items) side.append(navButton(label,id));
+        }
+        layout.append(side,content()); frame.append(layout);
+      } else if (state.variant === 3) {
+        const top = document.createElement('nav'); top.className = 'navtop'; top.setAttribute('aria-label','Áreas');
+        for (const g of visible) top.append(groupButton(g.name)); frame.append(top);
+        const sub = document.createElement('nav'); sub.className = 'submenu'; sub.setAttribute('aria-label','Páginas da área');
+        for (const [label,id] of visible.find((g) => g.name === state.group)?.items || []) sub.append(navButton(label,id));
+        frame.append(sub,content());
+      } else {
+        const top = document.createElement('div'); top.className = 'navtop';
+        top.append(navButton('Início','inicio'));
+        const all = document.createElement('button'); all.className = 'mock-btn'; all.dataset.toggle = 'palette'; all.textContent = '⌕  Buscar área…'; top.append(all); frame.append(top);
+        const area = content();
+        const grid = document.createElement('div'); grid.className = 'shortcut-grid';
+        for (const [glyph,label,id] of [['♬','Escalas','escalas'],['♫','Repertório','repertorio'],['✉','Mensagens','mensagens'],['▣','Membros','membros'],['▤','Recados','recados'],['▦','Todas as áreas','palette']]) {
+          if (id !== 'palette' && !visible.some((g) => g.items.some(([,item]) => item === id))) continue;
+          const shortcut = document.createElement('button'); shortcut.className = 'shortcut'; shortcut.dataset[id === 'palette' ? 'toggle' : 'page'] = id;
+          const pict = document.createElement('span'); pict.textContent = glyph; shortcut.append(pict,label); grid.append(shortcut);
+        }
+        area.prepend(grid); frame.append(area);
+        if (state.palette) {
+          const overlay = document.createElement('div'); overlay.className = 'overlay';
+          const palette = document.createElement('div'); palette.className = 'palette';
+          const search = document.createElement('input'); search.id = 'palette-search'; search.type = 'search'; search.placeholder = 'Buscar uma página…'; search.setAttribute('aria-label','Buscar uma página');
+          const results = document.createElement('div'); results.className = 'palette-results'; results.id = 'palette-results';
+          palette.append(search,results); overlay.append(palette); frame.append(overlay); fillPalette(); search.focus();
+        }
+      }
+      document.querySelectorAll('.choice').forEach((b) => b.setAttribute('aria-pressed',String(Number(b.dataset.variant) === state.variant)));
+      document.querySelectorAll('.device').forEach((b) => b.setAttribute('aria-pressed',String(b.dataset.device === state.device)));
+    }
+    function fillPalette() {
+      const results = $('palette-results'); if (!results) return;
+      const query = $('palette-search').value.trim().toLocaleLowerCase('pt-BR');
+      results.replaceChildren();
+      for (const [label,id] of available().flatMap((g) => g.items).filter(([label]) => label.toLocaleLowerCase('pt-BR').includes(query))) results.append(navButton(label,id));
+      if (!results.children.length) results.textContent = 'Nenhuma página encontrada.';
+    }
+    document.addEventListener('click',(e) => {
+      const option = e.target.closest('[data-variant]');
+      if (option) { state.variant = Number(option.dataset.variant); state.menu = false; state.palette = false; render(); return; }
+      const device = e.target.closest('[data-device]');
+      if (device) { state.device = device.dataset.device; state.menu = false; state.palette = false; render(); return; }
+      const page = e.target.closest('[data-page]');
+      if (page) { state.page = page.dataset.page; state.group = findGroup(state.page); state.menu = false; state.palette = false; render(); return; }
+      const group = e.target.closest('[data-group]');
+      if (group) {
+        if (state.variant === 1) state.menu = state.menu === group.dataset.group ? false : group.dataset.group;
+        else { state.group = group.dataset.group; state.page = available().find((g) => g.name === state.group).items[0][1]; }
+        render(); return;
+      }
+      const toggle = e.target.closest('[data-toggle]');
+      if (toggle) { if (toggle.dataset.toggle === 'palette') state.palette = !state.palette; else state.menu = !state.menu; render(); return; }
+      if (e.target.classList.contains('overlay')) { state.palette = false; render(); }
+    });
+    document.addEventListener('input',(e) => { if (e.target.id === 'palette-search') fillPalette(); });
+    $('role').addEventListener('change',(e) => { state.role = e.target.value; state.menu = false; state.palette = false; render(); });
+    document.addEventListener('keydown',(e) => { if (e.key === 'Escape' && (state.menu || state.palette)) { state.menu = false; state.palette = false; render(); } });
+    render();
+  </script>
+</body>
+</html>

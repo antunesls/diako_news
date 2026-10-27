@@ -2,6 +2,17 @@ import 'package:diako_server/repertorio.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('tom escolhido substitui sugestão antiga sem apagar anotação importada', () {
+    final m = RepertorioMusica.fromJson({
+      'titulo': 'Canção', 'cantor': 'Banda', 'tomDiakonia': 'Em\nIntro: C', 'tomSelecionado': 'F#m',
+    });
+    expect(m.tomPadrao, 'F#m');
+    expect(m.tomDiakonia, 'Em\nIntro: C');
+    expect(RepertorioMusica.fromJson(m.toJson()).tomPadrao, 'F#m');
+    expect(RepertorioMusica.fromJson({...m.toJson(), 'tomSelecionado': ''}).tomPadrao, '');
+    expect(() => RepertorioMusica.fromJson({...m.toJson(), 'tomSelecionado': 'H'}), throwsFormatException);
+  });
+
   test('importa CSV do Google Sheets com vírgulas, aspas e quebras de linha', () {
     const csv = 'Solicitado por,Link Versão,Louvor,Cantor,Compositor,Ano,Observações,Status,Tom Original,Tom Diakonia,Bpm,Resumo Biografia Cantor,Resumo Biografia Compositor\r\n'
         'Repertório,https://youtu.be/abc,"Santo, Santo",Marine Friesen,Autora,2024,"Nota ""especial""",Ok,E,"G\nComeça com D",120,"Biografia\nlonga",Outra\r\n'

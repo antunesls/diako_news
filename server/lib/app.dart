@@ -1807,10 +1807,21 @@ class Servidor {
     for (final m in store.listar('repertorio')) m,
   ]);
 
+  Map<String, dynamic> _statusEditadoRepertorio(Map<String, dynamic> corpo, {Map<String, dynamic>? anterior}) {
+    if (!corpo.containsKey('status')) return corpo;
+    final status = corpo['status'];
+    if (status != 'OK' && status != 'Inativo' && status != 'Em análise') {
+      // Edições por clientes antigos que reenviam o registro inteiro não reclassificam o CSV.
+      if (anterior != null && status == anterior['status']) return corpo;
+      throw const FormatException('Escolha um status válido: OK, Inativo ou Em análise.');
+    }
+    return {...corpo, 'ativo': status == 'OK'};
+  }
+
   Future<Response> _criarMusicaRepertorio(Request req) async {
     if (!_podeEditarRepertorio(req)) return _semPermissaoEscala(TipoEscala.louvor);
     try {
-      final musica = RepertorioMusica.fromJson({...await _corpo(req), 'id': novoId()});
+      final musica = RepertorioMusica.fromJson({..._statusEditadoRepertorio(await _corpo(req)), 'id': novoId()});
       final chave = chaveRepertorio(musica.titulo, musica.cantor);
       if (store.listar('repertorio').any((m) => chaveRepertorio(m['titulo'] as String, m['cantor'] as String) == chave)) {
         return _erro(409, 'Esta música já está no repertório.');
@@ -1827,7 +1838,7 @@ class Servidor {
     final atual = store.buscar('repertorio', id);
     if (atual == null) return _erro(404, 'Música não encontrada.');
     try {
-      final musica = RepertorioMusica.fromJson({...atual, ...await _corpo(req), 'id': id});
+      final musica = RepertorioMusica.fromJson({...atual, ..._statusEditadoRepertorio(await _corpo(req), anterior: atual), 'id': id});
       final chave = chaveRepertorio(musica.titulo, musica.cantor);
       if (store.listar('repertorio').any((m) => m['id'] != id &&
           chaveRepertorio(m['titulo'] as String, m['cantor'] as String) == chave)) {

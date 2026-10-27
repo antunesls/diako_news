@@ -333,6 +333,21 @@ void main() {
           json: {'musicas': [{'repertorioId': ativo['id'], 'tom': 'A'}]})).$1, 200);
     });
 
+    test('status editado controla disponibilidade sem alterar registros antigos automaticamente', () async {
+      final (st, criada) = await chamar('POST', '/api/repertorio', token: admin,
+          json: {'titulo': 'Nova canção', 'cantor': 'Banda', 'status': 'Em análise', 'tomSelecionado': 'A#m', 'ativo': true});
+      expect(st, 201);
+      expect(criada['ativo'], false);
+      expect(criada['tomPadrao'], isNull); // A sugestão é calculada no modelo, não gravada na resposta.
+      final id = criada['id'];
+      expect((await chamar('PUT', '/api/repertorio/$id', token: admin, json: {'status': 'OK'})).$2['ativo'], true);
+      expect((await chamar('PUT', '/api/repertorio/$id', token: admin, json: {'status': 'Outro'})).$1, 400);
+      final (_, previa) = await chamar('POST', '/api/repertorio/importar/previa', token: admin,
+          json: {'csv': 'Louvor,Cantor,Status\nLegada,Outro,Pendente'});
+      expect(previa['musicas'].single['ativo'], false);
+      expect(previa['musicas'].single['status'], 'Pendente');
+    });
+
     test('perfil Louvor mantém repertório, Mídia só consulta', () async {
       final lider = await criarUsuario('lider.repertorio', Perfil.louvor);
       final midia = await criarUsuario('midia.repertorio', Perfil.midia);
