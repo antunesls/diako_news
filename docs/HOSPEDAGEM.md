@@ -46,7 +46,7 @@ Teste abrindo `https://diako.minhaigreja.com.br/painel`.
    ```
    powershell -ExecutionPolicy Bypass -File .\instalar.ps1 -Modo agente
    ```
-4. No `agente.json` que abre, preencha e salve:
+4. No `agente.json` que abre, preencha e salve. O instalador também pede uma senha própria do monitor; depois abra `http://127.0.0.1:8096` **neste PC** para acompanhar backend, Holyrics, diagnósticos, logs recentes e ensaio guiado (não exposto à rede):
    ```json
    {
      "servidor": "https://diako.minhaigreja.com.br",

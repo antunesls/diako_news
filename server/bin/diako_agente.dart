@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:diako_server/agente/agente.dart';
+import 'package:diako_server/agente/monitor.dart';
+import 'package:diako_server/auth.dart' show gerarHashSenha;
 import 'package:path/path.dart' as p;
 
 /// Versão definida na compilação (dart compile exe -DVERSAO=1.2.0).
@@ -9,7 +12,41 @@ const versao = String.fromEnvironment('VERSAO', defaultValue: 'dev');
 /// Agente do PC da igreja: liga o servidor DiakoNews da internet ao Holyrics local.
 /// Uso: diako_agente [caminho/do/agente.json]
 Future<void> main(List<String> args) async {
-  final arquivo = args.isNotEmpty ? args.first : _configPadrao();
+  final definirSenha = args.isNotEmpty && args.first == '--definir-senha';
+  final arquivo = definirSenha ? (args.length > 1 ? args[1] : _configPadrao())
+      : (args.isNotEmpty ? args.first : _configPadrao());
+  if (definirSenha) {
+    try {
+      final config = File(arquivo);
+      var texto = await config.readAsString();
+      if (texto.startsWith('\uFEFF')) texto = texto.substring(1);
+      final original = jsonDecode(texto) as Map<String, dynamic>;
+      if (!stdin.hasTerminal) throw const FormatException('Abra um terminal interativo para definir a senha.');
+      stdout.write('Nova senha do monitor (mínimo 12 caracteres): ');
+      late final String senha;
+      try {
+        stdin.echoMode = false;
+        senha = stdin.readLineSync() ?? '';
+      } finally {
+        stdin.echoMode = true;
+      }
+      stdout.writeln();
+      if (senha.length < 12) throw const FormatException('A senha precisa ter pelo menos 12 caracteres.');
+      final hash = gerarHashSenha(senha);
+      final monitor = Map<String, dynamic>.from((original['monitor'] as Map?) ?? {});
+      monitor['hash'] = hash.hash;
+      monitor['sal'] = hash.sal;
+      original['monitor'] = monitor;
+      final tmp = File('$arquivo.tmp');
+      await tmp.writeAsString(const JsonEncoder.withIndent('  ').convert(original));
+      await tmp.rename(arquivo);
+      stdout.writeln('Senha definida. Guarde-a: ela não pode ser recuperada do arquivo.');
+    } catch (e) {
+      stderr.writeln('Não foi possível definir a senha do monitor: $e');
+      exitCode = 1;
+    }
+    return;
+  }
   final AgenteConfig config;
   try {
     final f = File(arquivo);
@@ -30,7 +67,15 @@ Agente DiakoNews $versao
   Cartazes:  ${config.pastaCartazes}
 ''');
   final agente = Agente(config, versao: versao);
+  final monitor = MonitorAgente(agente);
+  try {
+    await monitor.iniciar();
+    stdout.writeln('Monitor local: http://127.0.0.1:${monitor.porta}');
+  } catch (_) {
+    stderr.writeln('Monitor indisponível: confira senha configurada e porta local. O agente continuará ativo.');
+  }
   ProcessSignal.sigint.watch().listen((_) async {
+    await monitor.parar();
     await agente.parar();
     exit(0);
   });

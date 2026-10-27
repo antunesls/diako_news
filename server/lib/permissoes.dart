@@ -92,7 +92,7 @@ Permissao permissaoDaRota(String metodo, String caminho) {
     return Permissao.visitantesCadastrar;
   }
   if (caminho == 'api/resumo-semanal') return Permissao.resumo;
-  if (comeca('api/holyrics') || comeca('api/projetar')) return Permissao.projetar;
+  if (caminho == 'api/temas' || comeca('api/holyrics') || comeca('api/projetar')) return Permissao.projetar;
   if (comeca('api/admin/usuarios')) return Permissao.usuarios;
   return Permissao.admin; // api/admin/*, api/backup(s) e qualquer rota nova não listada
 }

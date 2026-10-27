@@ -39,7 +39,7 @@ function Remover-TarefaAntiga([string]$Nome) {
 }
 
 if ($Modo -eq 'agente') {
-    # O servidor está na internet: aqui roda só o agente, que conecta para fora (nenhuma porta é aberta).
+    # O monitor do agente escuta somente em 127.0.0.1 (sem regra de firewall).
     Parar-Tarefa 'DiakoNews Agente'
     Get-Process diako_agente -ErrorAction SilentlyContinue | Stop-Process -Force
 
@@ -56,6 +56,12 @@ if ($Modo -eq 'agente') {
         Write-Host 'token do Holyrics e pasta de imagens do Holyrics. Salve e feche o Bloco de Notas.' -ForegroundColor Yellow
         Start-Process notepad.exe $config -Wait
     }
+    $monitorConfig = (Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).monitor
+    if (-not $monitorConfig -or -not $monitorConfig.hash) {
+        Write-Host 'Defina uma senha exclusiva do monitor local (mínimo 12 caracteres).' -ForegroundColor Yellow
+        & (Join-Path $Destino 'diako_agente.exe') --definir-senha $config
+        if ($LASTEXITCODE -ne 0) { throw 'Falha ao definir a senha do monitor.' }
+    }
 
     Write-Host 'Criando a tarefa que inicia o agente junto com o Windows ...'
     $log = Join-Path $Destino 'agente.log'
@@ -68,6 +74,9 @@ if ($Modo -eq 'agente') {
     if (Test-Path $log) { Get-Content $log -Tail 8 }
     Write-Host ''
     Write-Host "Confira no painel (aba Status) se aparece 'PC da igreja (agente): Conectado'. Log: $log"
+    $portaMonitor = (Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).monitor.porta
+    if (-not $portaMonitor) { $portaMonitor = 8096 }
+    Write-Host "Monitor local deste PC: http://127.0.0.1:$portaMonitor (senha própria)."
     exit 0
 }
 

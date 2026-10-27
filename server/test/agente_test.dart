@@ -37,6 +37,13 @@ Future<void> ate(bool Function() cond, {Duration limite = const Duration(seconds
 
 void main() {
   group('Config', () {
+    test('monitor exige porta válida e backend não aceita credenciais na URL', () {
+      expect(() => AgenteConfig.lerJson('{"servidor":"https://usuario:segredo@exemplo.org",'
+          '"chaveAgente":"chave","pastaImagensHolyrics":"X:/img"}'), throwsFormatException);
+      expect(() => AgenteConfig.lerJson('{"servidor":"https://exemplo.org",'
+          '"chaveAgente":"chave","pastaImagensHolyrics":"X:/img","monitor":{"porta":70000}}'),
+          throwsFormatException);
+    });
     test('modo agente exige chave longa e senha de 10+', () {
       expect(() => Config.lerJson('{"senhaAdmin":"1234567890","holyrics":{"modo":"agente"}}', pastaBase: '.'),
           throwsFormatException);
@@ -59,6 +66,19 @@ void main() {
       expect(c.pastaCartazes, p.join('X:/img', 'Diako'));
       expect(c.endereco, '0.0.0.0');
     });
+  });
+
+  test('histórico do monitor é limitado e estado não contém credenciais', () {
+    final a = Agente(AgenteConfig(servidor: 'https://exemplo.org', chaveAgente: 'segredo-agente',
+        holyricsToken: 'segredo-holyrics', pastaImagensHolyrics: Directory.systemTemp.path));
+    for (var i = 0; i < 220; i++) { a.registrar('backend', 'Evento $i'); }
+    a.registrar('backend', 'token=segredo-holyrics chave=segredo-agente');
+    expect(a.eventos.length, 200);
+    expect(a.eventos.first['mensagem'], 'Evento 21');
+    expect(a.eventos.last['mensagem'], isNot(contains('segredo')));
+    final estado = jsonEncode(a.estado);
+    expect(estado, isNot(contains('segredo-agente')));
+    expect(estado, isNot(contains('segredo-holyrics')));
   });
 
   test('ipDe usa X-Forwarded-For só com confiarProxy', () {

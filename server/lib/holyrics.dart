@@ -21,6 +21,7 @@ const acoesPermitidas = {
   'StopCountdownCP',
   'ShowCountdown',
   'GetThemes',
+  'GetThumbnail',
 };
 
 /// Resposta do Holyrics ou do próprio servidor quando o Holyrics não responde.

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
@@ -83,18 +85,31 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _buscarTemas() async {
-    final client = AppScope.of(context).client;
+    final api = AppScope.of(context).api;
     try {
-      final temas = await client.temas();
+      final dados = await api.temas();
+      final temas = (dados['temas'] as List? ?? const []).whereType<Map>();
       if (!mounted) return;
       final escolhido = await showDialog<String>(
         context: context,
-        builder: (ctx) => SimpleDialog(
+        builder: (ctx) => AlertDialog(
           title: const Text('Temas do Holyrics'),
-          children: [
-            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ''), child: const Text('(Tema padrão)')),
-            for (final t in temas) SimpleDialogOption(onPressed: () => Navigator.pop(ctx, t), child: Text(t)),
-          ],
+          content: SizedBox(width: 460, height: 400, child: Column(children: [
+            if (dados['desatualizado'] == true) const Text('Lista salva: Holyrics desconectado. Confirme antes de projetar.'),
+            if (dados['miniaturasDisponiveis'] == false && temas.isNotEmpty)
+              const Text('Sem miniaturas: libere GetThumbnail no token do Holyrics.'),
+            Expanded(child: ListView(children: [
+              ListTile(title: const Text('(Tema padrão)'), onTap: () => Navigator.pop(ctx, '')),
+              for (final t in temas)
+                ListTile(
+                  leading: t['thumbnail'] is String ? Image.memory(base64Decode(t['thumbnail'] as String),
+                      width: 88, height: 50, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.palette))
+                      : const Icon(Icons.palette),
+                  title: Text(t['name'] as String? ?? ''),
+                  onTap: () => Navigator.pop(ctx, t['name'] as String? ?? ''),
+                ),
+            ])),
+          ])),
         ),
       );
       if (escolhido != null) setState(() => _tema.text = escolhido);

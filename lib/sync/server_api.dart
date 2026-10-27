@@ -149,6 +149,10 @@ class ServerApi {
   Future<Map<String, dynamic>> holyrics(String acao, Map<String, dynamic> corpo) async =>
       Map<String, dynamic>.from(await _req('POST', '/api/holyrics/$acao', json: corpo) as Map);
 
+  /// Catálogo de temas e miniaturas do backend; pode estar desatualizado quando o Holyrics estiver offline.
+  Future<Map<String, dynamic>> temas() async =>
+      Map<String, dynamic>.from(await _req('GET', '/api/temas', tempo: const Duration(seconds: 75)) as Map);
+
   Uri wsUri() {
     final c = _config();
     final u = Uri.parse(c.base);

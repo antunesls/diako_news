@@ -20,6 +20,9 @@ class AgenteConfig {
     this.holyricsPorta = 8091,
     required this.holyricsToken,
     required this.pastaImagensHolyrics,
+    this.monitorPorta = 8096,
+    this.monitorHash = '',
+    this.monitorSal = '',
   });
 
   /// Endereço do servidor na internet, ex: https://diako.minhaigreja.com.br
@@ -29,6 +32,9 @@ class AgenteConfig {
   final int holyricsPorta;
   final String holyricsToken;
   final String pastaImagensHolyrics;
+  final int monitorPorta;
+  final String monitorHash;
+  final String monitorSal;
 
   /// Subpasta gerenciada pelo agente dentro da biblioteca de imagens do Holyrics.
   String get pastaCartazes => p.join(pastaImagensHolyrics, Config.subpastaHolyrics);
@@ -46,12 +52,19 @@ class AgenteConfig {
     if (texto.startsWith('﻿')) texto = texto.substring(1);
     final j = jsonDecode(texto) as Map<String, dynamic>;
     final h = (j['holyrics'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final monitor = (j['monitor'] as Map?)?.cast<String, dynamic>() ?? const {};
     final servidor = (j['servidor'] as String? ?? '').trim().replaceAll(RegExp(r'/+$'), '');
     final chave = (j['chaveAgente'] as String? ?? '').trim();
     final pasta = (j['pastaImagensHolyrics'] as String? ?? '').trim();
-    if (!servidor.startsWith('http')) throw const FormatException('Defina "servidor" (ex: https://diako.minhaigreja.com.br).');
+    final url = Uri.tryParse(servidor);
+    if (url == null || !{'http', 'https'}.contains(url.scheme) || url.host.isEmpty ||
+        url.userInfo.isNotEmpty || url.hasQuery || url.hasFragment || url.path.isNotEmpty && url.path != '/') {
+      throw const FormatException('Defina "servidor" sem usuário, senha ou parâmetros (ex: https://diako.minhaigreja.com.br).');
+    }
     if (chave.isEmpty) throw const FormatException('Defina "chaveAgente" (mostrada na instalação do servidor).');
     if (pasta.isEmpty) throw const FormatException('Defina "pastaImagensHolyrics" (pasta de imagens do Holyrics).');
+    final monitorPorta = (monitor['porta'] as num?)?.toInt() ?? 8096;
+    if (monitorPorta < 1 || monitorPorta > 65535) throw const FormatException('Porta do monitor inválida.');
     return AgenteConfig(
       servidor: servidor,
       chaveAgente: chave,
@@ -59,6 +72,9 @@ class AgenteConfig {
       holyricsPorta: (h['porta'] as num?)?.toInt() ?? 8091,
       holyricsToken: h['token'] as String? ?? '',
       pastaImagensHolyrics: pasta,
+      monitorPorta: monitorPorta,
+      monitorHash: monitor['hash'] as String? ?? '',
+      monitorSal: monitor['sal'] as String? ?? '',
     );
   }
 }
@@ -143,15 +159,76 @@ class Agente {
 
   WebSocketChannel? _canal;
   Timer? _timerSync;
+  Timer? _timerHolyrics;
   bool _parado = false;
   bool _sincronizando = false;
   Duration _espera = const Duration(seconds: 2);
+  bool backendConectado = false;
+  DateTime? conectadoEm;
+  DateTime? ultimaMensagem;
+  DateTime? ultimaSincronizacao;
+  String? erroSincronizacao;
+  int reconexoes = 0;
+  String? erroBackend;
+  int cartazesRemotos = 0;
+  int cartazesBaixados = 0;
+  int cartazesApagados = 0;
+  bool? holyricsConectado;
+  DateTime? holyricsVerificadoEm;
+  int? holyricsLatenciaMs;
+  final List<Map<String, String>> eventos = [];
+
+  void registrar(String categoria, String mensagem, {String nivel = 'info'}) {
+    // Histórico estruturado; proteção adicional contra inclusão acidental de credenciais.
+    var seguro = mensagem.replaceAll(RegExp(r'[\r\n\t]'), ' ');
+    for (final segredo in [config.chaveAgente, config.holyricsToken]) {
+      if (segredo.isNotEmpty) {
+        seguro = seguro.replaceAll(segredo, '[oculto]').replaceAll(Uri.encodeComponent(segredo), '[oculto]');
+      }
+    }
+    seguro = seguro.replaceAll(RegExp(r'(token|chave|dtoken)=([^&\s]+)', caseSensitive: false), '[oculto]');
+    eventos.add({'quando': DateTime.now().toIso8601String(), 'tipo': categoria,
+      'nivel': nivel == 'erro' ? 'erro' : 'info', 'mensagem': seguro.length > 250 ? seguro.substring(0, 250) : seguro});
+    if (eventos.length > 200) eventos.removeAt(0);
+  }
+
+  Map<String, dynamic> get estado => {
+        'versao': versao,
+        'servidor': config.servidor,
+        'backendConectado': backendConectado,
+        'conectadoEm': conectadoEm?.toIso8601String(),
+        'ultimaMensagem': ultimaMensagem?.toIso8601String(),
+        'reconexoes': reconexoes,
+        'erroBackend': erroBackend,
+        'holyricsHost': config.holyricsHost,
+        'holyricsPorta': config.holyricsPorta,
+        'holyricsConfigurado': config.holyricsToken.isNotEmpty,
+        'holyricsConectado': holyricsConectado,
+        'holyricsVerificadoEm': holyricsVerificadoEm?.toIso8601String(),
+        'holyricsLatenciaMs': holyricsLatenciaMs,
+        'pastaCartazes': config.pastaCartazes,
+        'sincronizando': _sincronizando,
+        'ultimaSincronizacao': ultimaSincronizacao?.toIso8601String(),
+        'erroSincronizacao': erroSincronizacao,
+        'cartazesRemotos': cartazesRemotos,
+        'cartazesBaixados': cartazesBaixados,
+        'cartazesApagados': cartazesApagados,
+      };
+
+  Future<RespostaHolyrics> consultarHolyrics(String acao, [String corpo = '{}']) {
+    if (!{'GetCPInfo', 'GetCurrentPresentation', 'GetThemes', 'GetThumbnail',
+      'ShowQuickPresentation', 'ActionNextQuickPresentation', 'ActionPreviousQuickPresentation'}.contains(acao)) {
+      throw ArgumentError.value(acao, 'acao', 'Ação não permitida pelo monitor');
+    }
+    return _holyrics.chamar(acao, corpo);
+  }
 
   late final _sync = SincronizadorCartazes(pasta: config.pastaCartazes, baixar: _baixarCartaz);
 
   /// Conecta e reconecta para sempre (até [parar]).
   Future<void> rodar() async {
     _timerSync = Timer.periodic(const Duration(minutes: 10), (_) => sincronizar());
+    _timerHolyrics = Timer.periodic(const Duration(seconds: 30), (_) => unawaited(verificarHolyrics()));
     while (!_parado) {
       await _conectarUmaVez();
       if (_parado) break;
@@ -161,23 +238,46 @@ class Agente {
     }
   }
 
+  Future<void> verificarHolyrics() async {
+    final inicio = DateTime.now();
+    final conectado = await _holyrics.conectado();
+    if (holyricsConectado != conectado) registrar('holyrics', conectado ? 'Conectado' : 'Sem resposta do Holyrics',
+        nivel: conectado ? 'info' : 'erro');
+    holyricsConectado = conectado;
+    holyricsVerificadoEm = DateTime.now();
+    holyricsLatenciaMs = holyricsVerificadoEm!.difference(inicio).inMilliseconds;
+  }
+
   Future<void> _conectarUmaVez() async {
     try {
       final canal = IOWebSocketChannel.connect(config.uriWs, pingInterval: const Duration(seconds: 25));
       await canal.ready;
       _canal = canal;
+      backendConectado = true;
+      erroBackend = null;
+      conectadoEm = DateTime.now();
+      ultimaMensagem = conectadoEm;
+      registrar('backend', 'Conectado');
       _espera = const Duration(seconds: 2);
       _log('Conectado a ${config.servidor}.');
       canal.sink.add(jsonEncode({'tipo': 'ola', 'versao': versao}));
       unawaited(sincronizar());
       await for (final msg in canal.stream) {
+        ultimaMensagem = DateTime.now();
         unawaited(_tratar(msg as String));
       }
-      _log('Conexão encerrada pelo servidor (${canal.closeCode ?? '-'} ${canal.closeReason ?? ''}).');
+      _log('Conexão encerrada pelo servidor (${canal.closeCode ?? '-'}).');
+      erroBackend = 'Conexão encerrada (código ${canal.closeCode ?? '-'})';
+      registrar('backend', 'Conexão encerrada');
     } catch (e) {
-      _log('Sem conexão com o servidor: ${_resumo(e)}');
+      erroBackend = e is SocketException ? 'Rede ou DNS indisponível' :
+          e is WebSocketException ? 'WebSocket recusado; confira chave e URL' : 'Falha na conexão; confira chave e URL';
+      registrar('backend', 'Falha de conexão (verifique endereço, rede e chave)', nivel: 'erro');
+      _log('Sem conexão com o servidor (verifique endereço, rede e chave).');
     } finally {
       _canal = null;
+      backendConectado = false;
+      if (!_parado) reconexoes++;
     }
   }
 
@@ -193,7 +293,10 @@ class Agente {
         final acao = j['acao'] as String? ?? '';
         final r = await _holyrics.chamar(acao, j['corpo'] as String? ?? '{}');
         _canal?.sink.add(jsonEncode({'tipo': 'resposta', 'id': j['id'], 'status': r.status, 'corpo': r.corpo}));
-        if (acao != 'GetCurrentPresentation' && acao != 'GetCPInfo') _log('Holyrics: $acao');
+        if (!{'GetCurrentPresentation', 'GetCPInfo', 'GetThumbnail', 'GetThemes'}.contains(acao)) {
+          if (acoesPermitidas.contains(acao)) _log('Holyrics: $acao');
+          registrar('holyrics', acoesPermitidas.contains(acao) ? acao : 'Ação não reconhecida');
+        }
       case 'sincronizar':
         await sincronizar();
     }
@@ -209,9 +312,17 @@ class Agente {
       if (r.statusCode != 200) throw HttpException('HTTP ${r.statusCode}');
       final lista = [for (final e in jsonDecode(utf8.decode(r.bodyBytes)) as List) Map<String, dynamic>.from(e as Map)];
       final resultado = await _sync.sincronizar(lista);
+      ultimaSincronizacao = DateTime.now();
+      erroSincronizacao = null;
+      cartazesRemotos = lista.length;
+      cartazesBaixados = resultado.baixados.length;
+      cartazesApagados = resultado.apagados.length;
+      registrar('cartazes', 'Sincronização concluída: $resultado');
       if (resultado.baixados.isNotEmpty || resultado.apagados.isNotEmpty) _log('Cartazes: $resultado.');
-    } catch (e) {
-      _log('Falha ao sincronizar cartazes: ${_resumo(e)}');
+    } catch (_) {
+      erroSincronizacao = 'Verifique conexão com o backend e acesso à pasta de cartazes.';
+      registrar('cartazes', 'Falha ao sincronizar cartazes', nivel: 'erro');
+      _log('Falha ao sincronizar cartazes. $erroSincronizacao');
     } finally {
       _sincronizando = false;
     }
@@ -228,8 +339,8 @@ class Agente {
   Future<void> parar() async {
     _parado = true;
     _timerSync?.cancel();
+    _timerHolyrics?.cancel();
     await _canal?.sink.close();
   }
 
-  static String _resumo(Object e) => e.toString().split('\n').first;
 }

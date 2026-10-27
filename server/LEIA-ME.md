@@ -18,12 +18,24 @@ O tablet, o painel da secretaria e o formulário de pedidos de oração conversa
 
 Instalado assim, funciona para quem está no **Wi-Fi da igreja**. Para acessar de qualquer lugar, hospede o servidor na internet (LXC/VPS) e instale só o agente no PC da igreja: veja [`docs/HOSPEDAGEM.md`](../docs/HOSPEDAGEM.md).
 
+### Monitor do agente (instalação `-Modo agente`)
+
+O monitor é uma página **apenas neste PC**: `http://127.0.0.1:8096`. Não abra uma porta no firewall nem coloque um proxy público na frente dele. O instalador pede uma **senha própria do monitor**, independente da senha do painel; somente seu hash e sal são guardados em `agente.json`. Para mudar a senha, abra um terminal no PC da igreja e rode `C:\DiakoNews\diako_agente.exe --definir-senha C:\DiakoNews\agente.json`, depois reinicie a tarefa **DiakoNews Agente**. A porta pode ser alterada em `monitor.porta` (reinicie após a alteração). Se não houver senha configurada ou a porta estiver ocupada, o agente continua conectando ao backend, mas o monitor fica desligado.
+
+- **Geral:** conexão WebSocket com o backend (o painel não abre uma segunda conexão), última mensagem, reconexões, configuração local do Holyrics sem mostrar token, última sincronização e quantidade de cartazes. O estado do Holyrics é conferido na aba Diagnósticos.
+- **Diagnósticos:** testes individuais de leitura da conexão com backend, `GetCPInfo`, apresentação atual, `GetThemes` e pasta de cartazes. Uma pasta existente não prova que a escrita está autorizada; verifique `agente.log` se a sincronização falhar.
+- **Temas:** nomes e miniaturas consultados via `GetThemes` + `GetThumbnail`. As miniaturas não são garantia de como o texto será projetado. Em `/admin` › *Projeção padrão*, use **Buscar temas e miniaturas**, escolha o tema e clique **Salvar**. O tablet também mostra miniaturas em *Configurações › Buscar temas*. Se o Holyrics ficar offline, a última lista em memória do backend é marcada como desatualizada; após reiniciar, só estará disponível depois da próxima consulta.
+- **Ensaio:** opção separada que exige `SIM` em cada etapa. Só inicia com o telão livre; para avançar/voltar, verifica o ID da apresentação de teste. Não fecha o que estiver no ar. **Não rode durante um culto.**
+- **Logs:** até 200 eventos operacionais recentes em memória, com filtro e botões de copiar/baixar relatório sem credenciais. O histórico é reiniciado junto com o agente; o log de inicialização `C:\DiakoNews\agente.log` é separado e não é exposto pelo monitor.
+
+Libere **GetThemes** e **GetThumbnail** no token do Holyrics para as miniaturas. Em versões anteriores a 2.27, `GetThemes` pode não estar disponível. A página responde apenas a `127.0.0.1`, exige senha, expira sessões após 30 minutos e não mostra chaves, tokens ou payloads pessoais.
+
 ## Instalar no PC da igreja
 1. Leve o arquivo `DiakoServer.zip` (gerado pelo `empacotar.ps1`) e descompacte.
 2. No Holyrics: **Arquivo > Configurações > API Server**. Ative, crie um token e libere estas ações:
    `GetCPInfo`, `GetCurrentPresentation`, `ShowQuickPresentation`, `ShowImage`, `ActionNext`, `ActionPrevious`,
    `ActionNextQuickPresentation`, `ActionPreviousQuickPresentation`, `CloseCurrentPresentation`, `SetF9`, `SetF10`,
-   `SetTextCP`, `StartCountdownCP`, `StopCountdownCP`, `ShowCountdown`, `GetThemes`.
+   `SetTextCP`, `StartCountdownCP`, `StopCountdownCP`, `ShowCountdown`, `GetThemes`, `GetThumbnail`.
    Anote o token e a porta.
 3. Descubra a **pasta de imagens do Holyrics**: no Holyrics, abra a aba de Imagens e use a opção de abrir a pasta. Copie o caminho.
 4. Abra o PowerShell **como administrador** na pasta descompactada e rode:

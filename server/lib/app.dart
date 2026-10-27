@@ -126,6 +126,8 @@ class Servidor {
   final LimiteTaxa _limiteMensagens = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
   final LimiteTaxa _limiteLgpd = LimiteTaxa(maximo: 20, janela: const Duration(minutes: 10));
   final LimiteTaxa _limiteVisitantes = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
+  List<Map<String, String>> _temasCache = [];
+  DateTime? _temasAtualizados;
 
   /// Caminho do QR para o ShowImage do Holyrics.
   static const qrHolyrics = '${Config.subpastaHolyrics}/$arquivoQr';
@@ -231,7 +233,9 @@ class Servidor {
       ..put('/api/galeria/<id>', _atualizarFoto)
       ..delete('/api/galeria/<id>', _excluirFoto)
       // Holyrics e manutenção
-      ..post('/api/holyrics/<acao>', _holyrics)
+       ..post('/api/holyrics/<acao>', _holyrics)
+       ..get('/api/temas', _adminTemas)
+       ..get('/api/admin/temas', _adminTemas)
       ..post('/api/projetar/oracoes-respondidas', _projetarRespondidas)
       ..get('/api/historico', _historico)
       ..get('/api/resumo-semanal', _resumoSemanal)
@@ -1735,6 +1739,57 @@ class Servidor {
   Future<Response> _holyrics(Request req, String acao) async {
     if (!acoesPermitidas.contains(acao)) return _erro(403, 'Ação não permitida: $acao');
     return _chamarHolyrics(acao, await req.readAsString(), usuario: Auth.contaDa(req)?.nome ?? '');
+  }
+
+  /// Catálogo para o seletor administrativo; nunca inclui token nem objetos de tema completos.
+  Future<Response> _adminTemas(Request req) async {
+    final forcar = req.url.queryParameters['atualizar'] == '1';
+    if (!forcar && _temasAtualizados != null &&
+        DateTime.now().difference(_temasAtualizados!) < const Duration(minutes: 5)) {
+      return _json({'temas': _temasCache, 'atualizadoEm': _temasAtualizados!.toIso8601String(),
+        'desatualizado': false, 'miniaturasDisponiveis': _temasCache.any((t) => t.containsKey('thumbnail'))});
+    }
+    try {
+      final r = await holyrics.chamar('GetThemes', '{}');
+      final j = jsonDecode(r.corpo) as Map;
+      if (j['status'] != 'ok' || j['data'] is! List) throw const FormatException('Temas indisponíveis');
+      final temas = <Map<String, String>>[];
+      for (final t in (j['data'] as List).take(80)) {
+        if (t is! Map || t['id'] is! String || t['name'] is! String) continue;
+        final id = t['id'] as String;
+        final name = t['name'] as String;
+        if (id.isEmpty || id.length > 100 || name.isEmpty || name.length > 120) continue;
+        temas.add({'id': id, 'name': name});
+      }
+      // Em lotes pequenos para não ultrapassar o timeout da ponte WebSocket.
+      for (var i = 0; i < temas.length; i += 10) {
+        final grupo = temas.skip(i).take(10).toList();
+        try {
+          final imagem = await holyrics.chamar('GetThumbnail', jsonEncode({
+            'type': 'theme', 'ids': [for (final t in grupo) t['id']]
+          }));
+          final mini = jsonDecode(imagem.corpo) as Map;
+          if (mini['status'] != 'ok' || mini['data'] is! List) continue;
+          for (final item in mini['data'] as List) {
+            if (item is! Map || item['id'] is! String || item['image'] is! String) continue;
+            final base64 = item['image'] as String;
+            if (base64.length > 90000 || !RegExp(r'^[A-Za-z0-9+/=]+$').hasMatch(base64)) continue;
+            try { base64Decode(base64); } catch (_) { continue; }
+            for (final t in grupo.where((t) => t['id'] == item['id'])) { t['thumbnail'] = base64; }
+          }
+        } catch (_) {
+          // Sem permissão de miniatura: nomes continuam selecionáveis.
+        }
+      }
+      _temasCache = temas;
+      _temasAtualizados = DateTime.now();
+      return _json({'temas': temas, 'atualizadoEm': _temasAtualizados!.toIso8601String(),
+        'desatualizado': false, 'miniaturasDisponiveis': temas.any((t) => t.containsKey('thumbnail'))});
+    } catch (_) {
+      return _temasAtualizados == null ? _erro(503, 'Holyrics indisponível ou sem permissão GetThemes.')
+          : _json({'temas': _temasCache, 'atualizadoEm': _temasAtualizados!.toIso8601String(),
+              'desatualizado': true, 'miniaturasDisponiveis': _temasCache.any((t) => t.containsKey('thumbnail'))});
+    }
   }
 
   /// Chama o Holyrics e, se deu certo, registra no histórico (com o nome de quem projetou).

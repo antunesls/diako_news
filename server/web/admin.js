@@ -202,6 +202,44 @@ $('form-projecao').addEventListener('submit', (e) => {
   }, $('res-projecao'));
 });
 
+$('buscar-temas-holyrics').addEventListener('click', async () => {
+  const lista = $('lista-temas-holyrics');
+  const estado = $('estado-temas');
+  estado.textContent = 'Consultando Holyrics…';
+  try {
+    const dados = await api('GET', '/api/admin/temas?atualizar=1');
+    lista.replaceChildren();
+    for (const tema of dados.temas) {
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = 'botao secundario';
+      botao.style.cssText = 'display:grid;gap:6px;margin:6px;min-width:160px;max-width:200px;';
+      if (tema.thumbnail) {
+        const img = document.createElement('img');
+        img.alt = 'Prévia do tema ' + tema.name;
+        img.width = 160;
+        const mime = tema.thumbnail.startsWith('/9j/') ? 'image/jpeg'
+          : tema.thumbnail.startsWith('UklGR') ? 'image/webp' : 'image/png';
+        img.src = 'data:' + mime + ';base64,' + tema.thumbnail;
+        botao.append(img);
+      }
+      const nome = document.createElement('span');
+      nome.textContent = tema.name;
+      botao.append(nome);
+      botao.addEventListener('click', () => {
+        $('temaPadrao').value = tema.name;
+        estado.textContent = 'Selecionado: ' + tema.name + '. Clique em Salvar para aplicar.';
+      });
+      lista.append(botao);
+    }
+    estado.textContent = dados.desatualizado ? 'Lista salva (Holyrics indisponível): confirme antes de projetar.'
+      : !dados.miniaturasDisponiveis && dados.temas.length ? 'Temas carregados sem miniaturas: libere GetThumbnail no token do Holyrics.'
+        : 'Atualizado em ' + dados.atualizadoEm + '. A miniatura é ilustrativa.';
+  } catch (err) {
+    estado.textContent = err.message + ' O tema digitado foi preservado.';
+  }
+});
+
 $('form-holyrics').addEventListener('submit', (e) => {
   e.preventDefault();
   salvar({ holyricsHost: valor('holyricsHost'), holyricsPorta: numero('holyricsPorta'), holyricsToken: valor('holyricsToken') }, $('res-holyrics'));
