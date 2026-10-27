@@ -36,6 +36,13 @@ function desenharRepertorio() {
 $('repertorio-busca').addEventListener('input', desenharRepertorio);
 $('repertorio-filtro-status').addEventListener('change', desenharRepertorio);
 $('repertorio-filtro-tom').addEventListener('change', desenharRepertorio);
+$('repertorio-limpar').addEventListener('click', () => {
+  $('repertorio-busca').value = '';
+  $('repertorio-filtro-status').value = '';
+  $('repertorio-filtro-tom').value = '';
+  desenharRepertorio();
+  $('repertorio-busca').focus();
+});
 
 const camposRepertorio = ['titulo', 'cantor', 'compositor', 'ano', 'bpm', 'tomOriginal', 'tomDiakonia',
   'referencia', 'solicitadoPor', 'observacoes', 'biografiaCantor', 'biografiaCompositor'];
