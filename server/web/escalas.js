@@ -63,7 +63,6 @@ function desenharEscala() {
   $('escala-repetir').textContent = 'Repetir ' + nomeMes(anterior);
   $('escala-repetir').hidden = !podeTipo || d.cultos.length === 0;
   $('escala-extra').hidden = !d.pode.pastoral;
-  $('escala-link').hidden = !algum;
   $('escala-indisponivel').hidden = !algum;
   $('escala-imprimir').hidden = d.cultos.length === 0;
 
@@ -330,7 +329,7 @@ function abrirCulto(c) {
 }
 $('escala-extra').addEventListener('click', () => abrirCulto(null));
 
-// ---------- Indisponibilidade e link "Minha escala" ----------
+// ---------- Indisponibilidade ----------
 
 function opcoesPessoas(select) {
   const pessoas = escala.dados.pessoas;
@@ -356,36 +355,6 @@ $('escala-indisponivel').addEventListener('click', () => {
     await carregarEscalas();
   });
 });
-
-$('escala-link').addEventListener('click', () => {
-  opcoesPessoas($('link-escala-pessoa'));
-  $('link-escala-resultado').hidden = true;
-  $('erro-link-escala').hidden = true;
-  $('link-escala-gerar').hidden = false;
-  $('dlg-link-escala').querySelector('form').onsubmit = async (e) => {
-    if (e.submitter && e.submitter.value === 'cancelar') return;
-    e.preventDefault();
-    $('erro-link-escala').hidden = true;
-    if (!$('link-escala-pessoa').value) {
-      mensagem($('erro-link-escala'), 'Escolha a pessoa.', false);
-      $('erro-link-escala').hidden = false;
-      return;
-    }
-    try {
-      const r = await api('POST', '/api/escalas/link/' + encodeURIComponent($('link-escala-pessoa').value));
-      $('link-escala-url').value = r.url;
-      const texto = `Olá, ${r.nome.split(' ')[0]}! Este é o seu link da escala da igreja: ${r.url}`;
-      $('link-escala-whatsapp').href = 'https://wa.me/?text=' + encodeURIComponent(texto);
-      $('link-escala-resultado').hidden = false;
-    } catch (err) {
-      mensagem($('erro-link-escala'), err.message, false);
-      $('erro-link-escala').hidden = false;
-    }
-  };
-  $('dlg-link-escala').showModal();
-});
-$('link-escala-pessoa').addEventListener('change', () => ($('link-escala-resultado').hidden = true));
-$('link-escala-copiar').addEventListener('click', () => navigator.clipboard.writeText($('link-escala-url').value));
 
 // ---------- WhatsApp e impressão ----------
 

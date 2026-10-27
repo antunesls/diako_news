@@ -227,7 +227,7 @@ void main() {
       expect(hoje['cultos'].single['musicas'].single['titulo'], 'Abertura');
     });
 
-    test('Minha escala: link individual, só os cultos da pessoa, indisponibilidade pelo link', () async {
+    test('Minha escala: login vinculado, isolamento, secretaria e QR comum', () async {
       await chamar('PUT', '/api/admin/configuracoes', token: admin, json: {'siteCultos': 'Domingo — 19h\nQuarta — 20h'});
       await chamar('POST', '/api/escalas/gerar', token: admin, json: {'mes': '2026-11'});
       final bruno = await membro('Bruno Reis', ministerios: ['Louvor']);
@@ -238,34 +238,53 @@ void main() {
       await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-01')['id']}', token: admin, json: {'musicas': [{'repertorioId': abertura, 'tom': 'G'}]});
       await chamar('PUT', '/api/escalas/${culto(nov, '2026-11-04')['id']}', token: admin, json: {'tipo': 'louvor', 'funcao': 'Vocal', 'membros': [ana]});
 
-      final (st, link) = await chamar('POST', '/api/escalas/link/$bruno', token: admin);
+      expect((await chamar('POST', '/api/escalas/link/$bruno', token: admin)).$1, 404);
+      expect((await chamar('POST', '/api/public/minha-escala', json: {'token': 'x' * 30})).$1, 404);
+      expect((await chamar('GET', '/api/minha-escala')).$1, 401);
+      final secretaria = await criarUsuario('secretaria1', Perfil.secretaria);
+      expect((await chamar('GET', '/api/admin/usuarios', token: secretaria)).$1, 403);
+      final (st, criado) = await chamar('POST', '/api/acessos-escala', token: secretaria,
+          json: {'membroId': bruno, 'nome': 'Bruno Reis', 'login': 'bruno.reis'});
       expect(st, 201);
-      expect(link['url'], startsWith('http://192.168.0.10:8080/minha-escala#'));
-      final token = (link['url'] as String).split('#').last;
-      expect(store.listar('linksEscala').single.toString(), isNot(contains(token)));
-
-      final (stMinha, minha) = await chamar('POST', '/api/public/minha-escala', json: {'token': token});
+      final (_, login) = await chamar('POST', '/api/login', json: {'usuario': 'bruno.reis', 'senha': criado['senhaTemporaria']});
+      final acesso = login['token'] as String;
+      expect((await chamar('GET', '/api/escalas', token: acesso)).$1, 403);
+      expect((await chamar('GET', '/api/minha-escala', token: secretaria)).$1, 403);
+      expect((await chamar('POST', '/api/acessos-escala', token: secretaria,
+          json: {'membroId': bruno, 'nome': 'Outro', 'login': 'outro1'})).$1, 400);
+      final (stMinha, minha) = await chamar('GET', '/api/minha-escala', token: acesso);
       expect(stMinha, 200);
       expect(minha['nome'], 'Bruno');
       expect((minha['cultos'] as List).map((c) => c['data']), ['2026-11-01']);
       expect(minha['cultos'].single['funcoes'], [{'tipo': 'louvor', 'funcao': 'Violão'}]);
       expect(minha['cultos'].single['musicas'].single, {'repertorioId': abertura, 'titulo': 'Abertura', 'tom': 'G'});
 
-      expect((await chamar('POST', '/api/public/minha-escala/indisponivel', json: {'token': token, 'de': '2026-10-01'})).$1, 400);
-      final (stInd, ind) = await chamar('POST', '/api/public/minha-escala/indisponivel',
-          json: {'token': token, 'de': '2026-11-15', 'ate': '2026-11-16', 'motivo': 'viagem'});
+      expect((await chamar('POST', '/api/minha-escala/indisponivel', token: acesso, json: {'de': '2026-10-01'})).$1, 400);
+      final (stInd, ind) = await chamar('POST', '/api/minha-escala/indisponivel', token: acesso,
+          json: {'membroId': ana, 'de': '2026-11-15', 'ate': '2026-11-16', 'motivo': 'viagem'});
       expect(stInd, 201);
       expect(ind['membroId'], bruno);
-      expect((await chamar('POST', '/api/public/minha-escala', json: {'token': token})).$2['indisponibilidades'].single['motivo'], 'viagem');
-      // A indisponibilidade de outra pessoa não pode ser removida por este link.
+      expect((await chamar('GET', '/api/minha-escala', token: acesso)).$2['indisponibilidades'].single['motivo'], 'viagem');
+      // A indisponibilidade de outra pessoa não pode ser removida por esta conta.
       final (_, daAna) = await chamar('POST', '/api/escalas/indisponibilidades', token: admin, json: {'membroId': ana, 'de': '2026-11-20'});
-      expect((await chamar('POST', '/api/public/minha-escala/indisponivel/remover', json: {'token': token, 'id': daAna['id']})).$1, 410);
-      expect((await chamar('POST', '/api/public/minha-escala/indisponivel/remover', json: {'token': token, 'id': ind['id']})).$1, 200);
-
-      // Link inválido; gerar outro invalida o anterior.
-      expect((await chamar('POST', '/api/public/minha-escala', json: {'token': 'x' * 30})).$1, 410);
-      await chamar('POST', '/api/escalas/link/$bruno', token: admin);
-      expect((await chamar('POST', '/api/public/minha-escala', json: {'token': token})).$1, 410);
+      expect((await chamar('POST', '/api/minha-escala/indisponivel/remover', token: acesso, json: {'id': daAna['id']})).$1, 404);
+      expect((await chamar('POST', '/api/minha-escala/indisponivel/remover', token: acesso, json: {'id': ind['id']})).$1, 200);
+      final qr = await handler(Request('GET', Uri.parse('http://x/qr-minha-escala.png')));
+      expect(qr.statusCode, 200);
+      expect(qr.headers['content-type'], 'image/png');
+      expect((await chamar('POST', '/api/acessos-escala/vincular', token: acesso,
+          json: {'usuarioId': criado['usuario']['id'], 'membroId': ana})).$1, 403);
+      expect((await chamar('POST', '/api/acessos-escala/${criado['usuario']['id']}/senha', token: secretaria)).$1, 200);
+      expect((await chamar('GET', '/api/minha-escala', token: acesso)).$1, 401);
+      // Pastor existente pode ser vinculado sem criar segunda conta.
+      final pastor = await criarUsuario('pastor1', Perfil.pastor);
+      final pr = await membro('Pr. João', funcao: 'Pastor');
+      final usuarios = (await chamar('GET', '/api/acessos-escala', token: secretaria)).$2['usuarios'] as List;
+      final pastorId = usuarios.firstWhere((u) => u['login'] == 'pastor1')['id'];
+      expect((await chamar('POST', '/api/acessos-escala/vincular', token: secretaria,
+          json: {'usuarioId': pastorId, 'membroId': pr})).$1, 200);
+      expect((await chamar('GET', '/api/minha-escala', token: pastor)).$1, 200);
+      expect((await chamar('POST', '/api/acessos-escala/$pastorId/senha', token: secretaria)).$1, 404);
     });
 
     test('repertório: prévia, importação sem sobrescrever, edição e músicas vinculadas na escala', () async {

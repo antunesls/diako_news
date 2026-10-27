@@ -13,6 +13,7 @@ function sair() {
   token = null;
   eu = null;
   localStorage.removeItem('diako_token');
+  fecharMenu();
   $('app').hidden = true;
   $('login').hidden = false;
   ($('usuario').value ? $('senha') : $('usuario')).focus();
@@ -24,9 +25,10 @@ function sair() {
 let eu = null;
 const pode = (permissao) => !!eu && eu.permissoes.includes(permissao);
 
-/** Esconde abas, botões e cartões marcados com data-permissao que o perfil não tem. */
+/** Esconde botões e cartões marcados com data-permissao que o perfil não tem. */
 function aplicarPermissoes() {
   document.querySelectorAll('[data-permissao]').forEach((e) => e.classList.toggle('sem-permissao', !pode(e.dataset.permissao)));
+  montarMenuLateral($('menu-lateral'), eu.permissoes);
   $('quem').textContent = eu.nome + ' · ' + eu.perfilNome;
 }
 
@@ -62,17 +64,47 @@ $('form-login').addEventListener('submit', async (e) => {
 
 $('sair').addEventListener('click', sair);
 
-// ---------- Abas ----------
+// ---------- Menu lateral ----------
 
 let abaAtual = 'inicio';
-document.querySelectorAll('nav.abas button').forEach((b) =>
-  b.addEventListener('click', () => mostrarAba(b.dataset.aba)));
+$('menu-lateral').addEventListener('click', (e) => {
+  const item = e.target.closest('button[data-aba]');
+  if (item) mostrarAba(item.dataset.aba);
+});
+
+function fecharMenu(restaurarFoco = false) {
+  const aberto = $('menu-lateral').classList.contains('aberto');
+  $('menu-lateral').classList.remove('aberto');
+  $('abrir-menu').setAttribute('aria-expanded', 'false');
+  $('fundo-menu').hidden = true;
+  $('menu-lateral').inert = window.matchMedia('(max-width: 800px)').matches;
+  if (aberto && restaurarFoco) $('abrir-menu').focus();
+}
+
+$('abrir-menu').addEventListener('click', () => {
+  $('menu-lateral').inert = false;
+  $('menu-lateral').classList.add('aberto');
+  $('abrir-menu').setAttribute('aria-expanded', 'true');
+  $('fundo-menu').hidden = false;
+  $('fechar-menu').focus();
+});
+$('fechar-menu').addEventListener('click', () => fecharMenu(true));
+$('fundo-menu').addEventListener('click', () => fecharMenu(true));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('menu-lateral').classList.contains('aberto')) fecharMenu(true);
+});
+window.matchMedia('(max-width: 800px)').addEventListener('change', () => fecharMenu());
+fecharMenu();
 
 function mostrarAba(nome) {
-  const botaoAba = document.querySelector(`nav.abas button[data-aba="${nome}"]`);
-  if (!botaoAba || botaoAba.classList.contains('sem-permissao')) nome = 'inicio';
+  const botaoAba = [...$('menu-lateral').querySelectorAll('button[data-aba]')].find((b) => b.dataset.aba === nome);
+  if (!botaoAba) nome = 'inicio';
   abaAtual = nome;
-  document.querySelectorAll('nav.abas button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === nome)));
+  $('menu-lateral').querySelectorAll('button[data-aba]').forEach((b) => {
+    if (b.dataset.aba === nome) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
+  fecharMenu();
   document.querySelectorAll('[data-painel]').forEach((s) => (s.hidden = s.dataset.painel !== nome));
   carregar[nome]();
 }
@@ -1956,6 +1988,10 @@ async function iniciar() {
     eu = await api('GET', '/api/eu');
   } catch {
     return; // sessão expirada: api() já voltou para o login
+  }
+  if (eu.perfil === 'integrante') {
+    location.replace('/minha-escala');
+    return;
   }
   aplicarPermissoes();
   $('login').hidden = true;

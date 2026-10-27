@@ -27,17 +27,29 @@
 <main>
   <header><img src="/logo.png" alt=""></header>
 
-  <section id="carregando" class="cartao"><p>Carregando…</p></section>
+  <section id="entrar" class="cartao">
+    <h1>Minha escala</h1>
+    <p>Entre para consultar os cultos e avisar quando não puder servir.</p>
+    <form id="form-login">
+      <div class="campo"><label for="usuario">Usuário</label><input id="usuario" autocomplete="username" required></div>
+      <div class="campo"><label for="senha">Senha</label><input id="senha" type="password" autocomplete="current-password" required></div>
+      <p id="erro-login" class="erro" role="alert" hidden></p>
+      <button class="botao">Entrar</button>
+    </form>
+  </section>
+  <section id="carregando" class="cartao" hidden><p>Carregando…</p></section>
 
   <section id="invalido" class="cartao" hidden>
     <h2>Não foi possível abrir</h2>
     <p id="invalido-texto"></p>
+    <button type="button" id="trocar-conta" class="botao secundario">Entrar com outra conta</button>
   </section>
 
   <section id="conteudo" hidden>
     <p class="sobretitulo">Minha escala</p>
     <h1 id="ola"></h1>
     <p class="intro" id="resumo"></p>
+    <button type="button" id="sair" class="botao secundario pequeno">Sair</button>
 
     <div class="cultos" id="cultos"></div>
     <button type="button" class="botao secundario" id="agenda" style="width:100%" hidden>Pôr na minha agenda</button>
@@ -55,23 +67,36 @@
       <button class="botao" style="width:100%">Avisar</button>
     </form>
 
-    <p class="dica" style="text-align:center;margin-top:18px">Link pessoal, enviado por quem monta a escala. Mostra só a sua escala; não repasse.</p>
+    <form id="form-senha" class="cartao" style="margin-top:18px">
+      <h2>Trocar minha senha</h2>
+      <div class="campo"><label for="senha-atual">Senha atual</label><input type="password" id="senha-atual" autocomplete="current-password" required></div>
+      <div class="campo"><label for="senha-nova">Nova senha</label><input type="password" id="senha-nova" autocomplete="new-password" required></div>
+      <p id="resultado-senha" role="status"></p>
+      <button class="botao secundario">Atualizar senha</button>
+    </form>
+
+    <p class="dica" style="text-align:center;margin-top:18px">A escala e os avisos são acessíveis somente após o login.</p>
   </section>
 </main>
 <script>
   const $ = (id) => document.getElementById(id);
-  // O token fica depois do "#": não vai para o servidor no endereço nem para os registros de acesso.
-  const token = decodeURIComponent(location.hash.slice(1));
+  // O QR é comum a todos; o servidor identifica o membro pela sessão autenticada.
+  if (location.hash) history.replaceState(null, '', location.pathname);
+  let token = localStorage.getItem('diako_token');
   let dados = null;
 
   async function chamar(caminho, corpo) {
-    const r = await fetch(caminho, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, ...corpo }) });
+    const r = await fetch(caminho, { method: corpo === undefined ? 'GET' : 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: corpo === undefined ? undefined : JSON.stringify(corpo) });
     const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { token = null; localStorage.removeItem('diako_token'); $('entrar').hidden = false; $('conteudo').hidden = true; }
     if (!r.ok) throw new Error(j.erro || 'Não foi possível carregar. Tente de novo.');
     return j;
   }
 
   function invalido(texto) {
+    $('entrar').hidden = true;
     $('carregando').hidden = true;
     $('conteudo').hidden = true;
     $('invalido').hidden = false;
@@ -116,7 +141,7 @@
       const remover = Object.assign(document.createElement('button'), { type: 'button', className: 'botao secundario pequeno', textContent: 'Desfazer' });
       remover.addEventListener('click', async () => {
         try {
-          await chamar('/api/public/minha-escala/indisponivel/remover', { id: i.id });
+          await chamar('/api/minha-escala/indisponivel/remover', { id: i.id });
           await carregar();
         } catch (err) {
           mensagem(err.message, false);
@@ -134,10 +159,12 @@
 
   async function carregar() {
     try {
-      dados = await chamar('/api/public/minha-escala', {});
+      dados = await chamar('/api/minha-escala');
+      $('entrar').hidden = true;
+      $('invalido').hidden = true;
       desenhar();
     } catch (err) {
-      invalido(err.message);
+      if (token) invalido(err.message);
     }
   }
 
@@ -147,7 +174,7 @@
     const botao = $('form').querySelector('button:not([type])');
     botao.disabled = true;
     try {
-      await chamar('/api/public/minha-escala/indisponivel', { de: $('de').value, ate: $('ate').value || $('de').value, motivo: $('motivo').value.trim() });
+      await chamar('/api/minha-escala/indisponivel', { de: $('de').value, ate: $('ate').value || $('de').value, motivo: $('motivo').value.trim() });
       $('form').reset();
       await carregar();
       mensagem('Aviso enviado. Obrigado por avisar!');
@@ -179,8 +206,39 @@
     a.remove();
   });
 
-  if (token.length < 20) invalido('Este link está incompleto. Abra de novo o link que você recebeu.');
-  else carregar();
+  $('form-login').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('erro-login').hidden = true;
+    try {
+      const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario: $('usuario').value.trim(), senha: $('senha').value }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || 'Usuário ou senha incorretos.');
+      token = j.token;
+      localStorage.setItem('diako_token', token);
+      $('senha').value = '';
+      await carregar();
+    } catch (err) { $('erro-login').textContent = err.message; $('erro-login').hidden = false; }
+  });
+  $('sair').addEventListener('click', async () => {
+    await chamar('/api/logout', {}).catch(() => {});
+    token = null; localStorage.removeItem('diako_token');
+    $('conteudo').hidden = true; $('invalido').hidden = true; $('entrar').hidden = false;
+  });
+  $('trocar-conta').addEventListener('click', async () => {
+    if (token) await chamar('/api/logout', {}).catch(() => {});
+    token = null; localStorage.removeItem('diako_token');
+    $('invalido').hidden = true; $('entrar').hidden = false;
+  });
+  $('form-senha').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await chamar('/api/eu/senha', { atual: $('senha-atual').value, nova: $('senha-nova').value });
+      $('form-senha').reset();
+      $('resultado-senha').textContent = 'Senha atualizada.';
+    } catch (err) { $('resultado-senha').textContent = err.message; }
+  });
+  if (token) carregar();
 </script>
 </body>
 </html>

@@ -19,6 +19,7 @@ class Usuario {
     this.ativo = true,
     required this.criadoEm,
     this.ultimoAcesso,
+    this.membroId,
   });
 
   final String id;
@@ -30,6 +31,7 @@ class Usuario {
   bool ativo;
   final DateTime criadoEm;
   DateTime? ultimoAcesso;
+  String? membroId;
 
   factory Usuario.fromJson(Map<String, dynamic> j) => Usuario(
         id: j['id'] as String,
@@ -41,6 +43,7 @@ class Usuario {
         ativo: j['ativo'] as bool? ?? true,
         criadoEm: DateTime.tryParse(j['criadoEm'] as String? ?? '') ?? DateTime.now(),
         ultimoAcesso: DateTime.tryParse(j['ultimoAcesso'] as String? ?? ''),
+        membroId: j['membroId'] as String?,
       );
 
   /// [comSenha] só para gravar no disco; o painel nunca recebe o hash.
@@ -53,6 +56,7 @@ class Usuario {
         'ativo': ativo,
         'criadoEm': criadoEm.toIso8601String(),
         'ultimoAcesso': ultimoAcesso?.toIso8601String(),
+        'membroId': membroId,
         if (comSenha) ...{'senhaHash': senhaHash, 'senhaSal': senhaSal},
       };
 }
@@ -80,6 +84,19 @@ class Usuarios {
 
   Usuario? buscar(String id) => _lista.where((u) => u.id == id).firstOrNull;
   Usuario? porLogin(String login) => _lista.where((u) => u.login == login.trim().toLowerCase()).firstOrNull;
+  Usuario? porMembro(String id) => _lista.where((u) => u.membroId == id).firstOrNull;
+
+  Future<Usuario> vincular(String usuarioId, String membroId) async {
+    final u = buscar(usuarioId);
+    if (u == null) throw const FormatException('Usuário não encontrado.');
+    final outro = porMembro(membroId);
+    if (outro != null && outro.id != usuarioId) {
+      throw const FormatException('Este membro já tem uma conta vinculada.');
+    }
+    u.membroId = membroId;
+    await _salvar();
+    return u;
+  }
 
   /// Usuário ativo com esta senha, ou null. Registra o último acesso.
   Future<Usuario?> autenticar(String login, String senha) async {
@@ -91,7 +108,7 @@ class Usuarios {
   }
 
   /// Cria o usuário com a senha dada. Lança [FormatException] com a mensagem para o painel.
-  Future<Usuario> criar({required String nome, required String login, required Perfil perfil, required String senha}) async {
+  Future<Usuario> criar({required String nome, required String login, required Perfil perfil, required String senha, String? membroId}) async {
     final l = login.trim().toLowerCase();
     if (_lista.length >= maximo) throw const FormatException('Limite de $maximo usuários atingido.');
     _validarNome(nome);
@@ -100,9 +117,11 @@ class Usuarios {
     }
     if (l == Auth.idPrincipal) throw const FormatException('"admin" é reservado para a conta principal.');
     if (porLogin(l) != null) throw const FormatException('Já existe um usuário com esse nome de acesso.');
+    if (membroId != null && porMembro(membroId) != null) throw const FormatException('Este membro já tem uma conta vinculada.');
     final h = gerarHashSenha(senha);
     final u = Usuario(
-        id: novoId(), nome: nome.trim(), login: l, perfil: perfil, senhaHash: h.hash, senhaSal: h.sal, criadoEm: DateTime.now());
+        id: novoId(), nome: nome.trim(), login: l, perfil: perfil, senhaHash: h.hash, senhaSal: h.sal,
+        membroId: membroId, criadoEm: DateTime.now());
     _lista.add(u);
     await _salvar();
     return u;

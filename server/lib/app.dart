@@ -145,7 +145,6 @@ class Servidor {
   final LimiteTaxa _limiteMensagens = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
   final LimiteTaxa _limiteLgpd = LimiteTaxa(maximo: 20, janela: const Duration(minutes: 10));
   final LimiteTaxa _limiteVisitantes = LimiteTaxa(maximo: 5, janela: const Duration(minutes: 10));
-  final LimiteTaxa _limiteMinhaEscala = LimiteTaxa(maximo: 30, janela: const Duration(minutes: 10));
   List<Map<String, String>> _temasCache = [];
   DateTime? _temasAtualizados;
 
@@ -167,6 +166,8 @@ class Servidor {
       ..get('/recepcao', (Request _) => _pagina('recepcao.html'))
       ..get('/visitante', (Request _) => cfg?.visitanteQrAtivo == false ? _paginaDesligada() : _pagina('visitante.html'))
       ..get('/qr-visitante.png', _qrVisitante)
+      ..get('/qr-minha-escala.png', (Request _) => Response.ok(gerarPngQr('$_urlBase/minha-escala', rotulo: 'MINHA ESCALA'),
+          headers: {'content-type': 'image/png', 'cache-control': 'no-cache'}))
       ..post('/api/public/autorizacao', _verAutorizacao)
       ..post('/api/public/autorizacao/aceitar', _aceitarAutorizacao)
       ..get('/api/public/visitante', _infoVisitante)
@@ -206,6 +207,10 @@ class Servidor {
       ..put('/api/admin/usuarios/<id>', _atualizarUsuario)
       ..post('/api/admin/usuarios/<id>/senha', _redefinirSenhaUsuario)
       ..delete('/api/admin/usuarios/<id>', _excluirUsuario)
+      ..get('/api/acessos-escala', _listarAcessosEscala)
+      ..post('/api/acessos-escala', _criarAcessoEscala)
+      ..post('/api/acessos-escala/vincular', _vincularAcessoEscala)
+      ..post('/api/acessos-escala/<id>/senha', _senhaAcessoEscala)
       ..post('/api/public/pedidos', _novoPedido)
       ..post('/api/public/mensagens', _novaMensagem)
       ..get('/api/estado', _estado)
@@ -259,12 +264,11 @@ class Servidor {
       ..post('/api/escalas/repetir', _repetirEscala)
       ..post('/api/escalas/indisponibilidades', _criarIndisponibilidade)
       ..delete('/api/escalas/indisponibilidades/<id>', _excluirIndisponibilidade)
-      ..post('/api/escalas/link/<membroId>', _linkMinhaEscala)
       ..put('/api/escalas/<id>', _atualizarCulto)
       ..delete('/api/escalas/<id>', _excluirCulto)
-      ..post('/api/public/minha-escala', _minhaEscala)
-      ..post('/api/public/minha-escala/indisponivel', _minhaIndisponibilidade)
-      ..post('/api/public/minha-escala/indisponivel/remover', _removerMinhaIndisponibilidade)
+      ..get('/api/minha-escala', _minhaEscala)
+      ..post('/api/minha-escala/indisponivel', _minhaIndisponibilidade)
+      ..post('/api/minha-escala/indisponivel/remover', _removerMinhaIndisponibilidade)
       // Cartazes
       ..get('/api/cartazes', _listarCartazes)
       ..post('/api/cartazes', _enviarCartaz)
@@ -489,6 +493,56 @@ class Servidor {
     await tabletsLocais.removerDoUsuario(id);
     agente?.enviarTablets();
     return _json({'ok': true});
+  }
+
+  // A Secretaria administra somente contas de integrantes e pode vincular uma
+  // conta pastoral já existente. Jamais devolvemos hashes ou contas de outros perfis.
+  Response _listarAcessosEscala(Request _) => _json({
+        'usuarios': [
+          for (final u in _usuarios?.lista ?? const <Usuario>[])
+            if (u.perfil == Perfil.integrante || u.perfil == Perfil.pastor)
+              {'id': u.id, 'nome': u.nome, 'login': u.login, 'perfil': u.perfil.name, 'membroId': u.membroId, 'ativo': u.ativo},
+        ],
+      });
+
+  Future<Response> _criarAcessoEscala(Request req) async {
+    final usuarios = _usuarios;
+    if (usuarios == null) return _erro(501, 'Usuários indisponíveis.');
+    final corpo = await _corpo(req);
+    final id = corpo['membroId'] as String? ?? '';
+    if (store.buscar('membros', id) == null) return _erro(404, 'Membro não encontrado.');
+    if (usuarios.porMembro(id) != null) return _erro(400, 'Este membro já tem acesso.');
+    final senha = gerarSenhaTemporaria(senhaMinima < 10 ? 10 : senhaMinima);
+    try {
+      final u = await usuarios.criar(nome: corpo['nome'] as String? ?? '', login: corpo['login'] as String? ?? '',
+          perfil: Perfil.integrante, senha: senha, membroId: id);
+      return _json({'usuario': u.toJson(), 'senhaTemporaria': senha}, status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  Future<Response> _vincularAcessoEscala(Request req) async {
+    final usuarios = _usuarios;
+    final corpo = await _corpo(req);
+    final id = corpo['membroId'] as String? ?? '';
+    final u = usuarios?.buscar(corpo['usuarioId'] as String? ?? '');
+    if (store.buscar('membros', id) == null || u == null) return _erro(404, 'Membro ou usuário não encontrado.');
+    if (u.perfil != Perfil.pastor && u.perfil != Perfil.integrante) return _erro(403, 'Não é uma conta de escalas.');
+    if (u.membroId != null && u.membroId != id) return _erro(400, 'Esta conta já está vinculada a outro membro.');
+    try {
+      return _json((await usuarios!.vincular(u.id, id)).toJson());
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  Future<Response> _senhaAcessoEscala(Request req, String id) async {
+    final u = _usuarios?.buscar(id);
+    if (u == null || u.perfil != Perfil.integrante || u.membroId == null || store.buscar('membros', u.membroId!) == null) {
+      return _erro(404, 'Acesso não encontrado.');
+    }
+    return _redefinirSenhaUsuario(req, id);
   }
 
   // ---------- Tablets na rede local ----------
@@ -1816,9 +1870,6 @@ class Servidor {
   Future<Response> _previaRepertorio(Request req) => _processarImportacaoRepertorio(req, salvar: false);
   Future<Response> _importarRepertorio(Request req) => _processarImportacaoRepertorio(req, salvar: true);
 
-  /// Link "Minha escala": vale 180 dias; gerar outro para a mesma pessoa invalida o anterior.
-  static const _validadeLinkEscala = Duration(days: 180);
-
   List<CultoEscala> _cultos() => [for (final d in store.listar('escalas')) CultoEscala.fromJson(d)]
     ..sort((a, b) => '${a.data} ${a.hora}'.compareTo('${b.data} ${b.hora}'));
 
@@ -2080,47 +2131,16 @@ class Servidor {
     return _excluir('indisponibilidades', id);
   }
 
-  /// POST /api/escalas/link/<membroId> — link "Minha escala" para mandar à pessoa (só o hash fica guardado).
-  Future<Response> _linkMinhaEscala(Request req, String membroId) async {
-    if (!_podeAlgumaEscala(req)) return _semPermissaoEscala(null);
-    final membro = store.buscar('membros', membroId);
-    if (membro == null) return _erro(404, 'Pessoa não encontrada no cadastro.');
-    final token = novoTokenLgpd();
-    final agora = _agora();
-    final expira = agora.add(_validadeLinkEscala);
-    await store.salvar('linksEscala', {
-      'id': membroId,
-      'hash': hashTokenLgpd(token),
-      'criadoEm': agora.toIso8601String(),
-      'expiraEm': expira.toUtc().toIso8601String(),
-      if (Auth.contaDa(req)?.nome case final por?) 'por': por,
-    });
-    return _json({'url': '$_urlBase/minha-escala#$token', 'nome': membro['nome'], 'validoAte': expira.toUtc().toIso8601String()},
-        status: 201);
+  /// Identifica o membro exclusivamente pela sessão; IDs enviados pelo cliente são ignorados.
+  String? _membroDaConta(Request req) {
+    final id = _usuarios?.buscar(Auth.contaDa(req)?.id ?? '')?.membroId;
+    return id != null && store.buscar('membros', id) != null ? id : null;
   }
 
-  /// Membro dono do link "Minha escala", ou a resposta de erro (link inválido, vencido ou tentativas demais).
-  ({String? membroId, Response? erro}) _donoDoLink(Request req, Object? token) {
-    if (!_limiteMinhaEscala.permitir(_ip(req))) return (membroId: null, erro: _erro(429, 'Muitas tentativas. Aguarde alguns minutos.'));
-    // 410 e não 404: o Cascade trata 404 como "rota inexistente" e a mensagem se perderia.
-    final invalido = _erro(410, 'Este link não vale mais. Peça um novo a quem monta a escala.');
-    if (token is! String || token.length < 20 || token.length > 100) return (membroId: null, erro: invalido);
-    final hash = hashTokenLgpd(token);
-    for (final l in store.listar('linksEscala')) {
-      if (!iguaisSeguro(l['hash'] as String? ?? '', hash)) continue;
-      final expira = DateTime.tryParse(l['expiraEm'] as String? ?? '');
-      final id = l['id'] as String;
-      if (expira == null || !expira.isAfter(_agora()) || store.buscar('membros', id) == null) return (membroId: null, erro: invalido);
-      return (membroId: id, erro: null);
-    }
-    return (membroId: null, erro: invalido);
-  }
-
-  /// POST /api/public/minha-escala {token} — os cultos da pessoa nos próximos 60 dias (só os dela).
+  /// GET /api/minha-escala — os cultos da pessoa nos próximos 60 dias (só os dela).
   Future<Response> _minhaEscala(Request req) async {
-    final dono = _donoDoLink(req, (await _corpo(req))['token']);
-    if (dono.erro != null) return dono.erro!;
-    final id = dono.membroId!;
+    final id = _membroDaConta(req);
+    if (id == null) return _erro(403, 'Sua conta ainda não está vinculada a um membro. Procure a Secretaria.');
     final hoje = diaEscala(_agora());
     final limite = diaEscala(_agora().add(const Duration(days: 60)));
     final membro = Membro.fromJson(store.buscar('membros', id)!);
@@ -2149,22 +2169,22 @@ class Servidor {
     });
   }
 
-  /// POST /api/public/minha-escala/indisponivel {token, de, ate?, motivo?}
+  /// POST /api/minha-escala/indisponivel {de, ate?, motivo?}
   Future<Response> _minhaIndisponibilidade(Request req) async {
     final corpo = await _corpo(req);
-    final dono = _donoDoLink(req, corpo['token']);
-    if (dono.erro != null) return dono.erro!;
+    final id = _membroDaConta(req);
+    if (id == null) return _erro(403, 'Sua conta ainda não está vinculada a um membro.');
     if ((dataEscala(corpo['de']) ?? '').compareTo(diaEscala(_agora())) < 0) return _erro(400, 'Escolha uma data a partir de hoje.');
-    return _salvarIndisponibilidade(dono.membroId!, corpo);
+    return _salvarIndisponibilidade(id, corpo);
   }
 
-  /// POST /api/public/minha-escala/indisponivel/remover {token, id} — só uma indisponibilidade da própria pessoa.
+  /// POST /api/minha-escala/indisponivel/remover {id} — só uma indisponibilidade da própria pessoa.
   Future<Response> _removerMinhaIndisponibilidade(Request req) async {
     final corpo = await _corpo(req);
-    final dono = _donoDoLink(req, corpo['token']);
-    if (dono.erro != null) return dono.erro!;
+    final id = _membroDaConta(req);
+    if (id == null) return _erro(403, 'Sua conta ainda não está vinculada a um membro.');
     final ind = store.buscar('indisponibilidades', corpo['id'] as String? ?? '');
-    if (ind == null || ind['membroId'] != dono.membroId) return _erro(410, 'Aviso não encontrado.');
+    if (ind == null || ind['membroId'] != id) return _erro(404, 'Aviso não encontrado.');
     await store.excluir('indisponibilidades', ind['id'] as String);
     return _json({'ok': true});
   }

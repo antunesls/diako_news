@@ -12,14 +12,26 @@
   }
   .topo img { height: 40px; width: auto; }
   .topo .espaco { flex: 1; }
-  nav.abas { display: flex; flex-wrap: nowrap; gap: 2px; overflow-x: auto; scrollbar-width: thin; padding: 0 max(20px, calc((100% - 1160px) / 2)); background: var(--superficie); border-bottom: 1px solid var(--linha); }
-  nav.abas button {
-    flex-shrink: 0; white-space: nowrap; min-height: 48px; padding: 0 10px; border: 0; border-bottom: 3px solid transparent;
-    background: none; font-weight: 600; color: var(--suave); cursor: pointer;
-  }
-  nav.abas button[aria-selected=true] { color: var(--primaria); border-bottom-color: var(--primaria); }
+  .painel-layout { display: flex; max-width: 1440px; min-height: calc(100vh - 70px); margin: auto; }
+  #menu-lateral { flex: 0 0 230px; padding: 16px 12px 24px; background: var(--superficie); border-right: 1px solid var(--linha); }
+  .menu-grupo + .menu-grupo { margin-top: 12px; }
+  .menu-grupo h2 { padding: 12px 12px 5px; margin: 0; color: var(--suave); font: 700 11px/1.5 var(--fonte); letter-spacing: .09em; text-transform: uppercase; }
+  .menu-item { display: flex; align-items: center; width: 100%; min-height: 42px; padding: 8px 12px; border: 0; border-radius: 10px; background: none; color: var(--texto); font-weight: 600; text-decoration: none; text-align: left; cursor: pointer; }
+  .menu-item:hover { background: var(--neutro); }
+  .menu-item[aria-current=page] { background: var(--primaria-suave); color: var(--primaria-escura); }
+  .menu-item:focus-visible, #abrir-menu:focus-visible, #fechar-menu:focus-visible { outline: 3px solid var(--primaria); outline-offset: 2px; }
+  #abrir-menu, #fechar-menu, #fundo-menu { display: none; }
   .badge { display: inline-block; min-width: 22px; padding: 0 6px; margin-left: 4px; border-radius: 11px; background: var(--perigo); color: #fff; font-size: 13px; line-height: 22px; text-align: center; }
-  main { max-width: 1200px; margin: 0 auto; padding: 28px 20px; }
+  .painel-layout > main { flex: 1; min-width: 0; max-width: 1200px; padding: 28px 20px; }
+  @media (max-width: 800px) {
+    #abrir-menu, #fechar-menu { display: inline-block; }
+    #menu-lateral { position: fixed; z-index: 21; top: 0; bottom: 0; left: 0; width: min(290px, 85vw); overflow-y: auto; transform: translateX(-100%); transition: transform .2s ease; box-shadow: 8px 0 28px rgba(0,0,0,.15); }
+    #menu-lateral.aberto { transform: translateX(0); }
+    #fundo-menu:not([hidden]) { display: block; position: fixed; z-index: 20; inset: 0; border: 0; background: rgba(0,0,0,.42); }
+    #fechar-menu { margin: 0 0 8px 10px; }
+    .topo { gap: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #menu-lateral { transition: none; } }
   .barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
   .barra .espaco { flex: 1; }
   .lista { display: flex; flex-direction: column; gap: 8px; }
@@ -256,28 +268,18 @@
 
 <div id="app" hidden>
   <header class="topo">
+    <button class="botao secundario pequeno" id="abrir-menu" type="button" aria-controls="menu-lateral" aria-expanded="false">☰ Menu</button>
     <img src="/logo.png" alt="Igreja Diakonia Tulipas">
     <span class="espaco"></span>
     <span id="conexao" class="dica"></span>
     <span id="quem" class="dica"></span>
     <button class="botao secundario pequeno" id="minha-senha" type="button">Minha senha</button>
-    <a class="botao secundario pequeno" href="/admin" data-permissao="admin">Administração</a>
     <button class="botao secundario pequeno" id="sair">Sair</button>
   </header>
-  <nav class="abas" role="tablist" aria-label="Seções">
-    <button role="tab" data-aba="inicio" aria-selected="true">Início</button>
-    <button role="tab" data-permissao="motivosVer" data-aba="motivos" aria-selected="false">Motivos de oração<span id="badge" class="badge" hidden></span></button>
-    <button role="tab" data-permissao="mensagens" data-aba="mensagens" aria-selected="false">Mensagens<span id="badge-mensagens" class="badge" hidden></span></button>
-    <button role="tab" data-permissao="recados" data-aba="recados" aria-selected="false">Recados</button>
-    <button role="tab" data-permissao="agendaVer" data-aba="agenda" aria-selected="false">Agenda</button>
-    <button role="tab" data-permissao="escalasVer" data-aba="escalas" aria-selected="false">Escalas</button>
-    <button role="tab" data-permissao="escalasVer" data-aba="repertorio" aria-selected="false">Repertório</button>
-    <button role="tab" data-permissao="cartazes" data-aba="cartazes" aria-selected="false">Cartazes</button>
-    <button role="tab" data-permissao="galeria" data-aba="galeria" aria-selected="false">Galeria</button>
-    <button role="tab" data-permissao="membros" data-aba="membros" aria-selected="false">Membros</button>
-    <button role="tab" data-permissao="resumo" data-aba="resumo" aria-selected="false">Resumo da semana</button>
-    <button role="tab" data-aba="historico" aria-selected="false">Histórico</button>
-    <button role="tab" data-aba="status" aria-selected="false">Status</button>
+  <button id="fundo-menu" type="button" aria-label="Fechar menu" hidden></button>
+  <div class="painel-layout">
+  <nav id="menu-lateral" aria-label="Seções do painel">
+    <button class="botao secundario pequeno" id="fechar-menu" type="button">Fechar menu ✕</button>
   </nav>
   <main>
     <section data-painel="inicio">
@@ -356,7 +358,7 @@
         </div>
         <span class="espaco"></span>
         <button type="button" class="botao secundario pequeno" id="escala-repetir" hidden></button>
-        <button type="button" class="botao secundario pequeno" id="escala-link" hidden>Link "Minha escala"</button>
+        <button type="button" class="botao secundario pequeno" data-permissao="acessosEscala" data-ir="acessos">Acessos às escalas</button>
         <button type="button" class="botao secundario pequeno" id="escala-indisponivel" hidden>Indisponibilidade</button>
         <button type="button" class="botao secundario pequeno" id="escala-imprimir">Imprimir</button>
         <button type="button" class="botao pequeno" id="escala-extra" hidden>+ Culto extra</button>
@@ -484,6 +486,34 @@
       <div class="grade-membros" id="lista-membros"></div>
     </section>
 
+    <section data-painel="acessos" hidden>
+      <h1>Acessos às escalas</h1>
+      <p class="dica">A Secretaria cria contas para integrantes do louvor e vincula pastores que já têm usuário. Cada pessoa entra com a própria senha.</p>
+      <div class="duas">
+        <div class="cartao">
+          <h2>QR único</h2>
+          <p>Este QR abre somente o login. Pode ser impresso e compartilhado com todos.</p>
+          <a href="/qr-minha-escala.png" download="qr-minha-escala.png"><img class="qr" src="/qr-minha-escala.png" alt="QR do login Minha escala"></a>
+          <p><a href="/minha-escala" target="_blank" rel="noopener">Abrir página de login</a></p>
+        </div>
+        <form id="form-acesso-escala" class="cartao">
+          <h2>Criar acesso de integrante</h2>
+          <div class="campo"><label for="acesso-membro">Membro</label><select id="acesso-membro" required></select></div>
+          <div class="campo"><label for="acesso-login">Usuário</label><input id="acesso-login" autocomplete="off" required placeholder="nome.sobrenome"></div>
+          <p id="acesso-resultado" role="status"></p>
+          <button class="botao">Criar acesso</button>
+        </form>
+      </div>
+      <form id="form-vinculo-escala" class="cartao">
+        <h2>Vincular conta existente de pastor</h2>
+        <div class="campo"><label for="acesso-pastor">Conta do pastor</label><select id="acesso-pastor" required></select></div>
+        <div class="campo"><label for="acesso-pastor-membro">Cadastro de membro</label><select id="acesso-pastor-membro" required></select></div>
+        <p id="vinculo-resultado" role="status"></p>
+        <button class="botao secundario">Vincular</button>
+      </form>
+      <div class="cartao"><h2>Contas vinculadas</h2><div id="acessos-lista"></div></div>
+    </section>
+
     <section data-painel="status" hidden>
       <div class="duas">
         <div class="cartao">
@@ -527,6 +557,7 @@
       </div>
     </section>
   </main>
+  </div>
 </div>
 
 <dialog id="dlg-escalar">
@@ -612,26 +643,6 @@
       <span class="espaco" style="flex:1"></span>
       <button class="botao secundario" value="cancelar" formnovalidate>Cancelar</button>
       <button class="botao" value="salvar">Salvar</button>
-    </div>
-  </form>
-</dialog>
-
-<dialog id="dlg-link-escala">
-  <form method="dialog">
-    <h2 style="font-size:20px">Link "Minha escala"</h2>
-    <p class="dica">A pessoa vê só os cultos em que serve nos próximos 60 dias, põe na agenda do celular e avisa quando não puder. O link vale 180 dias; gerar outro para a mesma pessoa invalida o anterior.</p>
-    <div class="campo"><label for="link-escala-pessoa">Pessoa</label><select id="link-escala-pessoa"></select></div>
-    <div id="link-escala-resultado" hidden>
-      <div class="campo"><label for="link-escala-url">Link</label><input type="text" id="link-escala-url" readonly></div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        <button type="button" class="botao secundario pequeno" id="link-escala-copiar">Copiar</button>
-        <a class="botao pequeno" id="link-escala-whatsapp" target="_blank" rel="noopener" href="https://wa.me/">Enviar pelo WhatsApp</a>
-      </div>
-    </div>
-    <p class="erro" id="erro-link-escala" hidden></p>
-    <div class="dialogo-acoes">
-      <button class="botao secundario" value="cancelar" formnovalidate>Fechar</button>
-      <button class="botao" value="salvar" id="link-escala-gerar">Gerar link</button>
     </div>
   </form>
 </dialog>
@@ -947,7 +958,9 @@
 
 <script src="/comum.js?v=5"></script>
 <script src="/form-visitante.js?v=1"></script>
-<script src="/painel.js?v=13"></script>
+<script src="/menu-lateral.js?v=1"></script>
+<script src="/painel.js?v=14"></script>
+<script src="/acessos-escala.js?v=1"></script>
 <script src="/repertorio.js?v=1"></script>
 <script src="/escalas.js?v=1"></script>
 </body>

@@ -20,6 +20,24 @@ import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('vínculo da conta ao membro persiste e não admite duas contas por membro', () async {
+    final pasta = await Directory.systemTemp.createTemp('diako_vinculo');
+    try {
+      final usuarios = Usuarios(pasta.path);
+      final pessoa = await usuarios.criar(nome: 'Integrante', login: 'integrante1', perfil: Perfil.integrante,
+          senha: 'senha-forte-123', membroId: 'membro-1');
+      expect(pessoa.membroId, 'membro-1');
+      await expectLater(usuarios.criar(nome: 'Outro', login: 'integrante2', perfil: Perfil.integrante,
+          senha: 'senha-forte-123', membroId: 'membro-1'), throwsFormatException);
+      final recarregados = Usuarios(pasta.path);
+      await recarregados.carregar();
+      expect(recarregados.porMembro('membro-1')?.id, pessoa.id);
+      expect(recarregados.buscar(pessoa.id)?.toJson().toString(), isNot(contains('senha-forte-123')));
+    } finally {
+      await pasta.delete(recursive: true);
+    }
+  });
+
   test('rotas da API e a permissão exigida', () {
     expect(permissaoDaRota('GET', 'api/eu'), Permissao.sessao);
     expect(permissaoDaRota('GET', 'ws'), Permissao.sessao);

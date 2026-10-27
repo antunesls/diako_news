@@ -22,6 +22,8 @@ enum Permissao {
   escalasVer('Ver as escalas'),
   escalaPastoral('Montar a escala pastoral e os cultos do mês'),
   escalaLouvor('Montar a escala e as músicas do louvor'),
+  minhaEscala('Consultar a própria escala e avisar indisponibilidade'),
+  acessosEscala('Administrar acessos individuais às escalas'),
   projetar('Projetar no telão'),
   admin('Administração'),
   usuarios('Usuários e perfis');
@@ -39,15 +41,18 @@ enum Perfil {
     ..._base, Permissao.motivosParticulares, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar,
     Permissao.galeria, Permissao.membros, Permissao.resumo, Permissao.projetar, Permissao.admin, Permissao.usuarios,
     Permissao.visitantes, Permissao.visitantesCadastrar, Permissao.escalasVer, Permissao.escalaPastoral, Permissao.escalaLouvor,
+    Permissao.minhaEscala, Permissao.acessosEscala,
   }),
   pastor('Pastor', 'Todo o conteúdo, inclusive pedidos particulares. Sem configurações técnicas.', {
     ..._base, Permissao.motivosParticulares, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar,
     Permissao.galeria, Permissao.membros, Permissao.resumo, Permissao.projetar,
     Permissao.visitantes, Permissao.visitantesCadastrar, Permissao.escalasVer, Permissao.escalaPastoral, Permissao.escalaLouvor,
+    Permissao.minhaEscala,
   }),
   secretaria('Secretaria', 'Recados, agenda, mensagens, aniversariantes e pedidos públicos.', {
     ..._base, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar, Permissao.membros, Permissao.resumo,
     Permissao.visitantes, Permissao.visitantesCadastrar, Permissao.escalasVer, Permissao.escalaPastoral, Permissao.escalaLouvor,
+    Permissao.minhaEscala, Permissao.acessosEscala,
   }),
   midia('Mídia', 'Cartazes, galeria do site, recados e projeção no telão.', {
     ..._base, Permissao.galeria, Permissao.projetar, Permissao.escalasVer,
@@ -59,7 +64,10 @@ enum Perfil {
     Permissao.sessao, Permissao.visitantes, Permissao.visitantesCadastrar,
   }),
   louvor('Louvor', 'Líder do louvor: monta a escala e as músicas do louvor e vê a escala pastoral e a agenda.', {
-    Permissao.sessao, Permissao.painel, Permissao.agendaVer, Permissao.escalasVer, Permissao.escalaLouvor,
+    Permissao.sessao, Permissao.painel, Permissao.agendaVer, Permissao.escalasVer, Permissao.escalaLouvor, Permissao.minhaEscala,
+  }),
+  integrante('Integrante', 'Consulta a própria escala e avisa indisponibilidades.', {
+    Permissao.sessao, Permissao.minhaEscala,
   });
 
   const Perfil(this.nome, this.descricao, this.permissoes);
@@ -98,6 +106,8 @@ Permissao permissaoDaRota(String metodo, String caminho) {
     return Permissao.visitantesCadastrar;
   }
   if (caminho == 'api/resumo-semanal') return Permissao.resumo;
+  if (comeca('api/minha-escala')) return Permissao.minhaEscala;
+  if (comeca('api/acessos-escala')) return Permissao.acessosEscala;
   // Ver basta para entrar; cada alteração confere no handler se é da pastoral ou do louvor.
   if (comeca('api/escalas')) return Permissao.escalasVer;
   if (comeca('api/repertorio')) return Permissao.escalasVer;
