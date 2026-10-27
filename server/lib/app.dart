@@ -2521,7 +2521,12 @@ class Servidor {
     if (!senhaBackup.definida) return _copiaDesligada;
     final f = backup.arquivo(Uri.decodeComponent(nome));
     if (f == null) return Response.notFound('Não encontrado');
-    final cifrado = await senhaBackup.cifrarEmSegundoPlano(await f.readAsBytes());
+    final Uint8List cifrado;
+    try {
+      cifrado = await senhaBackup.cifrarEmSegundoPlano(await f.readAsBytes());
+    } on StateError {
+      return _copiaDesligada; // a senha foi removida enquanto o arquivo era lido
+    }
     return Response.ok(cifrado, headers: {'content-type': 'application/octet-stream', 'cache-control': 'no-store'});
   }
 

@@ -208,7 +208,8 @@ class Agente {
   Timer? _timerBackup;
   Timer? _timerHolyrics;
   bool _parado = false;
-  bool _sincronizando = false;
+  Future<void>? _sincronizacao;
+  bool get _sincronizando => _sincronizacao != null;
   Duration _espera = const Duration(seconds: 2);
   bool backendConectado = false;
   DateTime? conectadoEm;
@@ -220,7 +221,7 @@ class Agente {
   int cartazesRemotos = 0;
   int cartazesBaixados = 0;
   int cartazesApagados = 0;
-  bool _copiandoBackup = false;
+  Future<void>? _copiaBackup;
   DateTime? ultimaCopiaBackup;
   String? ultimoBackupCopiado;
   String? erroBackup;
@@ -462,10 +463,11 @@ class Agente {
     }
   }
 
-  /// Copia os cartazes do servidor para a pasta de imagens do Holyrics.
-  Future<void> sincronizar() async {
-    if (_sincronizando) return;
-    _sincronizando = true;
+  /// Copia os cartazes do servidor para a pasta de imagens do Holyrics. Chamadas durante uma
+  /// sincronização recebem a mesma (e [parar] espera por ela).
+  Future<void> sincronizar() => _sincronizacao ??= _sincronizar().whenComplete(() => _sincronizacao = null);
+
+  Future<void> _sincronizar() async {
     try {
       final r = await _http.get(config.uriAgente('cartazes'), headers: config.cabecalhos).timeout(const Duration(seconds: 20));
       if (r.statusCode != 200) throw HttpException('HTTP ${r.statusCode}');
@@ -482,8 +484,6 @@ class Agente {
       erroSincronizacao = 'Verifique conexão com o backend e acesso à pasta de cartazes.';
       registrar('cartazes', 'Falha ao sincronizar cartazes', nivel: 'erro');
       _log('Falha ao sincronizar cartazes. $erroSincronizacao');
-    } finally {
-      _sincronizando = false;
     }
   }
 
@@ -511,11 +511,13 @@ class Agente {
 
   /// Guarda no PC da igreja os backups mais novos do servidor (fora do servidor, caso ele se perca),
   /// sempre cifrados com a senha do backup, e avisa o servidor qual é o mais novo copiado. Na pasta,
-  /// apaga só cópias cifradas além das [AgenteConfig.backupsManter] mais novas.
-  Future<void> copiarBackups() async {
+  /// apaga só cópias cifradas além das [AgenteConfig.backupsManter] mais novas. Chamadas durante
+  /// uma cópia recebem a mesma (e [parar] espera por ela).
+  Future<void> copiarBackups() => _copiaBackup ??= _copiarBackups().whenComplete(() => _copiaBackup = null);
+
+  Future<void> _copiarBackups() async {
     final pasta = pastaBackup;
-    if (pasta == null || _copiandoBackup) return;
-    _copiandoBackup = true;
+    if (pasta == null) return;
     try {
       final r = await _http.get(config.uriAgente('backups'), headers: config.cabecalhos).timeout(const Duration(seconds: 20));
       if (r.statusCode == 409) {
@@ -558,8 +560,6 @@ class Agente {
       erroBackup = 'Verifique a conexão com o servidor e se a pasta do backup existe e aceita gravação.';
       registrar('backup', 'Falha ao copiar o backup do servidor', nivel: 'erro');
       _log('Falha ao copiar o backup do servidor. $erroBackup');
-    } finally {
-      _copiandoBackup = false;
     }
   }
 
@@ -569,9 +569,12 @@ class Agente {
     final pedido = http.Request('GET', config.uriAgente('backups/${Uri.encodeComponent(nome)}'))
       ..headers.addAll(config.cabecalhos);
     final r = await _http.send(pedido).timeout(const Duration(minutes: 2));
+    if (r.statusCode != 200) {
+      await r.stream.drain<void>(); // libera a conexão
+      throw HttpException('HTTP ${r.statusCode} ao baixar $nome');
+    }
     final tmp = File('$destino.tmp');
     try {
-      if (r.statusCode != 200) throw HttpException('HTTP ${r.statusCode} ao baixar $nome');
       final saida = tmp.openWrite();
       try {
         await r.stream.timeout(const Duration(minutes: 2)).pipe(saida);
@@ -594,6 +597,8 @@ class Agente {
     _timerBackup?.cancel();
     _timerHolyrics?.cancel();
     await _canal?.sink.close();
+    // Não deixa arquivo pela metade (ou aberto) nas pastas de cartazes e de backup.
+    await Future.wait([for (final f in [_sincronizacao, _copiaBackup]) if (f != null) f]);
   }
 
 }
