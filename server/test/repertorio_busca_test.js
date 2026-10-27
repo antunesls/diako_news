@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { buscarRepertorio, statusParaFiltro, tomCanonico } = require('../web/repertorio-busca.js');
+const { buscarRepertorio, statusParaFiltro, tomCanonico, TONS_REPERTORIO } = require('../web/repertorio-busca.js');
 
 const musicas = [
   { titulo: 'Santo Pra Sempre', cantor: 'Banda Água Viva', compositor: 'Ana Luz', status: 'Ok', ativo: true, tomSelecionado: 'A#m' },
@@ -21,6 +21,8 @@ test('pequenos erros de digitação entram depois das correspondências exatas',
 });
 
 test('filtros por disponibilidade e tom tratam dados anteriores e tons equivalentes', () => {
+  assert.equal(TONS_REPERTORIO.length, 25);
+  assert.equal(new Set(TONS_REPERTORIO.map(([valor]) => valor)).size, 25);
   assert.equal(statusParaFiltro(musicas[2]), 'Inativo');
   assert.equal(tomCanonico('Bb'), 'A#');
   assert.deepEqual(buscarRepertorio(musicas, { status: 'Inativo', tom: 'A#' }).map((m) => m.titulo), ['Aleluia']);
@@ -32,6 +34,7 @@ test('painel oferece busca, filtros e edição de tom e status sem checkbox conf
   assert.match(html, /id="repertorio-filtro-status"/);
   assert.match(html, /id="repertorio-filtro-tom"/);
   assert.match(html, /id="repertorio-contagem"/);
+  assert.match(html, /id="repertorio-limpar"/);
   assert.match(html, /<select id="rep-tomSelecionado"/);
   assert.match(html, /<select id="rep-status"/);
   assert.doesNotMatch(html, /id="rep-ativo"/);
