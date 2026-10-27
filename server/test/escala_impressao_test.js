@@ -20,8 +20,8 @@ test('imprime somente cultos com pessoas na escala selecionada', () => {
 test('painel carrega o filtro antes do script que imprime', () => {
   const html = fs.readFileSync(path.join(__dirname, '../web/painel.html'), 'utf8');
   const script = fs.readFileSync(path.join(__dirname, '../web/escalas.js'), 'utf8');
-  assert.ok(html.indexOf('/escala-impressao.js?v=1') !== -1);
-  assert.ok(html.indexOf('/escala-impressao.js?v=1') < html.indexOf('/escalas.js?v=6'));
+  assert.ok(html.indexOf('/escala-impressao.js?v=2') !== -1);
+  assert.ok(html.indexOf('/escala-impressao.js?v=2') < html.indexOf('/escalas.js?v=8'));
   assert.match(script, /const cultos = cultosParaImpressao\(d\.cultos, tipo\)/);
-  assert.match(script, /\.\.\.cultos\.map\(\(c\) => el\('tr'/);
+  assert.match(script, /montarEscalaImpressao\(cultos, tipo, formato, colunas, d\.titulo, el\)/);
 });

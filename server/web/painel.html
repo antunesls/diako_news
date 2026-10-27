@@ -243,6 +243,17 @@
   .seletor-musica-cartao .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .musica-resumo { min-width: 0; overflow-wrap: anywhere; }
   .musica-resumo strong { display: block; }
+  #dlg-lista-indisponibilidades { width: min(740px, calc(100vw - 32px)); max-height: 90dvh; overflow-y: auto; }
+  #lista-indisponibilidades { display: flex; flex-direction: column; gap: 10px; margin: 14px 0; }
+  .aviso-indisponibilidade { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px; border: 1px solid var(--linha); border-radius: 12px; }
+  .aviso-indisponibilidade .detalhes { flex: 1 1 250px; min-width: 0; overflow-wrap: anywhere; }
+  .aviso-indisponibilidade .detalhes strong { display: block; }
+  #dlg-formato-escala { width: min(580px, calc(100vw - 32px)); }
+  .formatos-escala { display: grid; gap: 10px; margin: 18px 0; }
+  .formatos-escala button { width: 100%; padding: 16px; text-align: left; border: 1px solid var(--linha); border-radius: 12px; background: var(--superficie); cursor: pointer; }
+  .formatos-escala button:hover, .formatos-escala button:focus-visible { border-color: var(--primaria); outline-color: var(--primaria); }
+  .formatos-escala strong { display: block; font-size: 17px; }
+  .formatos-escala span { display: block; margin-top: 4px; color: var(--suave); font-size: 14px; }
   @media (max-width: 560px) {
     .musicas-lista .musica { grid-template-columns: 25px minmax(0, 1fr) 42px; }
     .musicas-lista .musica input { grid-column: 2; grid-row: 2; width: 100%; }
@@ -250,6 +261,8 @@
     .seletor-musica-cartao { flex-wrap: wrap; }
     .seletor-musica-cartao img { flex: 0 0 100px; width: 100px; }
   }
+  @page escala-paisagem { size: A4 landscape; margin: 12mm; }
+  @page escala-retrato { size: A4 portrait; margin: 15mm; }
   @media print {
     body { background: #fff; }
     body > *:not(#impressao-membros) { display: none !important; }
@@ -259,6 +272,33 @@
     #impressao-membros table { width: 100%; border-collapse: collapse; }
     #impressao-membros th, #impressao-membros td { border: 1px solid #999; padding: 4px 6px; text-align: left; }
     #impressao-membros th { background: #eee; }
+    #impressao-membros.impressao-escala.paisagem { page: escala-paisagem; }
+    #impressao-membros.impressao-escala.retrato { page: escala-retrato; }
+    #impressao-membros.impressao-escala { font-size: 11px; color: #25302e; }
+    #impressao-membros.impressao-escala .escala-cabecalho { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #345e59; }
+    #impressao-membros.impressao-escala .escala-cabecalho img { width: 66px; height: 66px; object-fit: contain; }
+    #impressao-membros.impressao-escala .escala-igreja { margin: 0 0 3px; color: #345e59; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+    #impressao-membros.impressao-escala h1 { margin: 0 0 3px; color: #172c29; font-size: 29px; line-height: 1.12; }
+    #impressao-membros.impressao-escala .escala-mes-impresso { margin: 0; color: #465451; font-size: 14px; text-transform: capitalize; }
+    #impressao-membros.impressao-escala .escala-tabela { table-layout: fixed; font-size: 10px; }
+    #impressao-membros.impressao-escala .escala-tabela thead { display: table-header-group; }
+    #impressao-membros.impressao-escala .escala-tabela th { padding: 8px 6px; background: #e4efed; color: #203b37; border: 1px solid #9bb3ae; }
+    #impressao-membros.impressao-escala .escala-tabela td { padding: 8px 6px; vertical-align: top; line-height: 1.4; border: 1px solid #bbc9c6; overflow-wrap: anywhere; }
+    #impressao-membros.impressao-escala .escala-tabela tbody tr:nth-child(even) { background: #f3f7f6; }
+    #impressao-membros.impressao-escala .escala-tabela tr { break-inside: avoid; }
+    #impressao-membros.impressao-escala .escala-data { width: 20%; }
+    #impressao-membros.impressao-escala .escala-data strong, #impressao-membros.impressao-escala .escala-data span { display: block; }
+    #impressao-membros.impressao-escala .escala-musicas { margin: 0; padding-left: 16px; }
+    #impressao-membros.impressao-escala .escala-musicas li { padding-bottom: 3px; }
+    #impressao-membros.impressao-escala .escala-cartoes { display: grid; gap: 12px; }
+    #impressao-membros.impressao-escala .escala-cartao { padding: 14px 16px; border: 1px solid #a9bebb; border-left: 4px solid #345e59; border-radius: 8px; break-inside: avoid; }
+    #impressao-membros.impressao-escala .escala-cartao h2 { margin: 0 0 3px; color: #203b37; font-size: 18px; }
+    #impressao-membros.impressao-escala .escala-cartao header p { margin: 0 0 12px; }
+    #impressao-membros.impressao-escala .escala-funcoes { display: grid; grid-template-columns: minmax(95px, 30%) 1fr; margin: 0; gap: 0 12px; }
+    #impressao-membros.impressao-escala .escala-funcoes dt, #impressao-membros.impressao-escala .escala-funcoes dd { margin: 0; padding: 5px 0; border-top: 1px solid #e0e8e6; }
+    #impressao-membros.impressao-escala .escala-funcoes dt { font-weight: 700; }
+    #impressao-membros.impressao-escala .escala-repertorio h3 { margin: 12px 0 6px; font-size: 12px; }
+    #impressao-membros.impressao-escala .escala-rodape { margin: 18px 0 0; padding-top: 8px; border-top: 1px solid #bbc9c6; font-size: 10px; color: #52615e; }
     #impressao-membros .termo-texto { white-space: pre-line; font-size: 12.5px; line-height: 1.5; margin: 12px 0 18px; color: #000; }
     #impressao-membros .termo-dados { margin: 0 0 6px; color: #000; }
     #impressao-membros .assinatura { margin-top: 46px; width: 75%; border-top: 1px solid #000; padding-top: 4px; font-size: 12px; }
@@ -385,6 +425,7 @@
         <button type="button" class="botao secundario pequeno" id="escala-repetir" hidden></button>
         <button type="button" class="botao secundario pequeno" data-permissao="acessosEscala" data-ir="acessos">Acessos às escalas</button>
         <button type="button" class="botao secundario pequeno" id="escala-indisponivel" hidden>Indisponibilidade</button>
+        <button type="button" class="botao secundario pequeno" id="escala-ver-indisponibilidades" hidden>Ver indisponibilidades</button>
         <button type="button" class="botao secundario pequeno" id="escala-imprimir">Imprimir</button>
         <button type="button" class="botao pequeno" id="escala-extra" hidden>+ Culto extra</button>
       </div>
@@ -616,6 +657,16 @@
   </form>
 </dialog>
 
+<dialog id="dlg-formato-escala" aria-labelledby="titulo-formato-escala">
+  <h2 id="titulo-formato-escala">Como deseja imprimir a escala?</h2>
+  <p class="dica">Escolha o formato para a aba e o mês exibidos. Só entram cultos com pessoas escaladas.</p>
+  <div class="formatos-escala">
+    <button type="button" id="escala-formato-paisagem"><strong>Quadro mensal · A4 paisagem</strong><span>Visão geral em tabela, com funções e músicas lado a lado.</span></button>
+    <button type="button" id="escala-formato-retrato"><strong>Cartões por culto · A4 retrato</strong><span>Mais espaço para nomes, horários e músicas de cada culto.</span></button>
+  </div>
+  <div class="dialogo-acoes"><button type="button" class="botao secundario" id="escala-formato-fechar">Voltar</button></div>
+</dialog>
+
 <dialog id="dlg-selecionar-musica" aria-labelledby="seletor-musica-titulo">
   <h2 id="seletor-musica-titulo">Escolher música do repertório</h2>
   <div class="campo"><label for="seletor-musica-busca">Pesquisar por título, cantor ou compositor</label><input id="seletor-musica-busca" type="search" autocomplete="off" placeholder="Ex.: santo, intérprete ou compositor"></div>
@@ -698,6 +749,14 @@
       <button class="botao" value="salvar">Salvar</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="dlg-lista-indisponibilidades" aria-labelledby="titulo-lista-indisponibilidades">
+  <h2 id="titulo-lista-indisponibilidades">Indisponibilidades enviadas</h2>
+  <p class="dica">Todos os avisos ainda ativos, inclusive de outros meses. Cancelar remove o aviso da escala e desta lista.</p>
+  <p id="resultado-lista-indisponibilidades" role="status"></p>
+  <div id="lista-indisponibilidades"></div>
+  <div class="dialogo-acoes"><button type="button" class="botao secundario" id="fechar-lista-indisponibilidades">Fechar</button></div>
 </dialog>
 
 <dialog id="dlg-motivo">
@@ -1013,7 +1072,7 @@
 <script src="/repertorio-busca.js?v=1"></script>
 <script src="/musica-youtube.js?v=1"></script>
 <script src="/repertorio.js?v=2"></script>
-<script src="/escala-impressao.js?v=1"></script>
-<script src="/escalas.js?v=6"></script>
+<script src="/escala-impressao.js?v=2"></script>
+<script src="/escalas.js?v=8"></script>
 </body>
 </html>

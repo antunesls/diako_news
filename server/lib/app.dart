@@ -261,8 +261,9 @@ class Servidor {
       ..get('/api/escalas/hoje', _escalaDeHoje)
       ..post('/api/escalas', _criarCulto)
       ..post('/api/escalas/gerar', _gerarCultos)
-      ..post('/api/escalas/repetir', _repetirEscala)
-      ..post('/api/escalas/indisponibilidades', _criarIndisponibilidade)
+       ..post('/api/escalas/repetir', _repetirEscala)
+       ..get('/api/escalas/indisponibilidades', _listarTodasIndisponibilidades)
+       ..post('/api/escalas/indisponibilidades', _criarIndisponibilidade)
       ..delete('/api/escalas/indisponibilidades/<id>', _excluirIndisponibilidade)
       ..put('/api/escalas/<id>', _atualizarCulto)
       ..delete('/api/escalas/<id>', _excluirCulto)
@@ -2125,22 +2126,35 @@ class Servidor {
   }
 
   /// POST /api/escalas/indisponibilidades {membroId, de, ate, motivo?} — avisado à secretaria ou ao líder.
+  Response _listarTodasIndisponibilidades(Request req) {
+    if (!_podeAlgumaEscala(req)) return _semPermissaoEscala(null);
+    final membros = _membrosPorId();
+    final lista = store.listar('indisponibilidades').map((d) => {
+      ...d,
+      'nome': membros[d['membroId']]?.nome ?? '(pessoa removida)',
+    }).toList()
+      ..sort((a, b) => '${b['de']}'.compareTo('${a['de']}'));
+    return _json(lista);
+  }
+
   Future<Response> _criarIndisponibilidade(Request req) async {
     if (!_podeAlgumaEscala(req)) return _semPermissaoEscala(null);
     final corpo = await _corpo(req);
     if (store.buscar('membros', corpo['membroId'] as String? ?? '') == null) return _erro(400, 'Pessoa não encontrada no cadastro.');
-    return _salvarIndisponibilidade(corpo['membroId'] as String, corpo);
+    return _salvarIndisponibilidade(req, corpo['membroId'] as String, corpo);
   }
 
-  Future<Response> _salvarIndisponibilidade(String membroId, Map<String, dynamic> corpo) async {
+  Future<Response> _salvarIndisponibilidade(Request req, String membroId, Map<String, dynamic> corpo) async {
     final Indisponibilidade ind;
     try {
       ind = Indisponibilidade.fromJson({'id': novoId(), 'membroId': membroId, 'de': corpo['de'], 'ate': corpo['ate'] ?? corpo['de'], 'motivo': corpo['motivo']});
     } on FormatException catch (e) {
       return _erro(400, e.message);
     }
-    await store.salvar('indisponibilidades', ind.toJson());
-    return _json(ind.toJson(), status: 201);
+    final doc = {...ind.toJson(), 'enviadoEm': _agora().toUtc().toIso8601String(),
+      'enviadoPor': Auth.contaDa(req)?.nome ?? ''};
+    await store.salvar('indisponibilidades', doc);
+    return _json(doc, status: 201);
   }
 
   Future<Response> _excluirIndisponibilidade(Request req, String id) async {
@@ -2199,7 +2213,7 @@ class Servidor {
     final id = _membroDaConta(req);
     if (id == null) return _erro(403, 'Sua conta ainda não está vinculada a um membro.');
     if ((dataEscala(corpo['de']) ?? '').compareTo(diaEscala(_agora())) < 0) return _erro(400, 'Escolha uma data a partir de hoje.');
-    return _salvarIndisponibilidade(id, corpo);
+    return _salvarIndisponibilidade(req, id, corpo);
   }
 
   /// POST /api/minha-escala/indisponivel/remover {id} — só uma indisponibilidade da própria pessoa.

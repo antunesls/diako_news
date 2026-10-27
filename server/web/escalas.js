@@ -65,6 +65,7 @@ function desenharEscala() {
   $('escala-repetir').hidden = !podeTipo || d.cultos.length === 0;
   $('escala-extra').hidden = !d.pode.pastoral;
   $('escala-indisponivel').hidden = !algum;
+  $('escala-ver-indisponibilidades').hidden = !algum;
   $('escala-imprimir').hidden = d.cultos.length === 0;
 
   const vazio = d.cultos.length === 0;
@@ -408,6 +409,47 @@ $('escala-indisponivel').addEventListener('click', () => {
   });
 });
 
+function periodoCompleto(de, ate) {
+  const br = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+  return de === ate ? br(de) : `${br(de)} a ${br(ate)}`;
+}
+
+async function carregarTodasIndisponibilidades() {
+  const resultado = $('resultado-lista-indisponibilidades');
+  resultado.textContent = 'Carregando avisos…';
+  try {
+    const avisos = await api('GET', '/api/escalas/indisponibilidades');
+    resultado.textContent = `${avisos.length} ${avisos.length === 1 ? 'aviso ativo' : 'avisos ativos'}.`;
+    $('lista-indisponibilidades').replaceChildren(...(avisos.length ? avisos.map((i) => {
+      const cancelar = botao('Cancelar aviso', async () => {
+        if (!confirm(`Cancelar a indisponibilidade de ${i.nome} (${periodoCompleto(i.de, i.ate)})?`)) return;
+        cancelar.disabled = true;
+        try {
+          await api('DELETE', '/api/escalas/indisponibilidades/' + encodeURIComponent(i.id));
+          await carregarTodasIndisponibilidades();
+          await carregarEscalas();
+        } catch (err) {
+          mensagem(resultado, err.message, false);
+          cancelar.disabled = false;
+        }
+      });
+      return el('div', { class: 'aviso-indisponibilidade' },
+        el('div', { class: 'detalhes' },
+          el('strong', {}, i.nome),
+          el('div', {}, `Indisponível: ${periodoCompleto(i.de, i.ate)}${i.motivo ? ' · ' + i.motivo : ''}`),
+          el('div', { class: 'dica' }, `Enviado por: ${i.enviadoPor || 'não registrado'} · Em: ${i.enviadoEm ? new Date(i.enviadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'não registrado'}`)),
+        cancelar);
+    }) : [el('p', { class: 'dica' }, 'Nenhuma indisponibilidade ativa cadastrada.') ]));
+  } catch (err) {
+    mensagem(resultado, err.message, false);
+  }
+}
+$('escala-ver-indisponibilidades').addEventListener('click', () => {
+  $('dlg-lista-indisponibilidades').showModal();
+  carregarTodasIndisponibilidades();
+});
+$('fechar-lista-indisponibilidades').addEventListener('click', () => $('dlg-lista-indisponibilidades').close());
+
 // ---------- WhatsApp e impressão ----------
 
 $('escala-whatsapp').addEventListener('input', () => {
@@ -423,21 +465,29 @@ $('escala-copiar').addEventListener('click', async () => {
 });
 
 $('escala-imprimir').addEventListener('click', () => {
-  const d = escala.dados, tipo = escala.tipo;
+  const d = escala.dados;
+  if (!d) return;
+  const tipo = escala.tipo;
   const cultos = cultosParaImpressao(d.cultos, tipo);
   if (!cultos.length) {
     mensagem($('resultado-escala'), 'Nenhuma pessoa escalada nesta aba para imprimir.', false);
     return;
   }
-  const colunas = colunasDoMes({ cultos }, tipo);
-  $('impressao-membros').replaceChildren(
-    el('h1', {}, `Escala ${tipo === 'pastoral' ? 'pastoral' : 'do louvor'} — ${d.titulo}`),
-    el('p', {}, 'Igreja Diakonia Tulipas'),
-    el('table', {},
-      el('thead', {}, el('tr', {}, el('th', {}, 'Culto'), ...colunas.map((f) => el('th', {}, f)), tipo === 'louvor' ? el('th', {}, 'Músicas') : null)),
-      el('tbody', {}, ...cultos.map((c) => el('tr', {},
-        el('td', {}, `${c.rotulo} · ${c.horaTexto}${c.ceia ? ' · Santa Ceia' : ''}`),
-        ...colunas.map((f) => el('td', {}, c.funcoes[tipo].includes(f) ? (c[tipo][f] || []).map((p) => p.nome).join(', ') : '')),
-        tipo === 'louvor' ? el('td', {}, (c.musicas || []).map((m) => m.tom ? `${m.titulo} (${m.tom})` : m.titulo).join('; ')) : null)))));
-  window.print();
+  $('dlg-formato-escala').showModal();
 });
+
+function imprimirEscala(formato) {
+  const d = escala.dados, tipo = escala.tipo;
+  const cultos = cultosParaImpressao(d.cultos, tipo);
+  if (!cultos.length) return;
+  const colunas = colunasDoMes({ cultos }, tipo);
+  const alvo = $('impressao-membros');
+  alvo.className = `impressao-escala ${formato}`;
+  alvo.replaceChildren(montarEscalaImpressao(cultos, tipo, formato, colunas, d.titulo, el));
+  $('dlg-formato-escala').close();
+  window.print();
+}
+$('escala-formato-paisagem').addEventListener('click', () => imprimirEscala('paisagem'));
+$('escala-formato-retrato').addEventListener('click', () => imprimirEscala('retrato'));
+$('escala-formato-fechar').addEventListener('click', () => $('dlg-formato-escala').close());
+window.addEventListener('afterprint', () => { $('impressao-membros').className = ''; });

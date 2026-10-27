@@ -227,6 +227,32 @@ void main() {
       expect(hoje['cultos'].single['musicas'].single['titulo'], 'Abertura');
     });
 
+    test('consulta todos os avisos ativos com autor e envio; cancelar remove da lista', () async {
+      final bruno = await membro('Bruno Reis', ministerios: ['Louvor']);
+      final secretaria = await criarUsuario('secretaria.aviso', Perfil.secretaria);
+      final midia = await criarUsuario('midia.aviso', Perfil.midia);
+      final (st, criado) = await chamar('POST', '/api/escalas/indisponibilidades', token: secretaria,
+          json: {'membroId': bruno, 'de': '2027-01-05', 'ate': '2027-01-07', 'motivo': 'viagem',
+            'enviadoPor': 'nome-falso', 'enviadoEm': '1999-01-01'});
+      expect(st, 201);
+      expect(criado['enviadoPor'], 'Usuário secretaria.aviso');
+      expect(criado['enviadoEm'], startsWith('2026-10-28T'));
+      await store.salvar('indisponibilidades', {'id': 'legado', 'membroId': bruno,
+        'de': '2025-01-01', 'ate': '2025-01-02'});
+      expect((await chamar('GET', '/api/escalas/indisponibilidades')).$1, 401);
+      expect((await chamar('GET', '/api/escalas/indisponibilidades', token: midia)).$1, 403);
+      final (stLista, lista) = await chamar('GET', '/api/escalas/indisponibilidades', token: secretaria);
+      expect(stLista, 200);
+      expect(lista, hasLength(2));
+      expect(lista.first, containsPair('nome', 'Bruno Reis'));
+      expect(lista.first, containsPair('enviadoPor', 'Usuário secretaria.aviso'));
+      expect(lista.last['enviadoEm'], isNull);
+      expect(lista.last['enviadoPor'], isNull);
+      expect((await chamar('DELETE', '/api/escalas/indisponibilidades/${criado['id']}', token: midia)).$1, 403);
+      expect((await chamar('DELETE', '/api/escalas/indisponibilidades/${criado['id']}', token: secretaria)).$1, 200);
+      expect((await chamar('GET', '/api/escalas/indisponibilidades', token: secretaria)).$2, hasLength(1));
+    });
+
     test('Minha escala: login vinculado, isolamento, secretaria e QR comum', () async {
       await chamar('PUT', '/api/admin/configuracoes', token: admin, json: {'siteCultos': 'Domingo — 19h\nQuarta — 20h'});
       await chamar('POST', '/api/escalas/gerar', token: admin, json: {'mes': '2026-11'});
@@ -269,6 +295,9 @@ void main() {
           json: {'membroId': ana, 'de': '2026-11-15', 'ate': '2026-11-16', 'motivo': 'viagem'});
       expect(stInd, 201);
       expect(ind['membroId'], bruno);
+      expect(ind['enviadoPor'], 'Bruno Reis');
+      expect(ind['enviadoEm'], startsWith('2026-10-28T'));
+      expect((await chamar('GET', '/api/escalas/indisponibilidades', token: acesso)).$1, 403);
       expect((await chamar('GET', '/api/minha-escala', token: acesso)).$2['indisponibilidades'].single['motivo'], 'viagem');
       // A indisponibilidade de outra pessoa não pode ser removida por esta conta.
       final (_, daAna) = await chamar('POST', '/api/escalas/indisponibilidades', token: admin, json: {'membroId': ana, 'de': '2026-11-20'});
