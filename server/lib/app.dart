@@ -1575,8 +1575,12 @@ class Servidor {
   /// GET /api/visitas?desde=aaaa-mm-dd (padrão: últimos 30 dias), mais novas primeiro.
   /// Quem não cuida do cadastro (recepção, telão) não vê as anotações do acompanhamento.
   Response _listarVisitas(Request req) {
-    final desde = req.url.queryParameters['desde'] ?? diaIso(_agora().subtract(const Duration(days: 30)));
-    final completo = Auth.contaDa(req)?.pode(Permissao.membros) ?? false;
+    final conta = Auth.contaDa(req);
+    // A Recepção só vê as visitas de hoje, seja qual for o "desde" pedido.
+    final desde = conta?.perfil == Perfil.recepcao
+        ? _hoje()
+        : req.url.queryParameters['desde'] ?? diaIso(_agora().subtract(const Duration(days: 30)));
+    final completo = conta?.pode(Permissao.membros) ?? false;
     final lista = [
       for (final v in store.listar('visitas'))
         if ((v['data'] as String? ?? '').compareTo(desde) >= 0)

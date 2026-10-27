@@ -175,6 +175,25 @@ void main() {
       expect(vs.where((v) => v['primeiraVez'] == false), hasLength(1));
     });
 
+    test('Recepção só vê as visitas de hoje, mesmo pedindo outro período', () async {
+      final obreiro = await criarUsuario('ana.recepcao', Perfil.recepcao);
+      final hoje = diaIso(DateTime.now());
+      final ontem = diaIso(DateTime.now().subtract(const Duration(days: 1)));
+      Map<String, dynamic> visita(String id, String data) =>
+          {'id': id, 'membroId': 'm$id', 'nome': 'Pessoa $id', 'data': data, 'criadoEm': '${data}T10:00:00'};
+      await store.salvarVarios('visitas', [visita('h', hoje), visita('o', ontem)]);
+
+      for (final q in ['', '?desde=2000-01-01', '?desde=$ontem', '?desde=xyz']) {
+        final (st, lista) = await chamar('GET', '/api/visitas$q', token: obreiro);
+        expect(st, 200);
+        expect((lista as List).map((v) => v['id']), ['h'], reason: q);
+      }
+      expect((await visitas()).map((v) => v['id']), unorderedEquals(['h', 'o']));
+      final secretaria = await criarUsuario('bia.secretaria', Perfil.secretaria);
+      final (_, daSecretaria) = await chamar('GET', '/api/visitas?desde=$ontem', token: secretaria);
+      expect((daSecretaria as List).map((v) => v['id']), unorderedEquals(['h', 'o']));
+    });
+
     test('validações: pergunta do púlpito, LGPD no QR, menor sem responsável, data', () async {
       final base = {'pessoas': [{'nome': 'Ana', 'aniversario': '05/03'}], 'autorizo': true};
       expect((await chamar('POST', '/api/public/visitante', json: base)).$1, 400); // sem "mencionar"
