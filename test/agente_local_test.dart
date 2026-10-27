@@ -80,7 +80,9 @@ void main() {
   });
 
   test('erro do próprio Holyrics pela rede local não repete pela internet', () async {
-    final l = local((_) async => http.Response(jsonEncode({'status': 'error', 'error': 'Holyrics não respondeu.'}), 200));
+    // O agente responde em UTF-8 (application/json; charset=utf-8).
+    final l = local((_) async =>
+        http.Response.bytes(utf8.encode(jsonEncode({'status': 'error', 'error': 'Holyrics não respondeu.'})), 200));
     final c = HolyricsClient(api(), local: l);
     await expectLater(c.testar(), throwsA(isA<HolyricsException>()));
     expect(pedidosServidor, isEmpty);
