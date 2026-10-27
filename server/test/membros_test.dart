@@ -28,12 +28,16 @@ void main() {
     late Handler handler;
     late String token;
     late String pastaDados;
+    var discoCheio = false;
 
     setUp(() async {
       tmp = await Directory.systemTemp.createTemp('diako_membros');
       final config = Config.lerJson('{"senhaAdmin":"senha-teste"}', pastaBase: tmp.path);
       pastaDados = config.pastaDados;
-      store = Store(config.pastaDados);
+      discoCheio = false;
+      store = Store(config.pastaDados,
+          gravar: (caminho, conteudo) =>
+              discoCheio ? throw const FileSystemException('disco cheio') : Store.gravarArquivo(caminho, conteudo));
       await store.carregar();
       final cfg = await Configuracoes.carregar(config, urlDetectada: 'http://192.168.0.10:8080');
       final auth = Auth(conferirSenha: cfg.conferirSenha, pastaDados: config.pastaDados);
@@ -78,6 +82,19 @@ void main() {
 
     Future<Map<String, dynamic>> criar(Map<String, dynamic> dados) async =>
         (await chamar('POST', '/api/membros', json: dados)).$2 as Map<String, dynamic>;
+
+    test('falha ao gravar no disco não confirma o cadastro', () async {
+      discoCheio = true;
+      final (st, r) = await chamar('POST', '/api/membros', json: {'nome': 'Ana', 'dia': 5, 'mes': 3});
+      expect(st, 503);
+      expect(r['erro'], isNot(contains(pastaDados)));
+      expect((await chamar('GET', '/api/membros')).$2, isEmpty);
+      expect(store.versoes['membros'], 0);
+
+      discoCheio = false;
+      expect((await chamar('POST', '/api/membros', json: {'nome': 'Ana', 'dia': 5, 'mes': 3})).$1, 201);
+      expect((await chamar('GET', '/api/membros')).$2, hasLength(1));
+    });
 
     test('membro antigo (só nome/dia/mês/ativo) volta com status derivado', () async {
       await store.salvar('membros', {'id': 'antigo', 'nome': 'Membro Antigo', 'dia': 20, 'mes': 12, 'ativo': false});

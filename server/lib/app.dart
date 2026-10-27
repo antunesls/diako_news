@@ -2501,6 +2501,10 @@ class Servidor {
           return _erro(400, 'Dados inválidos.');
         } on TypeError {
           return _erro(400, 'Dados inválidos.');
+        } on FileSystemException catch (e) {
+          // Não confirma o que não foi gravado. O caminho fica só no log do servidor.
+          stderr.writeln('Falha ao gravar (${req.method} /${req.url.path}): ${e.message} ${e.path ?? ''} ${e.osError ?? ''}');
+          return _erro(503, 'Não foi possível gravar os dados no servidor. Tente de novo; se continuar, avise o responsável.');
         }
       };
 }
