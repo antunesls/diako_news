@@ -263,14 +263,14 @@ function linhaMusica(m = { titulo: '', tom: '' }, editavel = true) {
   function atualizarResumo() {
     const r = repertorioMusicas.find((x) => x.id === escolha.value);
     const link = linkYoutube(r?.referencia);
-    resumo.replaceChildren(el('strong', {}, r?.titulo || m.titulo || 'Nenhuma música selecionada'),
+    resumo.replaceChildren(...[el('strong', {}, r?.titulo || m.titulo || 'Nenhuma música selecionada'),
       r ? el('span', { class: 'dica' }, `${r.cantor}${r.compositor ? ' · ' + r.compositor : ''}`) : null,
       link ? el('a', { href: link, target: '_blank', rel: 'noopener noreferrer', style: 'display:block' }, 'Ver no YouTube ↗') : null,
       editavel ? botao(r ? 'Trocar música' : 'Escolher música', () => abrirSeletorMusica((selecionada) => {
         if (escolha.value === selecionada.id) return;
         escolha.value = selecionada.id;
         escolha.dispatchEvent(new Event('change'));
-      })) : null);
+      })) : null].filter(Boolean));
   }
   escolha.addEventListener('change', () => {
     const r = repertorioMusicas.find((x) => x.id === escolha.value);

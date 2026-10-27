@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { videoYoutube, miniaturaYoutube, linkYoutube } = require('../web/musica-youtube.js');
 
 test('miniatura e link aceitam somente vídeos do YouTube', () => {
@@ -27,5 +28,30 @@ test('escala tem seletor independente com busca e Minha escala mostra link e tom
   assert.match(script, /linkYoutube\(/);
   assert.match(minha, /m\.youtube/);
   assert.match(minha, /m\.tom/);
-  assert.ok(html.indexOf('/musica-youtube.js?v=1') < html.indexOf('/escalas.js?v=5'));
+  assert.ok(html.indexOf('/musica-youtube.js?v=1') < html.indexOf('/escalas.js?v=6'));
+});
+
+test('linha vazia de música não mostra texto null no resumo', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../web/escalas.js'), 'utf8');
+  const trecho = script.slice(script.indexOf('function linhaMusica('), script.indexOf('function numerarMusicas()'));
+  const criados = [];
+  const el = (tag, props = {}, ...filhos) => {
+    const elemento = {
+      tag, props, dataset: {}, children: filhos,
+      append(...itens) { this.children.push(...itens); },
+      replaceChildren(...itens) { this.children = itens.map((i) => i == null ? String(i) : i); },
+      addEventListener() {},
+    };
+    criados.push(elemento);
+    return elemento;
+  };
+  vm.runInNewContext(`${trecho}\nlinhaMusica(); linhaMusica({ titulo: 'Histórica', tom: 'G' }, false)`, {
+    el, repertorioMusicas: [], linkYoutube: () => null,
+    botao: (texto) => el('button', {}, texto),
+  });
+  const resumos = criados.filter((e) => e.props.class === 'musica-resumo');
+  assert.ok(resumos[0].children.some((e) => e.tag === 'strong' && e.children.includes('Nenhuma música selecionada')));
+  for (const resumo of resumos) {
+    assert.ok(!resumo.children.includes('null'), 'replaceChildren recebeu null e o transformou em texto');
+  }
 });
