@@ -9,9 +9,10 @@ import 'holyrics.dart';
 /// WebSocket do agente instalado no PC da igreja, que os repassa ao Holyrics local.
 ///
 /// Mensagens servidor → agente: {"tipo":"holyrics","id","acao","corpo"}, {"tipo":"sincronizar"},
-/// {"tipo":"tablets","lista":[{id, hash, nome}]} e {"tipo":"historico-ok","ids"}.
-/// Mensagens agente → servidor: {"tipo":"resposta","id","status","corpo"}, {"tipo":"ola","versao"} e
-/// {"tipo":"historico","eventos":[{id, quando, acao, corpo, tablet}]} (projeções feitas pela rede local).
+/// {"tipo":"tablets","lista":[{id, hash, nome}]}, {"tipo":"historico-ok","ids"} e {"tipo":"backup"}.
+/// Mensagens agente → servidor: {"tipo":"resposta","id","status","corpo"}, {"tipo":"ola","versao"},
+/// {"tipo":"historico","eventos":[{id, quando, acao, corpo, tablet}]} (projeções feitas pela rede local) e
+/// {"tipo":"backup-copiado","nome"} (o backup mais novo já está no PC da igreja).
 class HolyricsViaAgente extends PonteHolyrics {
   HolyricsViaAgente({this.timeout = const Duration(seconds: 8), DateTime Function()? relogio})
       : _agora = relogio ?? DateTime.now;
@@ -34,6 +35,9 @@ class HolyricsViaAgente extends PonteHolyrics {
 
   /// Grava as projeções feitas pela rede local; retorna os ids aceitos (o agente os tira da fila).
   Future<List<String>> Function(List<Map<String, dynamic>> eventos)? aoReceberHistorico;
+
+  /// O agente confirmou que o backup [nome] está no PC da igreja.
+  Future<void> Function(String nome)? aoCopiarBackup;
 
   /// Registra a conexão do agente. Uma conexão nova substitui a anterior.
   void conectar(WebSocketChannel canal) {
@@ -65,6 +69,9 @@ class HolyricsViaAgente extends PonteHolyrics {
 
   /// Pede ao agente para sincronizar os cartazes (ex: depois de um upload).
   void pedirSincronizacao() => _enviar({'tipo': 'sincronizar'});
+
+  /// Pede ao agente para copiar os backups para o PC da igreja (ex: depois de gravar um).
+  void pedirCopiaBackup() => _enviar({'tipo': 'backup'});
 
   @override
   Future<RespostaHolyrics> chamar(String acao, String corpoJson) {
@@ -100,6 +107,9 @@ class HolyricsViaAgente extends PonteHolyrics {
         final gravar = aoReceberHistorico;
         if (gravar == null || eventos.isEmpty) return;
         unawaited(gravar(eventos).then((ids) => _enviar({'tipo': 'historico-ok', 'ids': ids})));
+      case 'backup-copiado':
+        final nome = j['nome'];
+        if (nome is String) unawaited(aoCopiarBackup?.call(nome).catchError((_) {}));
     }
   }
 

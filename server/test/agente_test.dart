@@ -8,6 +8,7 @@ import 'package:diako_server/agente_hub.dart';
 import 'package:diako_server/app.dart';
 import 'package:diako_server/auth.dart';
 import 'package:diako_server/backup.dart';
+import 'package:diako_server/backup_cifrado.dart';
 import 'package:diako_server/cartazes.dart';
 import 'package:diako_server/config.dart';
 import 'package:diako_server/historico.dart';
@@ -43,6 +44,17 @@ void main() {
       expect(() => AgenteConfig.lerJson('{"servidor":"https://exemplo.org",'
           '"chaveAgente":"chave","pastaImagensHolyrics":"X:/img","monitor":{"porta":70000}}'),
           throwsFormatException);
+    });
+    test('cópia do backup: ligada por padrão, pasta e quantidade configuráveis', () {
+      const base = '{"servidor":"https://exemplo.org","chaveAgente":"chave","pastaImagensHolyrics":"X:/img"';
+      final padrao = AgenteConfig.lerJson('$base}');
+      expect([padrao.pastaBackup, padrao.backupsManter], ['', 7]);
+      expect(Agente(padrao, pastaDados: p.join('C:', 'DiakoNews')).pastaBackup, p.join('C:', 'DiakoNews', 'backups-servidor'));
+      final drive = AgenteConfig.lerJson('$base,"backup":{"pasta":"G:/Meu Drive/Backup","manter":3}}');
+      expect(Agente(drive).pastaBackup, 'G:/Meu Drive/Backup');
+      expect(drive.backupsManter, 3);
+      expect(Agente(AgenteConfig.lerJson('$base,"backup":{"manter":0}}'), pastaDados: 'C:/DiakoNews').pastaBackup, isNull);
+      expect(() => AgenteConfig.lerJson('$base,"backup":{"manter":-1}}'), throwsFormatException);
     });
     test('modo agente exige chave longa e senha de 10+', () {
       expect(() => Config.lerJson('{"senhaAdmin":"1234567890","holyrics":{"modo":"agente"}}', pastaBase: '.'),
@@ -172,12 +184,13 @@ void main() {
       final cartazes = Cartazes(p.join(dados, 'cartazes'));
       await gravarQr(cartazes.pasta, 'https://exemplo.org/oracao');
       hub = HolyricsViaAgente();
+      final backup = Backup(pastaDados: dados);
       final servidor = Servidor(
         store: store,
         auth: auth,
         holyrics: hub,
         cartazes: cartazes,
-        backup: Backup(pastaDados: dados),
+        backup: backup,
         pastaWeb: web.path,
         urlOracao: 'https://exemplo.org/oracao',
         cartazesNoHolyrics: false,
@@ -186,6 +199,8 @@ void main() {
         chaveAgente: chaveAgente,
         chaveMural: 'chave-mural',
         confiarProxy: true,
+        senhaBackup: SenhaBackup(dados, iteracoes: 1000),
+        restauracao: Restauracao(store: store, backup: backup, pastaDados: dados, pastaCartazes: cartazes.pasta),
       );
       http_ = await io.serve(servidor.handler, InternetAddress.loopbackIPv4, 0);
       base = 'http://127.0.0.1:${http_.port}';
@@ -201,6 +216,8 @@ void main() {
           chaveAgente: chaveAgente,
           holyricsToken: 'tk',
           pastaImagensHolyrics: p.join(tmp.path, 'igreja', 'imagens'),
+          pastaBackup: p.join(tmp.path, 'igreja', 'backups'),
+          backupsManter: 2,
         ),
         clienteHolyrics: holyricsFalso,
         log: logs.add,
@@ -244,6 +261,79 @@ void main() {
       await http.delete(Uri.parse('$base/api/cartazes/retiro.png'), headers: auth());
       await ate(() => !File(pastaIgreja('retiro.png')).existsSync());
       expect(File(pastaIgreja(arquivoQr)).existsSync(), isTrue);
+    });
+
+    test('backup vai cifrado para o PC da igreja só depois de definida a senha', () async {
+      const senhaBk = 'senha do backup da igreja';
+      final noServidor = p.join(tmp.path, 'servidor', 'data', 'backups');
+      final noPc = p.join(tmp.path, 'igreja', 'backups');
+      await Directory(noServidor).create(recursive: true);
+      await Directory(noPc).create(recursive: true);
+      final zipFalso = [0x50, 0x4B, 0x03, 0x04, 1, 2, 3];
+      for (final dia in ['20', '21']) {
+        await File(p.join(noServidor, 'diako-backup-2026-10-$dia.zip')).writeAsBytes(zipFalso);
+      }
+      await File(p.join(noPc, 'diako-backup-2026-10-01.zip.cifrado')).writeAsBytes([1]); // velho: sai
+      await File(p.join(noPc, 'leia-me.txt')).writeAsString('não é backup'); // fica
+      Future<Map> backups() async => jsonDecode((await http.get(Uri.parse('$base/api/backups'), headers: auth())).body) as Map;
+
+      await store.salvar('recados', {'id': 'r1', 'titulo': 'Culto de domingo'});
+      // Sem senha do backup, nada sai do servidor: a cópia fica desligada e o painel avisa.
+      final r = await http.post(Uri.parse('$base/api/backup'), headers: auth());
+      final nome = (jsonDecode(r.body) as Map)['nome'] as String;
+      await ate(() => (agente.estado['erroBackup'] as String? ?? '').contains('senha do backup'));
+      expect(File(p.join(noPc, '$nome.cifrado')).existsSync(), isFalse);
+      expect((await backups())['alertas'].single, contains('Defina a senha do backup'));
+      expect((await backups())['senhaDefinidaEm'], isNull);
+
+      final curta = await http.put(Uri.parse('$base/api/backup/senha'), headers: auth(), body: jsonEncode({'senha': 'curta'}));
+      expect(curta.statusCode, 400);
+      final ok = await http.put(Uri.parse('$base/api/backup/senha'), headers: auth(), body: jsonEncode({'senha': senhaBk}));
+      expect(ok.statusCode, 200);
+
+      // Definida a senha, o agente copia sozinho os 2 mais novos (backupsManter), cifrados.
+      await ate(() => File(p.join(noPc, '$nome.cifrado')).existsSync() &&
+          !File(p.join(noPc, 'diako-backup-2026-10-01.zip.cifrado')).existsSync());
+      expect(Directory(noPc).listSync().map((e) => p.basename(e.path)).toSet(),
+          {'$nome.cifrado', 'diako-backup-2026-10-21.zip.cifrado', 'leia-me.txt'});
+      final copia = File(p.join(noPc, '$nome.cifrado')).readAsBytesSync();
+      final original = File(p.join(noServidor, nome)).readAsBytesSync();
+      expect(copia.sublist(0, 2), isNot([0x50, 0x4B])); // não é um zip aberto
+      expect(decifrarBackup(copia, senhaBk), original);
+
+      for (var i = 0; i < 50 && (await backups())['copiaPc'] == null; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      final b = await backups();
+      expect(b['copiaPc'], isNotNull);
+      expect(b['senhaDefinidaEm'], isNotNull);
+      expect(b['alertas'], isEmpty);
+      final estado = jsonDecode((await http.get(Uri.parse('$base/api/estado'), headers: auth())).body) as Map;
+      expect(estado['alertasBackup'], isEmpty);
+      expect(estado['copiaBackupPc'], isNotNull);
+      expect(agente.estado['ultimoBackupCopiado'], nome);
+
+      // A chave só vale no cabeçalho nas rotas de backup (nunca na URL, que vai para logs).
+      Future<int> get(String caminho, [Map<String, String>? h]) async =>
+          (await http.get(Uri.parse('$base/agente/$caminho'), headers: h)).statusCode;
+      expect(await get('backups'), 401);
+      expect(await get('backups?chave=$chaveAgente'), 401);
+      expect(await get('backups/$nome?chave=$chaveAgente'), 401);
+      expect(await get('backups', {'x-chave-agente': 'errada'}), 401);
+      expect(await get('backups', {'x-chave-agente': chaveAgente}), 200);
+      expect(await get('backups/..%2Fusuarios.json', {'x-chave-agente': chaveAgente}), 404);
+
+      // Restaurar a cópia do PC no /admin exige a senha (no cabeçalho).
+      Future<http.Response> restaurar([String? s]) => http.post(Uri.parse('$base/api/backups/restaurar'),
+          headers: {...auth(), 'Content-Type': 'application/zip', if (s != null) 'x-senha-backup': s}, body: copia);
+      expect((await restaurar()).body, contains('digite a senha'));
+      expect((await restaurar('senha errada de novo')).body, contains('errada'));
+      final restaurado = await restaurar(senhaBk);
+      expect(restaurado.statusCode, 200, reason: restaurado.body);
+
+      // Sem senha de novo: a cópia volta a ficar desligada.
+      expect((await http.delete(Uri.parse('$base/api/backup/senha'), headers: auth())).statusCode, 200);
+      expect(await get('backups', {'x-chave-agente': chaveAgente}), 409);
     });
 
     test('agente desconectado vira aviso; chave errada é recusada', () async {

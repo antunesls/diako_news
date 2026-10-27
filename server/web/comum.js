@@ -4,8 +4,8 @@
 
 let token = localStorage.getItem('diako_token');
 
-async function api(metodo, caminho, corpo, { bruto = false, tipo } = {}) {
-  const headers = { Authorization: 'Bearer ' + token };
+async function api(metodo, caminho, corpo, { bruto = false, tipo, cabecalhos = {} } = {}) {
+  const headers = { ...cabecalhos, Authorization: 'Bearer ' + token };
   let body;
   if (bruto) {
     body = corpo;

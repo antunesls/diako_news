@@ -6,9 +6,11 @@ import 'package:diako_server/agente_hub.dart';
 import 'package:diako_server/app.dart';
 import 'package:diako_server/auth.dart';
 import 'package:diako_server/backup.dart';
+import 'package:diako_server/backup_cifrado.dart';
 import 'package:diako_server/cartazes.dart';
 import 'package:diako_server/config.dart';
 import 'package:diako_server/configuracoes.dart';
+import 'package:diako_server/email_mensagens.dart';
 import 'package:diako_server/historico.dart';
 import 'package:diako_server/holyrics.dart';
 import 'package:diako_server/qr_oracao.dart';
@@ -57,7 +59,15 @@ Future<void> main(List<String> args) async {
     horario: () => cfg.horaBackup,
     manter: () => cfg.backupsManter,
     configuracoes: cfg.publicas,
-  )..agendar();
+  )
+    ..aoFalhar = (quando) async {
+      if (cfg.smtpConfigurado) await enviarEmailFalhaBackup(cfg, quando, '${cfg.urlBase}/admin#backup');
+    }
+    ..agendar();
+
+  // Senha da cópia cifrada do backup no PC da igreja (data/backup-senha.json, fora dos backups).
+  final senhaBackup = SenhaBackup(config.pastaDados);
+  await senhaBackup.carregar();
 
   final modoAgente = config.modoHolyrics == ModoHolyrics.agente;
   final agente = modoAgente ? HolyricsViaAgente() : null;
@@ -93,6 +103,7 @@ Future<void> main(List<String> args) async {
     versao: versao,
     agente: agente,
     tabletsLocais: tabletsLocais,
+    senhaBackup: senhaBackup,
     confiarProxy: config.confiarProxy,
     cfg: cfg,
     senhaMinima: online ? 10 : 6,

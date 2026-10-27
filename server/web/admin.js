@@ -469,7 +469,49 @@ async function carregarBackups() {
         await carregarBackups();
       }, 'perigo pequeno'))));
   $('lista-backups').replaceChildren(...(linhas.length ? linhas : [el('tr', {}, el('td', { colspan: '3', class: 'dica' }, 'Nenhum backup ainda.'))]));
+  $('copia-pc-backup').hidden = !r.modoAgente;
+  $('copia-pc-backup').textContent = 'Cópia no PC da igreja (feita pelo agente): ' +
+    (r.copiaPc ? 'última em ' + dataCurta(r.copiaPc) : 'ainda não feita') + '.';
+  $('alertas-backup').replaceChildren(...(r.alertas || []).map((a) => el('p', { class: 'erro', role: 'alert' }, a)));
+  const definida = r.senhaDefinidaEm !== null && r.senhaDefinidaEm !== undefined;
+  $('estado-senha-backup').textContent = definida
+    ? 'Senha definida' + (r.senhaDefinidaEm ? ' em ' + dataCurta(r.senhaDefinidaEm) : '') + '. Trocar a senha vale para as próximas cópias; as que já estão no PC continuam com a senha anterior.'
+    : 'Nenhuma senha definida: a cópia no PC da igreja está desligada.';
+  $('remover-senha-backup').hidden = !definida;
 }
+
+$('form-senha-backup').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const saida = $('res-senha-backup');
+  if ($('senha-backup').value !== $('senha-backup2').value) {
+    mensagem(saida, 'As duas senhas não conferem.', false);
+    return;
+  }
+  try {
+    await api('PUT', '/api/backup/senha', { senha: $('senha-backup').value });
+    $('form-senha-backup').reset();
+    mensagem(saida, 'Senha definida. Anote em lugar seguro. O agente começa a copiar em instantes.');
+    await carregarBackups();
+  } catch (err) {
+    mensagem(saida, err.message, false);
+  }
+});
+
+$('remover-senha-backup').addEventListener('click', async () => {
+  if (!await confirmar('Remover a senha do backup?', 'A cópia no PC da igreja será desligada. As cópias que já estão lá continuam cifradas com a senha atual.', 'Remover')) return;
+  try {
+    await api('DELETE', '/api/backup/senha');
+    mensagem($('res-senha-backup'), 'Senha removida. A cópia no PC está desligada.');
+    await carregarBackups();
+  } catch (err) {
+    mensagem($('res-senha-backup'), err.message, false);
+  }
+});
+
+$('arquivo-restaurar').addEventListener('change', () => {
+  const arquivo = $('arquivo-restaurar').files[0];
+  $('campo-senha-restaurar').hidden = !(arquivo && arquivo.name.endsWith('.cifrado'));
+});
 
 function descreverRestauracao(r) {
   const c = r.colecoes || {};
@@ -501,13 +543,22 @@ $('restaurar-arquivo').addEventListener('click', async () => {
     mensagem(saida, 'Escolha o arquivo .zip do backup.', false);
     return;
   }
+  const cifrado = arquivo.name.endsWith('.cifrado');
+  if (cifrado && !$('senha-restaurar').value) {
+    mensagem(saida, 'Digite a senha do backup para abrir a cópia cifrada.', false);
+    return;
+  }
   if (!await confirmar('Restaurar ' + arquivo.name + '?', avisoRestaurar, 'Restaurar')) return;
   try {
     mensagem(saida, 'Enviando e restaurando…');
     const q = $('restaurar-config').checked ? '?configuracoes=1' : '';
-    const r = await api('POST', '/api/backups/restaurar' + q, arquivo, { bruto: true, tipo: 'application/zip' });
+    // A senha vai no cabeçalho, nunca na URL.
+    const cabecalhos = cifrado ? { 'X-Senha-Backup': $('senha-restaurar').value } : {};
+    const r = await api('POST', '/api/backups/restaurar' + q, arquivo, { bruto: true, tipo: 'application/zip', cabecalhos });
     mensagem(saida, descreverRestauracao(r));
     $('arquivo-restaurar').value = '';
+    $('senha-restaurar').value = '';
+    $('campo-senha-restaurar').hidden = true;
     await carregar();
   } catch (err) {
     mensagem(saida, err.message, false);

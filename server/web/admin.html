@@ -308,11 +308,28 @@
             <div class="campo"><label for="backupsManter">Quantos backups manter</label><input type="number" id="backupsManter" min="1" max="365" required></div>
           </div>
           <p class="dica" id="pasta-backup"></p>
+          <p class="dica" id="copia-pc-backup" hidden></p>
+          <div id="alertas-backup"></div>
           <div class="acoes">
             <button class="botao">Salvar agenda</button>
             <button class="botao secundario" type="button" id="baixar-agora">Baixar backup agora</button>
             <button class="botao secundario" type="button" id="gravar-agora">Gravar backup no servidor</button>
             <span id="res-backup" role="status"></span>
+          </div>
+        </form>
+
+        <h3 style="font-size:16px;margin-top:24px">Senha do backup (cópia no PC da igreja)</h3>
+        <p class="dica">Com o servidor na internet, o agente guarda uma cópia dos backups no PC da igreja, sempre cifrada com esta senha: quem pegar o PC, a pasta ou a chave do agente não consegue abrir. O servidor guarda só uma chave derivada dela, não a senha; para restaurar uma dessas cópias, ela é pedida aqui. <strong>Anote a senha em lugar seguro: sem ela, as cópias do PC não servem para nada.</strong> Sem senha definida, a cópia no PC fica desligada.</p>
+        <p id="estado-senha-backup" class="dica"></p>
+        <form id="form-senha-backup">
+          <div class="grade2">
+            <div class="campo"><label for="senha-backup">Nova senha do backup (mínimo 12 caracteres)</label><input type="password" id="senha-backup" minlength="12" autocomplete="new-password" required></div>
+            <div class="campo"><label for="senha-backup2">Repita a senha</label><input type="password" id="senha-backup2" minlength="12" autocomplete="new-password" required></div>
+          </div>
+          <div class="acoes">
+            <button class="botao">Definir senha</button>
+            <button class="botao perigo" type="button" id="remover-senha-backup" hidden>Remover senha (desliga a cópia)</button>
+            <span id="res-senha-backup" role="status"></span>
           </div>
         </form>
 
@@ -325,8 +342,9 @@
         </div>
 
         <h3 style="font-size:16px;margin-top:24px">Restaurar de um arquivo</h3>
-        <p class="dica">Use um .zip baixado daqui (deste ou de outro servidor DiakoNews). Antes de restaurar, um backup de segurança do estado atual é gravado.</p>
-        <div class="campo"><label for="arquivo-restaurar">Arquivo de backup (.zip)</label><input type="file" id="arquivo-restaurar" accept=".zip,application/zip"></div>
+        <p class="dica">Use um .zip baixado daqui (deste ou de outro servidor DiakoNews) ou uma cópia <code>.cifrado</code> do PC da igreja. Antes de restaurar, um backup de segurança do estado atual é gravado.</p>
+        <div class="campo"><label for="arquivo-restaurar">Arquivo de backup (.zip ou .cifrado)</label><input type="file" id="arquivo-restaurar" accept=".zip,.cifrado,application/zip"></div>
+        <div class="campo" id="campo-senha-restaurar" hidden><label for="senha-restaurar">Senha do backup (a que estava definida quando a cópia foi feita)</label><input type="password" id="senha-restaurar" autocomplete="off"></div>
         <div class="campo"><label class="marcar"><input type="checkbox" id="restaurar-config"><span>Restaurar também as configurações (nome, textos, endereço público, projeção, agenda)</span></label></div>
         <div class="acoes"><button class="botao perigo" type="button" id="restaurar-arquivo">Restaurar arquivo</button><span id="res-restaurar" role="status"></span></div>
       </section>

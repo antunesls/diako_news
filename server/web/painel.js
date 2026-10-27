@@ -254,7 +254,8 @@ async function carregarSistemaInicio() {
     el('div', { class: 'par' }, el('span', {}, 'Último backup'),
       est.backupConfigurado ? el('strong', {}, est.ultimoBackup ? dataCurta(est.ultimoBackup) : 'ainda não feito') : situacao(false, 'Desativado')),
     el('div', { class: 'par' }, el('span', {}, 'Última projeção'),
-      el('strong', {}, ultima ? dataCurta(ultima.quando) : 'nenhuma'))].filter(Boolean));
+      el('strong', {}, ultima ? dataCurta(ultima.quando) : 'nenhuma')),
+    ...(est.alertasBackup || []).map((a) => el('p', { class: 'erro', role: 'alert' }, a))].filter(Boolean));
 }
 
 // ---------- Caixa de mensagens (privada) ----------
@@ -1870,15 +1871,20 @@ async function carregarStatus() {
   const linha = (rotulo, valor, ok) => el('div', { class: 'status-linha' },
     el('span', {}, rotulo),
     el('strong', {}, ok === undefined ? null : el('span', { class: 'ponto', style: 'background:' + (ok ? 'var(--ok)' : 'var(--perigo)') }), valor));
-  $('status-linhas').replaceChildren(
+  $('status-linhas').replaceChildren(...[
     estado.modo === 'agente'
       ? linha('PC da igreja (agente)', estado.agenteConectado ? 'Conectado' + (estado.agenteVersao ? ' · ' + estado.agenteVersao : '') : 'Desconectado' + (estado.agenteVistoEm ? ' · visto ' + dataCurta(estado.agenteVistoEm) : ''), estado.agenteConectado)
       : null,
     linha('Holyrics', estado.holyricsConectado ? 'Conectado' : 'Sem conexão', estado.holyricsConectado),
     linha('Cartazes no Holyrics', estado.cartazesNoHolyrics ? 'Sim' : 'Não configurado', estado.cartazesNoHolyrics),
-    linha('Backup', estado.backupConfigurado ? (estado.ultimoBackup ? 'Último: ' + dataCurta(estado.ultimoBackup) : 'Ainda não feito') : 'Desativado', estado.backupConfigurado),
+    linha('Backup', estado.backupConfigurado ? (estado.ultimoBackup ? 'Último: ' + dataCurta(estado.ultimoBackup) : 'Ainda não feito') : 'Desativado',
+      estado.backupConfigurado && !(estado.alertasBackup || []).length),
+    estado.modo === 'agente'
+      ? linha('Cópia do backup no PC da igreja', estado.copiaBackupPc ? dataCurta(estado.copiaBackupPc) : 'Ainda não feita', !!estado.copiaBackupPc)
+      : null,
     linha('Pedidos aguardando', String(estado.aguardandoAprovacao)),
-    linha('Versão do servidor', estado.versao));
+    linha('Versão do servidor', estado.versao),
+    ...(estado.alertasBackup || []).map((a) => el('p', { class: 'erro', role: 'alert' }, a))].filter(Boolean));
   $('link-oracao').textContent = estado.urlOracao;
   $('link-oracao').href = estado.urlOracao;
   $('link-mensagens').textContent = estado.urlMensagens;

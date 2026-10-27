@@ -17,6 +17,7 @@ import 'agenda_google_api.dart';
 import 'agente_hub.dart';
 import 'auth.dart';
 import 'backup.dart';
+import 'backup_cifrado.dart';
 import 'cartazes.dart';
 import 'config.dart';
 import 'configuracoes.dart';
@@ -62,7 +63,9 @@ class Servidor {
     FotosMembros? fotosMembros,
     TermosAssinados? termosAssinados,
     TabletsLocais? tabletsLocais,
+    SenhaBackup? senhaBackup,
   })  : galeria = galeria ?? Galeria(store.pasta),
+        senhaBackup = senhaBackup ?? SenhaBackup(backup.pastaDados),
         fotosMembros = fotosMembros ?? FotosMembros(store.pasta),
         termosAssinados = termosAssinados ?? TermosAssinados(store.pasta),
         tabletsLocais = tabletsLocais ?? TabletsLocais(store.pasta),
@@ -76,12 +79,18 @@ class Servidor {
       store.mudancas.where((t) => t == 'cartazes').listen((_) => agente!.pedirSincronizacao());
       agente!
         ..tablets = _tabletsParaAgente
-        ..aoReceberHistorico = _historicoDoAgente;
+        ..aoReceberHistorico = _historicoDoAgente
+        ..aoCopiarBackup = backup.registrarCopiaPc;
+      // Cada backup gravado também vai para o PC da igreja (fora do servidor).
+      backup.aoGravar = (_) => agente!.pedirCopiaBackup();
     }
   }
 
   /// Tablets pareados com o agente da rede local (data/tablets-locais.json).
   final TabletsLocais tabletsLocais;
+
+  /// Senha da cópia cifrada do backup no PC da igreja (sem ela, a cópia fica desligada).
+  final SenhaBackup senhaBackup;
 
   final Historico historico;
   final String versao;
@@ -179,6 +188,8 @@ class Servidor {
       ..get('/agente/ws', _agenteWs)
       ..get('/agente/cartazes', _agenteListarCartazes)
       ..get('/agente/cartazes/<nome>', _agenteBaixarCartaz)
+      ..get('/agente/backups', _agenteListarBackups)
+      ..get('/agente/backups/<nome>', _agenteBaixarBackup)
       ..get('/qr-oracao.png', (Request _) => _arquivo(File(p.join(cartazes.pasta, arquivoQr))))
       ..get('/qr-mensagens.png', (Request _) => _arquivo(File(p.join(cartazes.pasta, arquivoQrMensagens))))
       ..get('/cartazes/<nome>', (Request _, String nome) => _arquivo(cartazes.arquivo(nome)))
@@ -255,6 +266,8 @@ class Servidor {
       ..get('/api/historico', _historico)
       ..get('/api/resumo-semanal', _resumoSemanal)
       ..post('/api/backup', _backupAgora)
+      ..put('/api/backup/senha', _definirSenhaBackup)
+      ..delete('/api/backup/senha', _removerSenhaBackup)
       ..get('/api/backups', _listarBackups)
       ..get('/api/backups/agora/download', _baixarBackupAgora)
       ..get('/api/backups/<nome>/download', _baixarBackup)
@@ -541,6 +554,7 @@ class Servidor {
 
   Future<Response> _estado(Request _) async {
     final ultimo = await backup.ultimo();
+    final situacao = await _situacaoBackup();
     return _json({
       'versao': versao,
       'versoes': store.versoes,
@@ -560,6 +574,8 @@ class Servidor {
       'chaveMural': chaveMural.isEmpty ? null : chaveMural,
       'backupConfigurado': backup.configurado,
       'ultimoBackup': ultimo?.toIso8601String(),
+      'alertasBackup': situacao.alertas,
+      'copiaBackupPc': situacao.copiaPc,
       'aguardandoAprovacao':
           store.listar('motivos').where((m) => m['status'] == StatusMotivo.aguardando.name).length,
       'agenda': agenda?.estado(),
@@ -2245,12 +2261,36 @@ class Servidor {
     return _json({'arquivo': f.path, 'nome': p.basename(f.path)});
   }
 
+  /// PUT /api/backup/senha {senha}: liga (ou troca) a cópia cifrada no PC da igreja.
+  Future<Response> _definirSenhaBackup(Request req) async {
+    final senha = (await _corpo(req))['senha'];
+    if (senha is! String) return _erro(400, 'Informe a senha do backup.');
+    try {
+      await senhaBackup.definir(senha);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+    agente?.pedirCopiaBackup();
+    return _json({'definidaEm': senhaBackup.definidaEm?.toIso8601String()});
+  }
+
+  /// DELETE /api/backup/senha: desliga a cópia no PC (as cópias já feitas ficam lá, cifradas).
+  Future<Response> _removerSenhaBackup(Request _) async {
+    await senhaBackup.remover();
+    return _json({'ok': true});
+  }
+
   Future<Response> _listarBackups(Request _) async {
     final lista = await backup.listar();
+    final situacao = await _situacaoBackup();
     return _json({
       'pasta': backup.pastaDestino,
       'horario': backup.horario,
       'ultimo': (await backup.ultimo())?.toIso8601String(),
+      'modoAgente': agente != null,
+      'alertas': situacao.alertas,
+      'copiaPc': situacao.copiaPc,
+      'senhaDefinidaEm': senhaBackup.definida ? senhaBackup.definidaEm?.toIso8601String() ?? '' : null,
       'backups': [
         for (final b in lista) {'nome': b.nome, 'tamanho': b.tamanho, 'criado': b.criado.toIso8601String()},
       ],
@@ -2286,8 +2326,18 @@ class Servidor {
 
   /// Restaura um .zip enviado. Corpo: bytes; ?configuracoes=1 para restaurar também as configurações.
   Future<Response> _restaurarDeArquivo(Request req) async {
-    final bytes = await _lerBytes(req, Restauracao.tamanhoMaximo);
+    var bytes = await _lerBytes(req, Restauracao.tamanhoMaximo + 64);
     if (bytes == null) return _erro(413, 'Arquivo grande demais.');
+    // Cópia do PC da igreja (.cifrado): a senha vem no cabeçalho, nunca na URL.
+    if (pareceBackupCifrado(bytes)) {
+      final senha = req.headers['x-senha-backup'] ?? '';
+      if (senha.isEmpty) return _erro(400, 'Este backup é cifrado: digite a senha do backup.');
+      try {
+        bytes = await decifrarBackupEmSegundoPlano(bytes, senha);
+      } on FormatException catch (e) {
+        return _erro(400, e.message);
+      }
+    }
     return _restaurar(bytes, configuracoes: req.url.queryParameters['configuracoes'] == '1');
   }
 
@@ -2417,8 +2467,12 @@ class Servidor {
 
   // ---------- Agente do PC da igreja ----------
 
-  bool _chaveAgenteOk(Request req) =>
-      agente != null && chaveAgente.isNotEmpty && iguaisSeguro(req.url.queryParameters['chave'] ?? '', chaveAgente);
+  /// Chave no cabeçalho X-Chave-Agente (não vai para logs de proxy). Na URL (?chave=) só nas rotas
+  /// antigas, para agentes de versões anteriores; as de backup exigem o cabeçalho.
+  bool _chaveAgenteOk(Request req, {bool aceitaUrl = true}) {
+    final enviada = req.headers['x-chave-agente'] ?? (aceitaUrl ? req.url.queryParameters['chave'] : null) ?? '';
+    return agente != null && chaveAgente.isNotEmpty && iguaisSeguro(enviada, chaveAgente);
+  }
 
   static Response get _agenteNegado => _erro(401, 'Chave do agente inválida.');
 
@@ -2449,6 +2503,41 @@ class Servidor {
     // O QR não é um "cartaz" para o painel, mas o agente precisa dele.
     final f = nome == arquivoQr || nome == arquivoQrMensagens ? File(p.join(cartazes.pasta, nome)) : cartazes.arquivo(nome);
     return _arquivo(f);
+  }
+
+  static Response get _copiaDesligada => _erro(409,
+      'Cópia no PC da igreja desligada: defina a senha do backup em /admin › Backup e restauração.');
+
+  /// Backups gravados no servidor, mais novos primeiro: o agente guarda uma cópia cifrada no PC da igreja.
+  Future<Response> _agenteListarBackups(Request req) async {
+    if (!_chaveAgenteOk(req, aceitaUrl: false)) return _agenteNegado;
+    if (!senhaBackup.definida) return _copiaDesligada;
+    return _json([for (final b in await backup.listar()) {'nome': b.nome, 'tamanho': b.tamanho}]);
+  }
+
+  /// O backup [nome] cifrado com a senha do backup: o zip aberto nunca sai do servidor por aqui.
+  Future<Response> _agenteBaixarBackup(Request req, String nome) async {
+    if (!_chaveAgenteOk(req, aceitaUrl: false)) return _agenteNegado;
+    if (!senhaBackup.definida) return _copiaDesligada;
+    final f = backup.arquivo(Uri.decodeComponent(nome));
+    if (f == null) return Response.notFound('Não encontrado');
+    final cifrado = await senhaBackup.cifrarEmSegundoPlano(await f.readAsBytes());
+    return Response.ok(cifrado, headers: {'content-type': 'application/octet-stream', 'cache-control': 'no-store'});
+  }
+
+  /// Avisos do backup (falha, atraso, cópia no PC da igreja) para o painel e o /admin.
+  Future<({List<String> alertas, String? copiaPc})> _situacaoBackup() async {
+    final e = await backup.estado();
+    return (
+      alertas: alertasBackup(
+          ultimo: e.ultimo,
+          falha: e.falha,
+          copiaPc: e.copiaPcEm,
+          modoAgente: agente != null,
+          copiaPcLigada: senhaBackup.definida,
+          agora: _agora()),
+      copiaPc: e.copiaPcEm?.toIso8601String(),
+    );
   }
 
   // ---------- Utilitários ----------

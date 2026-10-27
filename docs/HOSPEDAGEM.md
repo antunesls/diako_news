@@ -67,6 +67,7 @@ Os cartazes enviados pelo painel ou pelo tablet, e o QR dos pedidos de oração,
 ## Atualizar
 - **Servidor:** baixe o `.tar.gz` novo e rode o `instalar-lxc.sh` de novo, com o mesmo `--dominio`. O `config.json` e os dados são mantidos.
 - **Agente:** rode `instalar.ps1 -Modo agente` da versão nova. O `agente.json` é mantido.
+- **Ordem:** atualize sempre o servidor antes do agente. O servidor novo aceita o agente antigo, mas o agente novo manda a chave num cabeçalho que o servidor antigo não conhece.
 
 ## Administração
 Em `https://…/admin` (mesma senha do painel) você:
@@ -80,7 +81,21 @@ Em `https://…/admin` (mesma senha do painel) você:
 ## Backup e restauração
 O servidor grava um `.zip` por dia em `/opt/diako-news/data/backup`. O horário e quantos manter se ajustam em `/admin`. Lá também dá para **baixar um backup na hora** e **restaurar** um da lista ou um `.zip` enviado. Isso serve também para **migrar** de um servidor no PC da igreja para o LXC: baixe o backup no antigo e restaure no novo. Antes de restaurar, o servidor grava um backup de segurança do estado atual.
 
-Para guardar uma cópia fora do servidor, por exemplo no Google Drive, use o [rclone](https://rclone.org/drive/):
+**Cópia cifrada no PC da igreja:** para que os backups não se percam junto com o LXC ou o disco, o agente guarda uma cópia no PC. Ela só é ligada depois que você define a **senha do backup** em `/admin` › *Backup e restauração*: cada arquivo sai do servidor cifrado com essa senha (ChaCha20-Poly1305, chave derivada com PBKDF2-SHA256) e fica no PC como `diako-backup-….zip.cifrado`. Quem pegar o PC, a pasta, o Google Drive ou a chave do agente não consegue abrir. O servidor guarda só uma chave derivada da senha (`data/backup-senha.json`, fora dos backups). **Anote a senha em lugar seguro: sem ela, as cópias do PC não servem para nada.** Trocar a senha vale para as próximas cópias.
+
+O agente copia os 7 mais novos para `C:\DiakoNews\backups-servidor`, logo depois de cada backup, ao conectar e a cada 6 horas. Para guardar em outra pasta (por exemplo uma pasta do Google Drive para computador) ou mudar a quantidade, acrescente ao `agente.json` e reinicie a tarefa **DiakoNews Agente**:
+```json
+"backup": { "pasta": "G:\\Meu Drive\\Backup DiakoNews", "manter": 7 }
+```
+`"manter": 0` desliga a cópia no PC. Para **restaurar** uma cópia do PC, em `/admin` › *Restaurar de um arquivo*, escolha o `.cifrado` e digite a senha do backup.
+
+**Chave do agente e permissões:** o agente manda a chave num cabeçalho HTTP, não na URL (endereços costumam ficar gravados nos logs do proxy); as rotas de backup só aceitam a chave assim. O instalador deixa a pasta `C:\DiakoNews` (com o `agente.json`, que tem a chave e o token do Holyrics) acessível só para o SYSTEM, os Administradores e o usuário que instalou. Uma pasta de backup fora dela (como a do Google Drive) não recebe essas permissões, mas os arquivos lá continuam cifrados.
+
+**Ao atualizar, atualize primeiro o servidor e depois o agente:** o agente novo só conecta num servidor desta versão ou mais nova (o servidor novo continua aceitando o agente antigo).
+
+**Avisos:** o painel (Início e Status) e o `/admin` mostram um alerta em vermelho quando o backup automático falha, quando o último backup tem mais de 2 dias ou quando a cópia no PC da igreja está atrasada. Se o e-mail estiver configurado em `/admin` › *Avisos por e-mail*, a falha também chega por e-mail (no máximo um por dia). Depois de uma falha, o servidor tenta de novo a cada hora.
+
+Para guardar mais uma cópia direto do servidor, por exemplo no Google Drive, use o [rclone](https://rclone.org/drive/):
 ```bash
 apt install rclone
 rclone config            # crie um "remote" chamado gdrive (tipo Google Drive)

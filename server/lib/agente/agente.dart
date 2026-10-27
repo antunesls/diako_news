@@ -8,6 +8,8 @@ import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../auth.dart' show iguaisSeguro;
+import '../backup.dart' show Backup;
+import '../backup_cifrado.dart' show extensaoCifrado, pareceBackupCifrado;
 import '../cartazes.dart';
 import '../config.dart';
 import '../historico.dart';
@@ -28,6 +30,8 @@ class AgenteConfig {
     this.monitorHash = '',
     this.monitorSal = '',
     this.apiLocalPorta = 8097,
+    this.pastaBackup = '',
+    this.backupsManter = 7,
   });
 
   /// Endereço do servidor na internet, ex: https://diako.minhaigreja.com.br
@@ -44,17 +48,25 @@ class AgenteConfig {
   /// Porta em que os tablets pareados falam direto com o agente na rede da igreja; 0 desliga.
   final int apiLocalPorta;
 
+  /// Onde guardar a cópia dos backups do servidor; vazio = "backups-servidor" ao lado do agente.json.
+  final String pastaBackup;
+
+  /// Quantos backups do servidor manter no PC; 0 desliga a cópia.
+  final int backupsManter;
+
   /// Subpasta gerenciada pelo agente dentro da biblioteca de imagens do Holyrics.
   String get pastaCartazes => p.join(pastaImagensHolyrics, Config.subpastaHolyrics);
 
   Uri get uriWs {
     final u = Uri.parse(servidor);
-    return u.replace(
-      scheme: u.scheme == 'https' ? 'wss' : 'ws',
-      path: '/agente/ws',
-      queryParameters: {'chave': chaveAgente},
-    );
+    return u.replace(scheme: u.scheme == 'https' ? 'wss' : 'ws', path: '/agente/ws');
   }
+
+  /// A chave vai no cabeçalho, não na URL: endereços costumam ficar gravados em logs de proxy.
+  /// (Requer o servidor desta versão ou mais nova.)
+  Map<String, String> get cabecalhos => {'x-chave-agente': chaveAgente};
+
+  Uri uriAgente(String caminho) => Uri.parse('$servidor/agente/$caminho');
 
   static AgenteConfig lerJson(String texto) {
     if (texto.startsWith('﻿')) texto = texto.substring(1);
@@ -78,6 +90,11 @@ class AgenteConfig {
     if (apiLocalPorta < 0 || apiLocalPorta > 65535 || apiLocalPorta == monitorPorta) {
       throw const FormatException('Porta da API local inválida (use 0 para desligar).');
     }
+    final backup = (j['backup'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final backupsManter = (backup['manter'] as num?)?.toInt() ?? 7;
+    if (backupsManter < 0 || backupsManter > 365) {
+      throw const FormatException('"backup.manter" deve ficar entre 0 (desliga) e 365.');
+    }
     return AgenteConfig(
       servidor: servidor,
       chaveAgente: chave,
@@ -89,6 +106,8 @@ class AgenteConfig {
       monitorHash: monitor['hash'] as String? ?? '',
       monitorSal: monitor['sal'] as String? ?? '',
       apiLocalPorta: apiLocalPorta,
+      pastaBackup: (backup['pasta'] as String? ?? '').trim(),
+      backupsManter: backupsManter,
     );
   }
 }
@@ -186,6 +205,7 @@ class Agente {
 
   WebSocketChannel? _canal;
   Timer? _timerSync;
+  Timer? _timerBackup;
   Timer? _timerHolyrics;
   bool _parado = false;
   bool _sincronizando = false;
@@ -200,6 +220,10 @@ class Agente {
   int cartazesRemotos = 0;
   int cartazesBaixados = 0;
   int cartazesApagados = 0;
+  bool _copiandoBackup = false;
+  DateTime? ultimaCopiaBackup;
+  String? ultimoBackupCopiado;
+  String? erroBackup;
   bool? holyricsConectado;
   DateTime? holyricsVerificadoEm;
   int? holyricsLatenciaMs;
@@ -240,6 +264,10 @@ class Agente {
         'cartazesRemotos': cartazesRemotos,
         'cartazesBaixados': cartazesBaixados,
         'cartazesApagados': cartazesApagados,
+        'pastaBackup': pastaBackup,
+        'ultimaCopiaBackup': ultimaCopiaBackup?.toIso8601String(),
+        'ultimoBackupCopiado': ultimoBackupCopiado,
+        'erroBackup': erroBackup,
         'apiLocalPorta': config.apiLocalPorta,
         'tabletsPareados': [for (final t in _tablets) t['nome']],
         'chamadasLocais': chamadasLocais,
@@ -342,6 +370,7 @@ class Agente {
   /// Conecta e reconecta para sempre (até [parar]).
   Future<void> rodar() async {
     _timerSync = Timer.periodic(const Duration(minutes: 10), (_) => sincronizar());
+    _timerBackup = Timer.periodic(const Duration(hours: 6), (_) => copiarBackups());
     _timerHolyrics = Timer.periodic(const Duration(seconds: 30), (_) => unawaited(verificarHolyrics()));
     while (!_parado) {
       await _conectarUmaVez();
@@ -364,7 +393,8 @@ class Agente {
 
   Future<void> _conectarUmaVez() async {
     try {
-      final canal = IOWebSocketChannel.connect(config.uriWs, pingInterval: const Duration(seconds: 25));
+      final canal = IOWebSocketChannel.connect(config.uriWs,
+          headers: config.cabecalhos, pingInterval: const Duration(seconds: 25));
       await canal.ready;
       _canal = canal;
       backendConectado = true;
@@ -377,6 +407,7 @@ class Agente {
       canal.sink.add(jsonEncode({'tipo': 'ola', 'versao': versao}));
       _enviarHistorico();
       unawaited(sincronizar());
+      unawaited(copiarBackups());
       await for (final msg in canal.stream) {
         ultimaMensagem = DateTime.now();
         unawaited(_tratar(msg as String));
@@ -414,6 +445,8 @@ class Agente {
         }
       case 'sincronizar':
         await sincronizar();
+      case 'backup':
+        await copiarBackups();
       case 'tablets':
         _tablets = _lerTablets(j['lista']);
         registrar('local', '${_tablets.length} tablet(s) pareado(s)');
@@ -434,8 +467,7 @@ class Agente {
     if (_sincronizando) return;
     _sincronizando = true;
     try {
-      final uri = Uri.parse('${config.servidor}/agente/cartazes').replace(queryParameters: {'chave': config.chaveAgente});
-      final r = await _http.get(uri).timeout(const Duration(seconds: 20));
+      final r = await _http.get(config.uriAgente('cartazes'), headers: config.cabecalhos).timeout(const Duration(seconds: 20));
       if (r.statusCode != 200) throw HttpException('HTTP ${r.statusCode}');
       final lista = [for (final e in jsonDecode(utf8.decode(r.bodyBytes)) as List) Map<String, dynamic>.from(e as Map)];
       final resultado = await _sync.sincronizar(lista);
@@ -456,16 +488,110 @@ class Agente {
   }
 
   Future<List<int>> _baixarCartaz(String nome) async {
-    final uri = Uri.parse('${config.servidor}/agente/cartazes/${Uri.encodeComponent(nome)}')
-        .replace(queryParameters: {'chave': config.chaveAgente});
-    final r = await _http.get(uri).timeout(const Duration(minutes: 2));
+    final r = await _http
+        .get(config.uriAgente('cartazes/${Uri.encodeComponent(nome)}'), headers: config.cabecalhos)
+        .timeout(const Duration(minutes: 2));
     if (r.statusCode != 200) throw HttpException('HTTP ${r.statusCode} ao baixar $nome');
     return r.bodyBytes;
+  }
+
+  /// Pasta da cópia dos backups do servidor, ou null se desligada.
+  String? get pastaBackup {
+    if (config.backupsManter == 0) return null;
+    if (config.pastaBackup.isNotEmpty) return config.pastaBackup;
+    return pastaDados == null ? null : p.join(pastaDados!, 'backups-servidor');
+  }
+
+  /// Nome local da cópia: o mesmo do servidor com ".cifrado" (só se abre com a senha do backup).
+  static String? _backupDoArquivo(String arquivo) {
+    if (!arquivo.endsWith(extensaoCifrado)) return null;
+    final nome = arquivo.substring(0, arquivo.length - extensaoCifrado.length);
+    return Backup.nomeValido(nome) ? nome : null;
+  }
+
+  /// Guarda no PC da igreja os backups mais novos do servidor (fora do servidor, caso ele se perca),
+  /// sempre cifrados com a senha do backup, e avisa o servidor qual é o mais novo copiado. Na pasta,
+  /// apaga só cópias cifradas além das [AgenteConfig.backupsManter] mais novas.
+  Future<void> copiarBackups() async {
+    final pasta = pastaBackup;
+    if (pasta == null || _copiandoBackup) return;
+    _copiandoBackup = true;
+    try {
+      final r = await _http.get(config.uriAgente('backups'), headers: config.cabecalhos).timeout(const Duration(seconds: 20));
+      if (r.statusCode == 409) {
+        // Sem senha do backup no servidor: nada sai dele. Não é falha do agente.
+        erroBackup = 'Cópia desligada: falta definir a senha do backup no /admin.';
+        registrar('backup', erroBackup!);
+        return;
+      }
+      if (r.statusCode != 200) throw HttpException('HTTP ${r.statusCode}');
+      final remotos = [
+        for (final e in jsonDecode(utf8.decode(r.bodyBytes)) as List)
+          if (e is Map && e['nome'] is String && Backup.nomeValido(e['nome'] as String)) e['nome'] as String,
+      ]..sort((a, b) => b.compareTo(a));
+      final manter = remotos.take(config.backupsManter).toList();
+      final dir = Directory(pasta);
+      await dir.create(recursive: true);
+      final baixados = <String>[];
+      for (final nome in manter) {
+        final destino = p.join(pasta, '$nome$extensaoCifrado');
+        if (await File(destino).exists()) continue;
+        await _baixarBackup(nome, destino);
+        baixados.add(nome);
+      }
+      final locais = [
+        await for (final e in dir.list())
+          if (e is File && _backupDoArquivo(p.basename(e.path)) != null) p.basename(e.path),
+      ]..sort((a, b) => b.compareTo(a));
+      for (final velho in locais.skip(config.backupsManter)) {
+        await File(p.join(pasta, velho)).delete();
+      }
+      ultimaCopiaBackup = DateTime.now();
+      erroBackup = null;
+      if (manter.isNotEmpty) {
+        ultimoBackupCopiado = manter.first;
+        _canal?.sink.add(jsonEncode({'tipo': 'backup-copiado', 'nome': manter.first}));
+      }
+      registrar('backup', baixados.isEmpty ? 'Backups do servidor já estão no PC' : 'Copiados: ${baixados.join(', ')}');
+      if (baixados.isNotEmpty) _log('Backup do servidor copiado para $pasta: ${baixados.join(', ')}.');
+    } catch (_) {
+      erroBackup = 'Verifique a conexão com o servidor e se a pasta do backup existe e aceita gravação.';
+      registrar('backup', 'Falha ao copiar o backup do servidor', nivel: 'erro');
+      _log('Falha ao copiar o backup do servidor. $erroBackup');
+    } finally {
+      _copiandoBackup = false;
+    }
+  }
+
+  /// Baixa direto para o disco (o arquivo pode ser grande), confere que veio cifrado e só então
+  /// renomeia: um zip aberto nunca é gravado no PC.
+  Future<void> _baixarBackup(String nome, String destino) async {
+    final pedido = http.Request('GET', config.uriAgente('backups/${Uri.encodeComponent(nome)}'))
+      ..headers.addAll(config.cabecalhos);
+    final r = await _http.send(pedido).timeout(const Duration(minutes: 2));
+    final tmp = File('$destino.tmp');
+    try {
+      if (r.statusCode != 200) throw HttpException('HTTP ${r.statusCode} ao baixar $nome');
+      final saida = tmp.openWrite();
+      try {
+        await r.stream.timeout(const Duration(minutes: 2)).pipe(saida);
+      } finally {
+        await saida.close();
+      }
+      if (!pareceBackupCifrado(await tmp.openRead(0, 16).expand((b) => b).toList())) {
+        throw FormatException('$nome não veio cifrado');
+      }
+      await tmp.rename(destino);
+    } catch (_) {
+      if (await tmp.exists()) await tmp.delete();
+      rethrow;
+    }
   }
 
   Future<void> parar() async {
     _parado = true;
     _timerSync?.cancel();
+    _timerBackup?.cancel();
     _timerHolyrics?.cancel();
     await _canal?.sink.close();
   }

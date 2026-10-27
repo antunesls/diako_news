@@ -32,6 +32,19 @@ function Parar-Tarefa([string]$Nome) {
     }
 }
 
+# Só o SYSTEM, os Administradores e quem instalou (a tarefa roda com esse usuário) acessam a pasta:
+# ela guarda o config.json/agente.json (senha, chaves e token do Holyrics), os dados e as cópias do backup.
+# Os arquivos de dentro herdam essas permissões.
+function Proteger-Pasta([string]$Pasta) {
+    $usuario = "$env:USERDOMAIN\$env:USERNAME"
+    & icacls $Pasta /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' "${usuario}:(OI)(CI)F" /C /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Aviso: não foi possível restringir as permissões de $Pasta (icacls)." -ForegroundColor Yellow
+    } else {
+        Write-Host "Pasta $Pasta acessível só para o SYSTEM, os Administradores e $usuario."
+    }
+}
+
 # Remove a tarefa com o nome antigo, para não ficarem duas iniciando com o Windows.
 function Remover-TarefaAntiga([string]$Nome) {
     $antigo = $Nome -replace '^DiakoNews', 'Diako News'
@@ -46,6 +59,7 @@ if ($Modo -eq 'agente') {
 
     Write-Host "Copiando o agente para $Destino ..."
     New-Item -ItemType Directory -Force $Destino | Out-Null
+    Proteger-Pasta $Destino
     Copy-Item (Join-Path $origem 'diako_agente.exe') $Destino -Force
     Copy-Item (Join-Path $origem 'agente.example.json') $Destino -Force
 
@@ -101,6 +115,7 @@ Get-Process diako_server -ErrorAction SilentlyContinue | Stop-Process -Force
 
 Write-Host "Copiando arquivos para $Destino ..."
 New-Item -ItemType Directory -Force $Destino | Out-Null
+Proteger-Pasta $Destino
 Copy-Item (Join-Path $origem 'diako_server.exe') $Destino -Force
 Copy-Item (Join-Path $origem 'web') $Destino -Recurse -Force
 Copy-Item (Join-Path $origem 'config.example.json') $Destino -Force

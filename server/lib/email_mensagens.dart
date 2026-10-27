@@ -40,3 +40,17 @@ Future<void> enviarEmailTeste(Configuracoes cfg) async {
             'A configuração de avisos da caixa de mensagens está funcionando.',
       _servidor(cfg));
 }
+
+/// Aviso de que o backup automático falhou. Sem detalhes do erro nem caminhos: só o link do /admin.
+Future<void> enviarEmailFalhaBackup(Configuracoes cfg, DateTime quando, String urlAdmin) async {
+  String dois(int n) => n.toString().padLeft(2, '0');
+  final data = '${dois(quando.day)}/${dois(quando.month)}/${quando.year} às ${dois(quando.hour)}:${dois(quando.minute)}';
+  await send(
+      Message()
+        ..from = Address(cfg.smtpRemetente)
+        ..recipients.add(cfg.smtpDestinatario)
+        ..subject = 'DiakoNews: o backup automático falhou'
+        ..text = 'O backup automático de $data não foi gravado. O servidor tenta de novo a cada hora.\n'
+            'Abra a administração para gravar um backup e conferir: $urlAdmin',
+      _servidor(cfg));
+}

@@ -44,7 +44,19 @@ class Backup {
   final Map<String, dynamic> Function() _configuracoes;
   final DateTime Function() _agora;
 
+  /// Depois de gravar um backup (no modo agente, pede a cópia ao PC da igreja).
+  void Function(File arquivo)? aoGravar;
+
+  /// Quando o backup automático falha (no máximo uma vez por dia): aviso por e-mail.
+  Future<void> Function(DateTime quando)? aoFalhar;
+
+  /// Depois de uma falha do backup automático, espera isto antes de tentar de novo.
+  static const intervaloNovaTentativa = Duration(minutes: 60);
+
   Timer? _timer;
+  DateTime? _ultimaFalha;
+  String? _avisoFalhaNoDia;
+  Future<void> _filaEstado = Future.value();
   File get _estado => File(p.join(pastaDados, 'backup.json'));
 
   /// Sempre ativo: sem "pastaBackup" no config.json, usa data/backups.
@@ -53,10 +65,48 @@ class Backup {
 
   static final _nomeValido = RegExp(r'^diako-backup-\d{4}-\d{2}-\d{2}[A-Za-z0-9-]*\.zip$');
 
-  Future<DateTime?> ultimo() async {
-    if (!await _estado.exists()) return null;
-    final j = jsonDecode(await _estado.readAsString()) as Map<String, dynamic>;
-    return DateTime.tryParse(j['ultimo'] as String? ?? '');
+  /// Nome no formato dos arquivos de backup (também usado pelo agente).
+  static bool nomeValido(String nome) => nome == p.basename(nome) && _nomeValido.hasMatch(nome);
+
+  /// data/backup.json: {ultimo, falha?: {em}, copiaPc?: {em, nome}}.
+  Future<Map<String, dynamic>> _lerEstado() async {
+    try {
+      if (!await _estado.exists()) return {};
+      return Map<String, dynamic>.from(jsonDecode(await _estado.readAsString()) as Map);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Mescla [mudancas] no backup.json, uma gravação por vez.
+  Future<void> _gravarEstado(Map<String, dynamic> mudancas) {
+    final r = _filaEstado.then((_) async {
+      await _estado.parent.create(recursive: true);
+      await _estado.writeAsString(jsonEncode({...await _lerEstado(), ...mudancas}));
+    });
+    _filaEstado = r.then((_) {}, onError: (_) {});
+    return r;
+  }
+
+  Future<DateTime?> ultimo() async => (await estado()).ultimo;
+
+  Future<({DateTime? ultimo, DateTime? falha, DateTime? copiaPcEm, String? copiaPcNome})> estado() async {
+    await _filaEstado;
+    final j = await _lerEstado();
+    DateTime? data(Object? v) => DateTime.tryParse(v is String ? v : '');
+    final copia = j['copiaPc'] is Map ? j['copiaPc'] as Map : const {};
+    return (
+      ultimo: data(j['ultimo']),
+      falha: j['falha'] is Map ? data((j['falha'] as Map)['em']) : null,
+      copiaPcEm: data(copia['em']),
+      copiaPcNome: copia['nome'] as String?,
+    );
+  }
+
+  /// O agente avisou que o backup [nome] já está no PC da igreja.
+  Future<void> registrarCopiaPc(String nome) {
+    if (!nomeValido(nome)) return Future.value();
+    return _gravarEstado({'copiaPc': {'em': _agora().toIso8601String(), 'nome': nome}});
   }
 
   /// Conteúdo do backup em memória (para baixar direto pelo painel).
@@ -122,7 +172,8 @@ class Backup {
     await tmp.rename(destino.path);
 
     await _rotacionar();
-    await _estado.writeAsString(jsonEncode({'ultimo': quando.toIso8601String()}));
+    await _gravarEstado({'ultimo': quando.toIso8601String()});
+    aoGravar?.call(destino);
     return destino;
   }
 
@@ -167,18 +218,37 @@ class Backup {
   /// Verifica a cada minuto se chegou o horário e se o backup de hoje ainda não foi feito.
   void agendar() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) async {
-      final agora = _agora();
-      if (_hhmm(agora).compareTo(horario) < 0) return;
-      final u = await ultimo();
-      if (u != null && _data(u) == _data(agora)) return;
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) => verificar());
+  }
+
+  /// Faz o backup do dia se já passou do horário. Depois de uma falha, registra em
+  /// backup.json, avisa ([aoFalhar], uma vez por dia) e espera [intervaloNovaTentativa].
+  Future<void> verificar() async {
+    final agora = _agora();
+    if (_hhmm(agora).compareTo(horario) < 0) return;
+    final u = await ultimo();
+    if (u != null && _data(u) == _data(agora)) return;
+    final falhou = _ultimaFalha;
+    if (falhou != null && agora.difference(falhou) < intervaloNovaTentativa) return;
+    try {
+      final f = await executar(agora: agora);
+      _ultimaFalha = null;
+      stdout.writeln('Backup gravado em ${f.path}');
+    } catch (e) {
+      _ultimaFalha = agora;
+      stderr.writeln('Falha no backup: $e');
       try {
-        final f = await executar(agora: agora);
-        stdout.writeln('Backup gravado em ${f.path}');
-      } catch (e) {
-        stderr.writeln('Falha no backup: $e');
+        await _gravarEstado({'falha': {'em': agora.toIso8601String()}});
+      } catch (_) {}
+      if (_avisoFalhaNoDia != _data(agora)) {
+        _avisoFalhaNoDia = _data(agora);
+        try {
+          await aoFalhar?.call(agora);
+        } catch (e) {
+          stderr.writeln('Falha ao avisar a falha do backup: ${e.runtimeType}');
+        }
       }
-    });
+    }
   }
 
   void parar() => _timer?.cancel();
@@ -187,6 +257,41 @@ class Backup {
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   static String _hhmm(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   static String _hora(DateTime d) => _hhmm(d).replaceAll(':', '') + d.second.toString().padLeft(2, '0');
+}
+
+/// Avisos sobre o backup para o painel e o /admin (vazio quando está tudo bem).
+/// [copiaPc] é a última cópia confirmada pelo agente no PC da igreja (só no modo agente);
+/// [copiaPcLigada] diz se a senha do backup, que liga essa cópia, foi definida.
+List<String> alertasBackup({
+  required DateTime? ultimo,
+  required DateTime? falha,
+  DateTime? copiaPc,
+  bool modoAgente = false,
+  bool copiaPcLigada = true,
+  required DateTime agora,
+}) {
+  String dataHora(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')} às '
+      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  final alertas = <String>[];
+  if (falha != null && (ultimo == null || falha.isAfter(ultimo))) {
+    alertas.add('O backup automático falhou em ${dataHora(falha)}. Use "Gravar backup no servidor" para tentar de novo '
+        'e, se continuar, veja o registro do servidor.');
+  } else if (ultimo != null && agora.difference(ultimo) > const Duration(days: 2)) {
+    alertas.add('O último backup foi em ${dataHora(ultimo)}, há ${agora.difference(ultimo).inDays} dias.');
+  }
+  if (modoAgente && !copiaPcLigada) {
+    alertas.add('A cópia do backup no PC da igreja está desligada. Defina a senha do backup em /admin › '
+        'Backup e restauração para ligar.');
+  } else if (modoAgente && ultimo != null) {
+    if (copiaPc == null) {
+      if (agora.difference(ultimo) > const Duration(days: 1)) {
+        alertas.add('Ainda não há cópia do backup no PC da igreja. Confira se o agente está conectado e atualizado.');
+      }
+    } else if (agora.difference(copiaPc) > const Duration(days: 3)) {
+      alertas.add('A última cópia do backup no PC da igreja foi em ${dataHora(copiaPc)}. Confira se o agente está conectado.');
+    }
+  }
+  return alertas;
 }
 
 /// O que foi restaurado.
