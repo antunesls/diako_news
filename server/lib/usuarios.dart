@@ -51,7 +51,7 @@ class Usuario {
         'id': id,
         'nome': nome,
         'login': login,
-        'perfil': perfil.name,
+        'perfil': perfil.id,
         'perfilNome': perfil.nome,
         'ativo': ativo,
         'criadoEm': criadoEm.toIso8601String(),

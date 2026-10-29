@@ -16,13 +16,13 @@ async function carregarAcessosEscala() {
     preencherPessoas($('acesso-membro'), disponiveis);
     preencherPessoas($('acesso-pastor-membro'), disponiveis);
     $('acesso-pastor').replaceChildren(new Option('Escolha…', ''),
-      ...usuariosAcesso.filter((u) => u.perfil === 'pastor' && !u.membroId)
+      ...usuariosAcesso.filter((u) => (u.perfil === 'pastor' || u.perfil === 'ministro' || u.perfil === 'louvor') && !u.membroId)
         .map((u) => new Option(`${u.nome} (${u.login})`, u.id)));
     const lista = $('acessos-lista');
     lista.replaceChildren();
     for (const u of usuariosAcesso.filter((u) => u.membroId)) {
       const linha = document.createElement('p');
-      linha.textContent = `${u.nome} · ${u.login} · ${u.perfil === 'pastor' ? 'Pastor' : 'Integrante'}`;
+      linha.textContent = `${u.nome} · ${u.login} · ${u.perfil === 'pastor' ? 'Pastor' : u.perfil === 'ministro' ? 'Ministro' : u.perfil === 'louvor' ? 'Louvor' : 'Integrante'}`;
       if (u.perfil === 'integrante') {
         const redefinir = document.createElement('button');
         redefinir.type = 'button'; redefinir.className = 'botao secundario pequeno';
@@ -62,6 +62,6 @@ $('form-vinculo-escala').addEventListener('submit', async (e) => {
   try {
     await api('POST', '/api/acessos-escala/vincular', { usuarioId: $('acesso-pastor').value, membroId: $('acesso-pastor-membro').value });
     await carregarAcessosEscala();
-    mensagem($('vinculo-resultado'), 'Conta vinculada. O pastor já pode entrar com a senha atual.');
+    mensagem($('vinculo-resultado'), 'Conta vinculada. A pessoa já pode entrar com a senha atual.');
   } catch (err) { mensagem($('vinculo-resultado'), err.message, false); }
 });

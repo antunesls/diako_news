@@ -2001,7 +2001,7 @@ async function iniciar() {
   } catch {
     return; // sessão expirada: api() já voltou para o login
   }
-  if (eu.perfil === 'integrante') {
+  if (eu.perfil === 'integrante' || eu.perfil === 'ministro' || eu.perfil === 'louvor') {
     location.replace('/minha-escala');
     return;
   }

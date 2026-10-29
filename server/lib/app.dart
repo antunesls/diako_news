@@ -270,6 +270,7 @@ class Servidor {
       ..put('/api/escalas/<id>', _atualizarCulto)
       ..delete('/api/escalas/<id>', _excluirCulto)
       ..get('/api/minha-escala', _minhaEscala)
+      ..put('/api/minha-escala/cultos/<id>/musicas', _musicasDoMinistro)
       ..post('/api/minha-escala/indisponivel', _minhaIndisponibilidade)
       ..post('/api/minha-escala/indisponivel/remover', _removerMinhaIndisponibilidade)
       // Cartazes
@@ -398,7 +399,7 @@ class Servidor {
       'nome': c.nome,
       'login': c.login,
       'principal': c.ehPrincipal,
-      'perfil': c.perfil.name,
+      'perfil': c.perfil.id,
       'perfilNome': c.perfil.nome,
       'permissoes': [for (final p in c.perfil.permissoes) p.name],
       'site': {'ativo': cfg?.siteAtivo ?? false, 'galeria': cfg?.siteGaleria ?? false},
@@ -503,8 +504,8 @@ class Servidor {
   Response _listarAcessosEscala(Request _) => _json({
         'usuarios': [
           for (final u in _usuarios?.lista ?? const <Usuario>[])
-            if (u.perfil == Perfil.integrante || u.perfil == Perfil.pastor)
-              {'id': u.id, 'nome': u.nome, 'login': u.login, 'perfil': u.perfil.name, 'membroId': u.membroId, 'ativo': u.ativo},
+            if (u.perfil == Perfil.integrante || u.perfil == Perfil.pastor || u.perfil == Perfil.ministro || u.perfil == Perfil.louvor)
+              {'id': u.id, 'nome': u.nome, 'login': u.login, 'perfil': u.perfil.id, 'membroId': u.membroId, 'ativo': u.ativo},
         ],
       });
 
@@ -531,7 +532,7 @@ class Servidor {
     final id = corpo['membroId'] as String? ?? '';
     final u = usuarios?.buscar(corpo['usuarioId'] as String? ?? '');
     if (store.buscar('membros', id) == null || u == null) return _erro(404, 'Membro ou usuário não encontrado.');
-    if (u.perfil != Perfil.pastor && u.perfil != Perfil.integrante) return _erro(403, 'Não é uma conta de escalas.');
+    if (u.perfil != Perfil.pastor && u.perfil != Perfil.integrante && u.perfil != Perfil.ministro && u.perfil != Perfil.louvor) return _erro(403, 'Não é uma conta de escalas.');
     if (u.membroId != null && u.membroId != id) return _erro(400, 'Esta conta já está vinculada a outro membro.');
     try {
       return _json((await usuarios!.vincular(u.id, id)).toJson());
@@ -2128,33 +2129,11 @@ class Servidor {
     }
     if (corpo.containsKey('musicas')) {
       if (!_podeEscala(req, TipoEscala.louvor)) return _semPermissaoEscala(TipoEscala.louvor);
-      final entradas = corpo['musicas'];
-      if (entradas is! List) return _erro(400, 'Lista de músicas inválida.');
-      final anteriores = CultoEscala.fromJson(atual).musicas;
-      final selecionadas = <Map<String, dynamic>>[];
-      for (final entrada in entradas) {
-        if (entrada is! Map) return _erro(400, 'Música inválida.');
-        final idMusica = entrada['repertorioId'];
-        if (idMusica is! String || idMusica.isEmpty) {
-          // Mantém músicas históricas não vinculadas, mas não admite novas sem repertório.
-          final titulo = entrada['titulo'];
-          final tom = entrada['tom'] ?? '';
-          if (titulo is! String || tom is! String || !anteriores.any((m) =>
-              m.repertorioId.isEmpty && m.titulo == titulo && m.tom == tom)) {
-            return _erro(400, 'Escolha uma música do repertório.');
-          }
-          selecionadas.add({'titulo': titulo, 'tom': tom});
-          continue;
-        }
-        final musica = store.buscar('repertorio', idMusica);
-        if (musica == null) return _erro(400, 'Música não encontrada no repertório.');
-        final anterior = anteriores.where((m) => m.repertorioId == idMusica).firstOrNull;
-        if (musica['ativo'] != true && anterior == null) return _erro(400, 'Música inativa no repertório.');
-        final tom = entrada['tom'] ?? RepertorioMusica.fromJson(musica).tomPadrao;
-        if (tom is! String) return _erro(400, 'Tom inválido.');
-        selecionadas.add({'repertorioId': idMusica, 'titulo': anterior?.titulo ?? musica['titulo'], 'tom': tom});
+      try {
+        doc['musicas'] = _selecionarMusicas(atual, corpo['musicas']);
+      } on FormatException catch (e) {
+        return _erro(400, e.message);
       }
-      doc['musicas'] = selecionadas;
     }
     for (final k in const ['nome', 'hora', 'ceia', 'tema']) {
       if (!corpo.containsKey(k)) continue;
@@ -2178,7 +2157,7 @@ class Servidor {
 
   /// POST /api/escalas/indisponibilidades {membroId, de, ate, motivo?} — avisado à secretaria ou ao líder.
   Response _listarTodasIndisponibilidades(Request req) {
-    if (!_podeAlgumaEscala(req)) return _semPermissaoEscala(null);
+    if (!(Auth.contaDa(req)?.pode(Permissao.escalasVer) ?? false)) return _semPermissaoEscala(null);
     final membros = _membrosPorId();
     final lista = store.listar('indisponibilidades').map((d) => {
       ...d,
@@ -2186,6 +2165,35 @@ class Servidor {
     }).toList()
       ..sort((a, b) => '${b['de']}'.compareTo('${a['de']}'));
     return _json(lista);
+  }
+
+  /// Reutiliza as mesmas regras do painel para ordem, tom e músicas inativas.
+  List<Map<String, dynamic>> _selecionarMusicas(Map<String, dynamic> atual, Object? entradas) {
+    if (entradas is! List) throw const FormatException('Lista de músicas inválida.');
+    final anteriores = CultoEscala.fromJson(atual).musicas;
+    final selecionadas = <Map<String, dynamic>>[];
+    for (final entrada in entradas) {
+      if (entrada is! Map) throw const FormatException('Música inválida.');
+      final idMusica = entrada['repertorioId'];
+      if (idMusica is! String || idMusica.isEmpty) {
+        final titulo = entrada['titulo'];
+        final tom = entrada['tom'] ?? '';
+        if (titulo is! String || tom is! String || !anteriores.any((m) =>
+            m.repertorioId.isEmpty && m.titulo == titulo && m.tom == tom)) {
+          throw const FormatException('Escolha uma música do repertório.');
+        }
+        selecionadas.add({'titulo': titulo, 'tom': tom});
+        continue;
+      }
+      final musica = store.buscar('repertorio', idMusica);
+      if (musica == null) throw const FormatException('Música não encontrada no repertório.');
+      final anterior = anteriores.where((m) => m.repertorioId == idMusica).firstOrNull;
+      if (musica['ativo'] != true && anterior == null) throw const FormatException('Música inativa no repertório.');
+      final tom = entrada['tom'] ?? RepertorioMusica.fromJson(musica).tomPadrao;
+      if (tom is! String) throw const FormatException('Tom inválido.');
+      selecionadas.add({'repertorioId': idMusica, 'titulo': anterior?.titulo ?? musica['titulo'], 'tom': tom});
+    }
+    return selecionadas;
   }
 
   Future<Response> _criarIndisponibilidade(Request req) async {
@@ -2219,6 +2227,31 @@ class Servidor {
     return id != null && store.buscar('membros', id) != null ? id : null;
   }
 
+  /// Apenas o ministro escalado pode alterar as músicas; nunca recebe permissão para montar a escala.
+  Future<Response> _musicasDoMinistro(Request req, String cultoId) async {
+    if (Auth.contaDa(req)?.perfil != Perfil.ministro) return _erro(403, 'Somente o ministro pode escolher as músicas aqui.');
+    final membroId = _membroDaConta(req);
+    if (membroId == null) return _erro(403, 'Sua conta ainda não está vinculada a um membro.');
+    final atual = store.buscar('escalas', cultoId);
+    if (atual == null) return _erro(404, 'Culto não encontrado.');
+    final culto = CultoEscala.fromJson(atual);
+    final hoje = diaEscala(_agora());
+    if (culto.data.compareTo(hoje) < 0 ||
+        !(culto.da(TipoEscala.louvor)['Ministro'] ?? const <String>[]).contains(membroId)) {
+      return _erro(403, 'Você não está escalado como ministro neste culto.');
+    }
+    final corpo = await _corpo(req);
+    if (corpo.length != 1 || !corpo.containsKey('musicas')) return _erro(400, 'Envie apenas a lista de músicas.');
+    try {
+      final doc = {...atual, 'musicas': _selecionarMusicas(atual, corpo['musicas'])};
+      final editado = CultoEscala.fromJson(doc);
+      await store.salvar('escalas', editado.toJson());
+      return _json({'musicas': [for (final m in editado.musicas) m.toJson()]});
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
   /// GET /api/minha-escala — os cultos da pessoa nos próximos 60 dias (só os dela).
   Future<Response> _minhaEscala(Request req) async {
     final id = _membroDaConta(req);
@@ -2230,10 +2263,17 @@ class Servidor {
     return _json({
       'igreja': _termo.igreja,
       'nome': membro.nome.split(' ').first,
+      'podeAvisarIndisponibilidade': Auth.contaDa(req)?.perfil != Perfil.louvor,
+      if (Auth.contaDa(req)?.perfil == Perfil.ministro)
+        'repertorio': [for (final m in store.listar('repertorio')) if (m['ativo'] == true)
+          {'id': m['id'], 'titulo': m['titulo'], 'cantor': m['cantor'], 'tomDiakonia': m['tomDiakonia']}],
       'cultos': [
         for (final c in _cultos())
           if (c.data.compareTo(hoje) >= 0 && c.data.compareTo(limite) <= 0 && c.servindo.any((s) => s.membroId == id))
             {
+              'id': c.id,
+              'podeEscolherMusicas': Auth.contaDa(req)?.perfil == Perfil.ministro &&
+                  (c.da(TipoEscala.louvor)['Ministro'] ?? const <String>[]).contains(id),
               'data': c.data,
               'hora': c.hora,
               'rotulo': rotuloDia(c.data),
@@ -2252,14 +2292,16 @@ class Servidor {
             },
       ],
       'indisponibilidades': [
-        for (final i in _indisponibilidades())
-          if (i.membroId == id && i.ate.compareTo(hoje) >= 0) {'id': i.id, 'de': i.de, 'ate': i.ate, 'motivo': i.motivo},
+        if (Auth.contaDa(req)?.perfil != Perfil.louvor)
+          for (final i in _indisponibilidades())
+            if (i.membroId == id && i.ate.compareTo(hoje) >= 0) {'id': i.id, 'de': i.de, 'ate': i.ate, 'motivo': i.motivo},
       ],
     });
   }
 
   /// POST /api/minha-escala/indisponivel {de, ate?, motivo?}
   Future<Response> _minhaIndisponibilidade(Request req) async {
+    if (Auth.contaDa(req)?.perfil == Perfil.louvor) return _erro(403, 'O perfil Louvor só pode consultar a escala.');
     final corpo = await _corpo(req);
     final id = _membroDaConta(req);
     if (id == null) return _erro(403, 'Sua conta ainda não está vinculada a um membro.');
@@ -2269,6 +2311,7 @@ class Servidor {
 
   /// POST /api/minha-escala/indisponivel/remover {id} — só uma indisponibilidade da própria pessoa.
   Future<Response> _removerMinhaIndisponibilidade(Request req) async {
+    if (Auth.contaDa(req)?.perfil == Perfil.louvor) return _erro(403, 'O perfil Louvor só pode consultar a escala.');
     final corpo = await _corpo(req);
     final id = _membroDaConta(req);
     if (id == null) return _erro(403, 'Sua conta ainda não está vinculada a um membro.');

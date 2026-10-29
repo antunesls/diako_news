@@ -51,7 +51,7 @@ enum Perfil {
   }),
   secretaria('Secretaria', 'Recados, agenda, mensagens, aniversariantes e pedidos públicos.', {
     ..._base, Permissao.motivosEditar, Permissao.mensagens, Permissao.agendaEditar, Permissao.membros, Permissao.resumo,
-    Permissao.visitantes, Permissao.visitantesCadastrar, Permissao.escalasVer, Permissao.escalaPastoral, Permissao.escalaLouvor,
+    Permissao.visitantes, Permissao.visitantesCadastrar, Permissao.escalasVer,
     Permissao.minhaEscala, Permissao.acessosEscala,
   }),
   midia('Mídia', 'Cartazes, galeria do site, recados e projeção no telão.', {
@@ -63,8 +63,14 @@ enum Perfil {
   recepcao('Recepção', 'Obreiro da recepção: cadastra visitantes pelo celular (/recepcao) e vê os do dia. Nada mais.', {
     Permissao.sessao, Permissao.visitantes, Permissao.visitantesCadastrar,
   }),
-  louvor('Louvor', 'Líder do louvor: monta a escala e as músicas do louvor e vê a escala pastoral e a agenda.', {
+  comissaoLouvor('Comissão do Louvor', 'Membros da comissão: montam a escala e as músicas do louvor e veem a escala pastoral e a agenda.', {
     Permissao.sessao, Permissao.painel, Permissao.agendaVer, Permissao.escalasVer, Permissao.escalaLouvor, Permissao.minhaEscala,
+  }),
+  louvor('Louvor', 'Consulta somente a própria escala e as músicas dos cultos em que serve.', {
+    Permissao.sessao, Permissao.minhaEscala,
+  }),
+  ministro('Ministro', 'Escolhe as músicas dos cultos em que ministra e consulta a própria escala.', {
+    Permissao.sessao, Permissao.minhaEscala,
   }),
   integrante('Integrante', 'Consulta a própria escala e avisa indisponibilidades.', {
     Permissao.sessao, Permissao.minhaEscala,
@@ -77,10 +83,13 @@ enum Perfil {
 
   bool pode(Permissao p) => permissoes.contains(p);
 
-  static Perfil? porNome(String nome) => values.where((p) => p.name == nome).firstOrNull;
+  /// Identificador público do perfil (as contas antigas "louvor" agora são somente leitura).
+  String get id => this == Perfil.comissaoLouvor ? 'comissao-louvor' : name;
+
+  static Perfil? porNome(String nome) => values.where((p) => p.id == nome).firstOrNull;
 
   Map<String, dynamic> toJson() =>
-      {'id': name, 'nome': nome, 'descricao': descricao, 'permissoes': [for (final p in permissoes) p.name]};
+      {'id': id, 'nome': nome, 'descricao': descricao, 'permissoes': [for (final p in permissoes) p.name]};
 }
 
 /// Permissão exigida por uma rota da API (caminho sem a barra inicial, ex.: "api/motivos/abc").

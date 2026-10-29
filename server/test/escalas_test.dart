@@ -22,12 +22,22 @@ void main() {
   test('rotas e perfis das escalas', () {
     expect(permissaoDaRota('GET', 'api/escalas'), Permissao.escalasVer);
     expect(permissaoDaRota('PUT', 'api/escalas/x'), Permissao.escalasVer); // o handler confere a escala
-    expect(Perfil.louvor.permissoes, containsAll([Permissao.escalasVer, Permissao.escalaLouvor]));
-    expect(Perfil.louvor.pode(Permissao.escalaPastoral), isFalse);
-    expect(Perfil.louvor.pode(Permissao.membros), isFalse);
+    expect(Perfil.comissaoLouvor.toJson()['id'], 'comissao-louvor');
+    expect(Perfil.comissaoLouvor.permissoes, containsAll([Permissao.escalasVer, Permissao.escalaLouvor]));
+    expect(Perfil.comissaoLouvor.pode(Permissao.escalaPastoral), isFalse);
+    expect(Perfil.comissaoLouvor.pode(Permissao.membros), isFalse);
+    expect(Perfil.porNome('louvor'), Perfil.louvor);
+    expect(Usuario.fromJson({'id': 'x', 'login': 'x', 'perfil': 'louvor'}).toJson()['perfil'], 'louvor');
+    expect(Perfil.louvor.permissoes, {Permissao.sessao, Permissao.minhaEscala});
+    expect(Perfil.ministro.pode(Permissao.minhaEscala), isTrue);
+    expect(Perfil.ministro.pode(Permissao.escalasVer), isFalse);
+    expect(Perfil.ministro.pode(Permissao.escalaLouvor), isFalse);
     expect(Perfil.telao.pode(Permissao.escalasVer), isTrue);
     expect(Perfil.telao.pode(Permissao.escalaLouvor), isFalse);
-    for (final p in [Perfil.administrador, Perfil.pastor, Perfil.secretaria]) {
+    expect(Perfil.secretaria.pode(Permissao.escalaLouvor), isFalse);
+    expect(Perfil.secretaria.pode(Permissao.escalaPastoral), isFalse);
+    expect(Perfil.secretaria.pode(Permissao.acessosEscala), isTrue);
+    for (final p in [Perfil.administrador, Perfil.pastor]) {
       expect(p.permissoes, containsAll([Permissao.escalaPastoral, Permissao.escalaLouvor]));
     }
   });
@@ -51,7 +61,7 @@ void main() {
 
     Future<String> criarUsuario(String login, Perfil perfil) async {
       final (_, j) = await chamar('POST', '/api/admin/usuarios',
-          token: admin, json: {'nome': 'Usuário $login', 'login': login, 'perfil': perfil.name});
+          token: admin, json: {'nome': 'Usuário $login', 'login': login, 'perfil': perfil.id});
       final (_, l) = await chamar('POST', '/api/login', json: {'usuario': login, 'senha': j['senhaTemporaria']});
       return l['token'] as String;
     }
@@ -194,16 +204,25 @@ void main() {
       expect(culto(depois, '2026-11-04')['louvor']['Bateria'], isEmpty);
     });
 
-    test('perfil Louvor monta só o louvor; Mídia só vê; tablet vê o próximo culto', () async {
+    test('Comissão do Louvor monta só o louvor; Mídia só vê; tablet vê o próximo culto', () async {
       await chamar('PUT', '/api/admin/configuracoes', token: admin, json: {'siteCultos': 'Domingo — 19h'});
       await chamar('POST', '/api/escalas/gerar', token: admin, json: {'mes': '2026-11'});
       final bruno = await membro('Bruno Reis', ministerios: ['Louvor']);
-      final lider = await criarUsuario('lider.louvor', Perfil.louvor);
+      final lider = await criarUsuario('lider.louvor', Perfil.comissaoLouvor);
+      final secretaria = await criarUsuario('secretaria.escala', Perfil.secretaria);
       final midia = await criarUsuario('midia', Perfil.midia);
       final id = culto(await mes('2026-11'), '2026-11-01')['id'];
 
       expect((await chamar('PUT', '/api/escalas/$id', token: lider, json: {'tipo': 'louvor', 'funcao': 'Violão', 'membros': [bruno]})).$1, 200);
       final abertura = await musica('Abertura');
+      expect((await chamar('PUT', '/api/escalas/$id', token: secretaria,
+          json: {'musicas': [{'repertorioId': abertura}]})).$1, 403);
+      expect((await chamar('PUT', '/api/escalas/$id', token: secretaria,
+          json: {'tipo': 'louvor', 'funcao': 'Ministro', 'membros': [bruno]})).$1, 403);
+      expect((await chamar('PUT', '/api/escalas/$id', token: secretaria,
+          json: {'tipo': 'pastoral', 'funcao': 'Pregação', 'membros': [bruno]})).$1, 403);
+      expect((await chamar('POST', '/api/repertorio', token: secretaria,
+          json: {'titulo': 'Bloqueada'})).$1, 403);
       expect((await chamar('PUT', '/api/escalas/$id', token: lider, json: {'musicas': [{'repertorioId': abertura}]})).$1, 200);
       expect((await chamar('PUT', '/api/escalas/$id', token: lider, json: {'tipo': 'pastoral', 'funcao': 'Pregação', 'membros': [bruno]})).$1, 403);
       expect((await chamar('PUT', '/api/escalas/$id', token: lider, json: {'ceia': false})).$1, 403);
@@ -229,27 +248,31 @@ void main() {
 
     test('consulta todos os avisos ativos com autor e envio; cancelar remove da lista', () async {
       final bruno = await membro('Bruno Reis', ministerios: ['Louvor']);
+      final pastor = await criarUsuario('pastor.aviso', Perfil.pastor);
       final secretaria = await criarUsuario('secretaria.aviso', Perfil.secretaria);
       final midia = await criarUsuario('midia.aviso', Perfil.midia);
-      final (st, criado) = await chamar('POST', '/api/escalas/indisponibilidades', token: secretaria,
+      expect((await chamar('POST', '/api/escalas/indisponibilidades', token: secretaria,
+          json: {'membroId': bruno, 'de': '2027-01-05'})).$1, 403);
+      final (st, criado) = await chamar('POST', '/api/escalas/indisponibilidades', token: pastor,
           json: {'membroId': bruno, 'de': '2027-01-05', 'ate': '2027-01-07', 'motivo': 'viagem',
             'enviadoPor': 'nome-falso', 'enviadoEm': '1999-01-01'});
       expect(st, 201);
-      expect(criado['enviadoPor'], 'Usuário secretaria.aviso');
+      expect(criado['enviadoPor'], 'Usuário pastor.aviso');
       expect(criado['enviadoEm'], startsWith('2026-10-28T'));
       await store.salvar('indisponibilidades', {'id': 'legado', 'membroId': bruno,
         'de': '2025-01-01', 'ate': '2025-01-02'});
       expect((await chamar('GET', '/api/escalas/indisponibilidades')).$1, 401);
-      expect((await chamar('GET', '/api/escalas/indisponibilidades', token: midia)).$1, 403);
+      expect((await chamar('GET', '/api/escalas/indisponibilidades', token: midia)).$1, 200);
       final (stLista, lista) = await chamar('GET', '/api/escalas/indisponibilidades', token: secretaria);
       expect(stLista, 200);
       expect(lista, hasLength(2));
       expect(lista.first, containsPair('nome', 'Bruno Reis'));
-      expect(lista.first, containsPair('enviadoPor', 'Usuário secretaria.aviso'));
+      expect(lista.first, containsPair('enviadoPor', 'Usuário pastor.aviso'));
       expect(lista.last['enviadoEm'], isNull);
       expect(lista.last['enviadoPor'], isNull);
       expect((await chamar('DELETE', '/api/escalas/indisponibilidades/${criado['id']}', token: midia)).$1, 403);
-      expect((await chamar('DELETE', '/api/escalas/indisponibilidades/${criado['id']}', token: secretaria)).$1, 200);
+      expect((await chamar('DELETE', '/api/escalas/indisponibilidades/${criado['id']}', token: secretaria)).$1, 403);
+      expect((await chamar('DELETE', '/api/escalas/indisponibilidades/${criado['id']}', token: pastor)).$1, 200);
       expect((await chamar('GET', '/api/escalas/indisponibilidades', token: secretaria)).$2, hasLength(1));
     });
 
@@ -356,6 +379,89 @@ void main() {
       expect((await chamar('POST', '/api/acessos-escala/$pastorId/senha', token: secretaria)).$1, 404);
     });
 
+    test('ministro escolhe músicas apenas no próprio culto, sem editar pessoas ou repertório', () async {
+      await chamar('PUT', '/api/admin/configuracoes', token: admin, json: {'siteCultos': 'Domingo — 19h'});
+      await chamar('POST', '/api/escalas/gerar', token: admin, json: {'mes': '2026-11'});
+      final cultos = await mes('2026-11');
+      final primeiro = culto(cultos, '2026-11-01')['id'] as String;
+      final segundo = culto(cultos, '2026-11-08')['id'] as String;
+      final pessoa = await membro('Ana Ministra', ministerios: ['Louvor']);
+      final outra = await membro('Outra Ministra', ministerios: ['Louvor']);
+      await chamar('PUT', '/api/escalas/$primeiro', token: admin,
+          json: {'tipo': 'louvor', 'funcao': 'Ministro', 'membros': [pessoa]});
+      await chamar('PUT', '/api/escalas/$segundo', token: admin,
+          json: {'tipo': 'louvor', 'funcao': 'Ministro', 'membros': [outra]});
+      final cancion = await musica('Canção', tom: 'G');
+      final ministro = await criarUsuario('ana.ministra', Perfil.ministro);
+      final integrante = await criarUsuario('outro.integrante', Perfil.integrante);
+      final usuarios = (await chamar('GET', '/api/acessos-escala', token: admin)).$2['usuarios'] as List;
+      final usuarioId = usuarios.firstWhere((u) => u['login'] == 'ana.ministra')['id'];
+      expect((await chamar('POST', '/api/acessos-escala/vincular', token: admin,
+          json: {'usuarioId': usuarioId, 'membroId': pessoa})).$1, 200);
+      final minha = (await chamar('GET', '/api/minha-escala', token: ministro)).$2 as Map;
+      expect(minha['cultos'].single['podeEscolherMusicas'], true);
+      expect(minha['repertorio'], isNotEmpty);
+      expect((await chamar('PUT', '/api/minha-escala/cultos/$primeiro/musicas', token: ministro,
+          json: {'musicas': [{'repertorioId': cancion, 'tom': 'D'}]})).$1, 200);
+      expect((await chamar('GET', '/api/minha-escala', token: ministro)).$2['cultos'].single['musicas'].single['tom'], 'D');
+      expect((await chamar('PUT', '/api/minha-escala/cultos/$segundo/musicas', token: ministro,
+          json: {'musicas': []})).$1, 403);
+      expect((await chamar('PUT', '/api/minha-escala/cultos/$primeiro/musicas', token: ministro,
+          json: {'musicas': [{'repertorioId': 'inexistente'}]})).$1, 400);
+      expect((await chamar('PUT', '/api/minha-escala/cultos/$primeiro/musicas', token: ministro,
+          json: {'musicas': [], 'louvor': {}})).$1, 400);
+      expect((await chamar('PUT', '/api/minha-escala/cultos/$primeiro/musicas', token: integrante,
+          json: {'musicas': []})).$1, 403);
+      expect((await chamar('PUT', '/api/escalas/$primeiro', token: ministro,
+          json: {'musicas': []})).$1, 403);
+      expect((await chamar('POST', '/api/repertorio', token: ministro,
+          json: {'titulo': 'Nova'})).$1, 403);
+      await chamar('PUT', '/api/escalas/$primeiro', token: admin,
+          json: {'tipo': 'louvor', 'funcao': 'Ministro', 'membros': [outra]});
+      expect((await chamar('PUT', '/api/minha-escala/cultos/$primeiro/musicas', token: ministro,
+          json: {'musicas': []})).$1, 403);
+      expect(culto(await mes('2026-11'), '2026-11-01')['musicas'].single['tom'], 'D');
+    });
+
+    test('Louvor vê somente a própria escala e músicas, sem poder alterar dados', () async {
+      await chamar('PUT', '/api/admin/configuracoes', token: admin, json: {'siteCultos': 'Domingo — 19h'});
+      await chamar('POST', '/api/escalas/gerar', token: admin, json: {'mes': '2026-11'});
+      final idCulto = culto(await mes('2026-11'), '2026-11-01')['id'] as String;
+      final bruno = await membro('Bruno', ministerios: ['Louvor']);
+      final ana = await membro('Ana', ministerios: ['Louvor']);
+      final abertura = await musica('Abertura');
+      await chamar('PUT', '/api/escalas/$idCulto', token: admin,
+          json: {'tipo': 'louvor', 'funcao': 'Vocal', 'membros': [bruno]});
+      await chamar('PUT', '/api/escalas/$idCulto', token: admin,
+          json: {'musicas': [{'repertorioId': abertura}]});
+      final (stCriacao, criado) = await chamar('POST', '/api/admin/usuarios', token: admin,
+          json: {'nome': 'Bruno', 'login': 'bruno.louvor', 'perfil': 'louvor'});
+      expect(stCriacao, 201);
+      final (_, login) = await chamar('POST', '/api/login',
+          json: {'usuario': 'bruno.louvor', 'senha': criado['senhaTemporaria']});
+      final acesso = login['token'] as String;
+      expect((await chamar('GET', '/api/minha-escala', token: acesso)).$1, 403); // falta vínculo
+      expect((await chamar('POST', '/api/acessos-escala/vincular', token: admin,
+          json: {'usuarioId': criado['usuario']['id'], 'membroId': bruno})).$1, 200);
+      final (stMinha, minha) = await chamar('GET', '/api/minha-escala', token: acesso);
+      expect(stMinha, 200);
+      expect(minha['cultos'].single['musicas'].single['titulo'], 'Abertura');
+      expect(minha['cultos'].single['podeEscolherMusicas'], false);
+      expect(minha['indisponibilidades'], isEmpty);
+      expect(minha['podeAvisarIndisponibilidade'], false);
+      expect(minha.containsKey('repertorio'), false);
+      expect((await chamar('GET', '/api/escalas', token: acesso)).$1, 403);
+      expect((await chamar('GET', '/api/repertorio', token: acesso)).$1, 403);
+      expect((await chamar('PUT', '/api/escalas/$idCulto', token: acesso,
+          json: {'musicas': []})).$1, 403);
+      expect((await chamar('PUT', '/api/minha-escala/cultos/$idCulto/musicas', token: acesso,
+          json: {'musicas': []})).$1, 403);
+      expect((await chamar('POST', '/api/minha-escala/indisponivel', token: acesso,
+          json: {'de': '2026-11-05', 'membroId': ana})).$1, 403);
+      expect((await chamar('POST', '/api/minha-escala/indisponivel/remover', token: acesso,
+          json: {'id': 'qualquer'})).$1, 403);
+    });
+
     test('repertório: prévia, importação sem sobrescrever, edição e músicas vinculadas na escala', () async {
       const csv = 'Louvor,Cantor,Status,Tom Diakonia,Observações\n'
           'Santo pra sempre,Marine Friesen,Ok,"F\nComeça com Bb",Teste\n'
@@ -417,8 +523,8 @@ void main() {
       expect(previa['musicas'].single['status'], 'Pendente');
     });
 
-    test('perfil Louvor mantém repertório, Mídia só consulta', () async {
-      final lider = await criarUsuario('lider.repertorio', Perfil.louvor);
+    test('Comissão do Louvor mantém repertório, Mídia só consulta', () async {
+      final lider = await criarUsuario('lider.repertorio', Perfil.comissaoLouvor);
       final midia = await criarUsuario('midia.repertorio', Perfil.midia);
       final (st, criada) = await chamar('POST', '/api/repertorio', token: lider,
           json: {'titulo': 'Nova música', 'cantor': 'Cantor', 'tomDiakonia': 'C'});

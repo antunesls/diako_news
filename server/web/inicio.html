@@ -112,8 +112,8 @@
     h1 { font-size: 34px; }
   }
   @media (max-width: 600px) {
-    .topo-site nav { display: none; }
-    .topo-site .dentro { justify-content: space-between; flex-wrap: nowrap; gap: 12px; }
+    .topo-site nav { order: 3; width: 100%; justify-content: center; }
+    .topo-site .dentro { justify-content: space-between; gap: 12px; }
     .topo-site img { height: 34px; }
     .topo-site .espaco { display: none; }
   }
@@ -124,7 +124,7 @@
   <div class="dentro">
     <a href="/" aria-label="Página inicial"><img src="/logo.png" alt="Igreja Diakonia Tulipas"></a>
     <span class="espaco"></span>
-    <nav aria-label="Nesta página" id="menu-site"></nav>
+    <nav aria-label="Acessos e seções" id="menu-site"></nav>
     <a class="botao secundario pequeno" href="/painel">Área da equipe</a>
   </div>
 </header>
@@ -171,7 +171,7 @@
 
   function montar(s) {
     document.title = s.igreja;
-    const menu = [];
+    const menu = [['recepcao', 'Recepção', '/recepcao'], ['louvor', 'Louvor', 'https://diakoniatulipas.com.br/minha-escala']];
 
     // Avisos urgentes: faixa no topo
     $('urgentes').replaceChildren(...s.urgentes.map((u) => el('div', { class: 'urgente', role: 'alert' },
@@ -195,7 +195,6 @@
     }
 
     if (s.agenda && s.eventos.length) {
-      menu.push(['agenda', 'Agenda']);
       const hoje = diaIso(new Date());
       principal.push(secao('agenda', 'Próximos eventos', el('div', { class: 'lista' }, s.eventos.map((e) => {
         const d = new Date(e.inicio);
@@ -226,7 +225,6 @@
     ];
 
     if (s.cultos.length || s.endereco) {
-      menu.push(['cultos', 'Cultos']);
       lateral.push(el('section', { class: 'caixa', id: 'cultos', 'aria-labelledby': 'cultos-t' },
         el('h2', { id: 'cultos-t' }, 'Nossos cultos'),
         s.cultos.map((c) => el('div', { class: 'par' }, el('span', {}, c.dia), el('strong', {}, c.hora))),
@@ -270,7 +268,7 @@
               onclick: () => copiar(s.pix.chave, 'Chave copiada.') }, 'Copiar chave')))));
     }
 
-    $('menu-site').replaceChildren(...menu.map(([id, nome]) => el('a', { href: '#' + id }, nome)));
+    $('menu-site').replaceChildren(...menu.map(([id, nome, destino]) => el('a', { href: destino || '#' + id }, nome)));
     $('principal').replaceChildren(...principal);
     $('lateral').replaceChildren(...lateral);
     $('principal').hidden = principal.length === 0;

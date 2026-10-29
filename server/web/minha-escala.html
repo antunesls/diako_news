@@ -18,6 +18,10 @@
   .culto .musicas { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--suave); }
   .culto .musicas li { padding: 3px 0; }
   .culto .musicas a { margin-left: 6px; }
+  .editor-musicas { margin-top: 12px; border-top: 1px solid var(--linha); padding-top: 10px; }
+  .linha-musica { display: flex; gap: 6px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+  .linha-musica select { flex: 1 1 170px; min-width: 0; }
+  .linha-musica input { width: 70px; }
   .avisos { list-style: none; margin: 0 0 12px; padding: 0; }
   .avisos li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--linha); font-size: 15px; }
   .avisos li span { flex: 1; }
@@ -31,7 +35,7 @@
 
   <section id="entrar" class="cartao">
     <h1>Minha escala</h1>
-    <p>Entre para consultar os cultos e avisar quando não puder servir.</p>
+    <p>Entre para consultar seus cultos e as músicas da sua escala.</p>
     <form id="form-login">
       <div class="campo"><label for="usuario">Usuário</label><input id="usuario" autocomplete="username" required></div>
       <div class="campo"><label for="senha">Senha</label><input id="senha" type="password" autocomplete="current-password" required></div>
@@ -77,7 +81,7 @@
       <button class="botao secundario">Atualizar senha</button>
     </form>
 
-    <p class="dica" style="text-align:center;margin-top:18px">A escala e os avisos são acessíveis somente após o login.</p>
+    <p class="dica" style="text-align:center;margin-top:18px">Sua escala é acessível somente após o login.</p>
   </section>
 </main>
 <script>
@@ -87,8 +91,8 @@
   let token = localStorage.getItem('diako_token');
   let dados = null;
 
-  async function chamar(caminho, corpo) {
-    const r = await fetch(caminho, { method: corpo === undefined ? 'GET' : 'POST',
+  async function chamar(caminho, corpo, metodo = corpo === undefined ? 'GET' : 'POST') {
+    const r = await fetch(caminho, { method: metodo,
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       body: corpo === undefined ? undefined : JSON.stringify(corpo) });
     const j = await r.json().catch(() => ({}));
@@ -109,10 +113,78 @@
   const periodo = (de, ate) => (de === ate ? ddmm(de) : `${ddmm(de)} a ${ddmm(ate)}`);
   const nomeFuncao = (f) => f.tipo === 'louvor' ? `${f.funcao} · louvor` : f.funcao;
 
+  function editorMusicas(c) {
+    const editor = document.createElement('details');
+    editor.className = 'editor-musicas';
+    editor.append(Object.assign(document.createElement('summary'), { textContent: 'Escolher músicas deste culto' }));
+    const linhas = document.createElement('div');
+    const resultado = Object.assign(document.createElement('p'), { role: 'status' });
+    const escolhidas = c.musicas.map((m) => ({ repertorioId: m.repertorioId || '', titulo: m.titulo, tom: m.tom || '' }));
+    const botao = (texto, acao) => {
+      const b = Object.assign(document.createElement('button'), { type: 'button', className: 'botao secundario pequeno', textContent: texto });
+      b.addEventListener('click', acao);
+      return b;
+    };
+    function desenharLinhas() {
+      linhas.replaceChildren(...escolhidas.map((m, i) => {
+        const linha = document.createElement('div');
+        linha.className = 'linha-musica';
+        const selecao = document.createElement('select');
+        selecao.setAttribute('aria-label', `Música ${i + 1}`);
+        selecao.append(Object.assign(document.createElement('option'), { value: '', textContent: 'Escolha uma música' }));
+        const catalogo = dados.repertorio || [];
+        if (m.repertorioId && !catalogo.some((r) => r.id === m.repertorioId)) {
+          selecao.append(Object.assign(document.createElement('option'), { value: m.repertorioId, textContent: m.titulo + ' (inativa)' }));
+        } else if (!m.repertorioId && m.titulo) {
+          selecao.append(Object.assign(document.createElement('option'), { value: 'legado', textContent: m.titulo + ' (antiga)' }));
+        }
+        for (const musica of catalogo) {
+          selecao.append(Object.assign(document.createElement('option'), { value: musica.id,
+            textContent: musica.titulo + (musica.cantor ? ' · ' + musica.cantor : '') }));
+        }
+        selecao.value = m.repertorioId || (m.titulo ? 'legado' : '');
+        selecao.addEventListener('change', () => {
+          const escolhida = catalogo.find((r) => r.id === selecao.value);
+          m.repertorioId = escolhida ? escolhida.id : '';
+          m.titulo = escolhida ? escolhida.titulo : '';
+          m.tom = escolhida ? (escolhida.tomDiakonia || '') : '';
+          desenharLinhas();
+        });
+        const tom = Object.assign(document.createElement('input'), { type: 'text', value: m.tom, maxLength: 12, placeholder: 'Tom' });
+        tom.setAttribute('aria-label', `Tom da música ${i + 1}`);
+        tom.addEventListener('input', () => { m.tom = tom.value; });
+        linha.append(selecao, tom,
+          botao('↑', () => { if (i > 0) { [escolhidas[i - 1], escolhidas[i]] = [escolhidas[i], escolhidas[i - 1]]; desenharLinhas(); } }),
+          botao('↓', () => { if (i < escolhidas.length - 1) { [escolhidas[i + 1], escolhidas[i]] = [escolhidas[i], escolhidas[i + 1]]; desenharLinhas(); } }),
+          botao('Remover', () => { escolhidas.splice(i, 1); desenharLinhas(); }));
+        return linha;
+      }));
+    }
+    desenharLinhas();
+    const adicionar = botao('+ Música', () => { escolhidas.push({ repertorioId: '', titulo: '', tom: '' }); desenharLinhas(); });
+    const salvar = botao('Salvar músicas', async () => {
+      if (escolhidas.some((m) => !m.repertorioId && !m.titulo)) {
+        resultado.textContent = 'Escolha uma música em cada linha.';
+        return;
+      }
+      salvar.disabled = true;
+      try {
+        await chamar(`/api/minha-escala/cultos/${c.id}/musicas`, { musicas: escolhidas }, 'PUT');
+        await carregar();
+      } catch (err) {
+        resultado.textContent = err.message;
+        salvar.disabled = false;
+      }
+    });
+    editor.append(linhas, adicionar, salvar, resultado);
+    return editor;
+  }
+
   function desenhar() {
     $('carregando').hidden = true;
     $('conteudo').hidden = false;
     $('ola').textContent = 'Olá, ' + dados.nome;
+    $('form').hidden = !dados.podeAvisarIndisponibilidade;
     const n = dados.cultos.length;
     $('resumo').textContent = n === 0
       ? 'Você não está escalado(a) nos próximos 60 dias.'
@@ -146,10 +218,11 @@
         }));
         texto.append(ol);
       }
+      if (c.podeEscolherMusicas) texto.append(editorMusicas(c));
       caixa.append(dia, texto);
       return caixa;
     }));
-    $('agenda').hidden = n === 0;
+    $('agenda').hidden = n === 0 || !dados.podeAvisarIndisponibilidade;
     $('avisos').replaceChildren(...dados.indisponibilidades.map((i) => {
       const li = document.createElement('li');
       const remover = Object.assign(document.createElement('button'), { type: 'button', className: 'botao secundario pequeno', textContent: 'Desfazer' });
