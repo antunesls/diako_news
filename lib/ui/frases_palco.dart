@@ -19,6 +19,7 @@ class FrasesPalco extends StatelessWidget {
         for (final frase in frases)
           ActionChip(
             label: Text(frase),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             avatar: const Icon(Icons.send_outlined, size: 18),
             onPressed: () => onEnviar(frase),
           ),

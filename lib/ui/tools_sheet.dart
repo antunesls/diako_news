@@ -4,15 +4,57 @@ import '../app_scope.dart';
 import 'frases_palco.dart';
 
 void mostrarFerramentas(BuildContext context) {
-  showModalBottomSheet(
+  showDialog<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-      child: const _Ferramentas(),
-    ),
+    builder: (_) => const _Ferramentas(),
   );
+}
+
+/// Janela central das ferramentas do culto: abre no meio da tela, ocupa até 900
+/// de largura e rola quando a tela é baixa. Separada do conteúdo para ser
+/// testada sem o AppScope.
+class ToolsDialog extends StatelessWidget {
+  const ToolsDialog({super.key, required this.contagem, required this.palco});
+
+  final Widget contagem;
+  final Widget palco;
+
+  @override
+  Widget build(BuildContext context) {
+    final tela = MediaQuery.sizeOf(context);
+    final tema = Theme.of(context);
+    return Dialog(
+      // Com o teclado aberto, a janela sobe para o campo continuar visível.
+      insetPadding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
+      child: ConstrainedBox(
+        key: const ValueKey('janela-ferramentas'),
+        constraints: BoxConstraints(maxWidth: 900, maxHeight: tela.height * 0.9),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(28, 18, 12, 10),
+              child: Row(
+                children: [
+                  Icon(Icons.campaign_outlined, color: tema.colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Ferramentas do culto', style: tema.textTheme.titleLarge)),
+                  IconButton(
+                    tooltip: 'Fechar',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(child: ToolsLayout(contagem: contagem, palco: palco)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Ferramentas extends StatefulWidget {
@@ -43,7 +85,7 @@ class _FerramentasState extends State<_Ferramentas> {
     final client = scope.client;
     final titulo = Theme.of(context).textTheme.titleMedium;
 
-    return ToolsLayout(
+    return ToolsDialog(
       contagem: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -172,18 +214,18 @@ class ToolsLayout extends StatelessWidget {
     Widget conteudo = ladoALado
         ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(child: contagem),
-            const SizedBox(width: 24),
+            const SizedBox(width: 32),
             Expanded(child: palco),
           ])
         : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             contagem,
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             palco,
           ]);
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: tela.height * 0.85),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
         child: conteudo,
       ),
     );
