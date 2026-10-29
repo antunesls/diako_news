@@ -91,7 +91,18 @@ class HolyricsClient {
   Future<void> telaPreta(bool ativar) => call('SetF10', {'enable': ativar});
 
   Future<void> mensagemPalco(String texto, {bool mostrar = true}) =>
-      call('SetTextCP', {'text': texto, 'show': mostrar, 'display_ahead': mostrar});
+      call('SetTextCP', {
+        'text': texto,
+        'show': mostrar,
+        'display_ahead': mostrar,
+        // Sem tema: só o texto, sobre o que já está na TV do palco.
+        'custom_theme': {
+          'background': {'type': 'transparent', 'id': 'transparent'},
+          'font': {'bold': true, 'size': 14, 'color': 'FFFFFF'},
+          'align': {'horizontal': 'center', 'vertical': 'middle'},
+          'effect': {'shadow_color': '000000', 'shadow_x_weight': 20, 'shadow_y_weight': 20},
+        },
+      });
 
   Future<void> contagemPalco(int minutos) =>
       call('StartCountdownCP', {'minutes': minutos, 'seconds': 0, 'yellow_starts_at': 60, 'stop_at_zero': true});

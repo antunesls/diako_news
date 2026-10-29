@@ -98,6 +98,27 @@ void main() {
         throwsA(isA<HolyricsException>().having((e) => e.message, 'message', contains('não respondeu'))),
       );
     });
+
+    test('mensagem de palco vai sem tema: só texto, fundo transparente', () async {
+      await cliente({'status': 'ok'}).mensagemPalco('Faltam 5 minutos');
+      expect(corpo(), {
+        'text': 'Faltam 5 minutos',
+        'show': true,
+        'display_ahead': true,
+        'custom_theme': {
+          'background': {'type': 'transparent', 'id': 'transparent'},
+          'font': {'bold': true, 'size': 14, 'color': 'FFFFFF'},
+          'align': {'horizontal': 'center', 'vertical': 'middle'},
+          'effect': {'shadow_color': '000000', 'shadow_x_weight': 20, 'shadow_y_weight': 20},
+        },
+      });
+    });
+
+    test('ocultar a mensagem de palco mantém o mesmo visual', () async {
+      await cliente({'status': 'ok'}).mensagemPalco('', mostrar: false);
+      expect(corpo()['show'], isFalse);
+      expect((corpo()['custom_theme'] as Map)['background'], {'type': 'transparent', 'id': 'transparent'});
+    });
   });
 
   group('ServerApi', () {

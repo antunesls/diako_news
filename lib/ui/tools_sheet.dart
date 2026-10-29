@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
+import 'frases_palco.dart';
 
 void mostrarFerramentas(BuildContext context) {
   showModalBottomSheet(
@@ -116,6 +117,14 @@ class _FerramentasState extends State<_Ferramentas> {
             ],
           ),
           const SizedBox(height: 16),
+          Text('Frases prontas (um toque envia)', style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+          const SizedBox(height: 8),
+          FrasesPalco(
+            frases: scope.settings.frasesPalco,
+            onEnviar: (frase) => executar(context, () => client.mensagemPalco(frase),
+                sucesso: 'Mensagem enviada ao palco: "$frase"'),
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _mensagem,
             decoration: const InputDecoration(

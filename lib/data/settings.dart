@@ -25,6 +25,26 @@ class AppSettings extends ChangeNotifier {
   /// Agente do PC da igreja na rede local (ex: http://192.168.0.20:8097); vazio = só internet.
   String get agenteLocal => _prefs.getString('agenteLocal') ?? '';
 
+  /// Frases prontas para o painel de comunicação (TV do palco), editáveis no tablet.
+  static const frasesPalcoPadrao = <String>[
+    'O culto começa em 5 min',
+    'O culto começa em 2 min',
+    'Pastor, pode se dirigir ao palco',
+    'Favor encerrar a ministração',
+    'Silêncio, por favor',
+    'Momento de oração',
+    'Atenção: microfone com problema',
+  ];
+
+  List<String> get frasesPalco => _prefs.getStringList('frasesPalco') ?? frasesPalcoPadrao;
+
+  Future<void> atualizarFrasesPalco(List<String> frases) async {
+    await _prefs.setStringList('frasesPalco', frases);
+    notifyListeners();
+  }
+
+  Future<void> restaurarFrasesPalco() => atualizarFrasesPalco(frasesPalcoPadrao);
+
   /// Token do pareamento com o agente (vale sem internet) e o id para desfazê-lo.
   String get agenteLocalToken => _prefs.getString('agenteLocalToken') ?? '';
   String get agenteLocalId => _prefs.getString('agenteLocalId') ?? '';

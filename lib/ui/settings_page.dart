@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
+import '../data/settings.dart';
 import '../holyrics/agente_local.dart';
 import '../sync/server_api.dart';
 
@@ -261,6 +263,95 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Widget _secaoFrasesPalco(BuildContext context) {
+    final scope = AppScope.of(context);
+    return ListenableBuilder(
+      listenable: scope.settings,
+      builder: (context, _) {
+        final frases = scope.settings.frasesPalco;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (frases.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('Nenhuma frase cadastrada.',
+                    style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+              ),
+            for (final frase in frases)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(frase),
+                subtitle: const Text('Toque para editar'),
+                trailing: IconButton(
+                  tooltip: 'Remover frase',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => scope.settings
+                      .atualizarFrasesPalco([...frases.where((f) => f != frase)]),
+                ),
+                onTap: () async {
+                  final nova = await _textoFrase(context, inicial: frase);
+                  if (nova == null) return;
+                  final lista = [...frases];
+                  lista[lista.indexOf(frase)] = nova;
+                  await scope.settings.atualizarFrasesPalco(lista);
+                },
+              ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Adicionar frase'),
+                  onPressed: () async {
+                    final nova = await _textoFrase(context);
+                    if (nova == null) return;
+                    await scope.settings.atualizarFrasesPalco([...frases, nova]);
+                  },
+                ),
+                if (!listEquals(frases, AppSettings.frasesPalcoPadrao))
+                  TextButton.icon(
+                    icon: const Icon(Icons.restart_alt),
+                    label: const Text('Restaurar frases padrão'),
+                    onPressed: scope.settings.restaurarFrasesPalco,
+                  ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Texto de uma frase do palco; null quando cancelado. Vazio não é aceito.
+  Future<String?> _textoFrase(BuildContext context, {String inicial = ''}) async {
+    final texto = TextEditingController(text: inicial);
+    final resultado = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(inicial.isEmpty ? 'Nova frase do palco' : 'Editar frase do palco'),
+        content: TextField(
+          controller: texto,
+          autofocus: true,
+          maxLength: 200,
+          decoration: const InputDecoration(labelText: 'Frase', border: OutlineInputBorder()),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, texto.text.trim()),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    texto.dispose();
+    return resultado == null || resultado.isEmpty ? null : resultado;
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
@@ -412,6 +503,16 @@ class _SettingsPageState extends State<SettingsPage> {
               value: _negrito,
               onChanged: (v) => setState(() => _negrito = v),
             ),
+            const Divider(height: 48),
+            Text('Mensagens do palco', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Frases prontas que aparecem na janela de ferramentas do tablet: um toque envia para a TV do palco. '
+              'O texto livre continua disponível.',
+              style: TextStyle(color: esquema.outline),
+            ),
+            const SizedBox(height: 8),
+            _secaoFrasesPalco(context),
             const Divider(height: 48),
             Text('Segurança', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
