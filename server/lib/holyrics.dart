@@ -75,6 +75,7 @@ class HolyricsDireto extends PonteHolyrics {
     if (!configurado) {
       return _erro('Configure o token do Holyrics no config.json.');
     }
+    if (acao == 'ShowQuickPresentation') corpoJson = _apresentacaoEstilizada(corpoJson);
     final uri = Uri(scheme: 'http', host: host, port: porta, path: '/api/$acao', queryParameters: {'token': token});
     try {
       final r = await _http
@@ -86,6 +87,32 @@ class HolyricsDireto extends PonteHolyrics {
       return _erro('Holyrics não respondeu. Ele está aberto?');
     } catch (_) {
       return _erro('Não foi possível conectar ao Holyrics em $host:$porta. Verifique se a API Server está ativa.');
+    }
+  }
+
+  /// O Holyrics só interpreta <b> quando o texto começa com <styled>.
+  /// Vale tanto para um slide quanto para cada item da sequência enviada pelo agente.
+  static String _apresentacaoEstilizada(String corpoJson) {
+    try {
+      final dados = jsonDecode(corpoJson);
+      if (dados is! Map) return corpoJson;
+      var alterado = false;
+      void estilizar(Map slide) {
+        final texto = slide['text'];
+        if (texto is String && texto.contains('<b>') && !texto.startsWith('<styled>')) {
+          slide['text'] = '<styled>$texto';
+          alterado = true;
+        }
+      }
+      estilizar(dados);
+      if (dados['slides'] case final List slides) {
+        for (final slide in slides) {
+          if (slide is Map) estilizar(slide);
+        }
+      }
+      return alterado ? jsonEncode(dados) : corpoJson;
+    } on FormatException {
+      return corpoJson;
     }
   }
 

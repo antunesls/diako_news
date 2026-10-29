@@ -71,14 +71,17 @@ if ($Modo -eq 'agente') {
         Write-Host 'token do Holyrics e pasta de imagens do Holyrics. Salve e feche o Bloco de Notas.' -ForegroundColor Yellow
         Start-Process notepad.exe $config -Wait
     }
-    $monitorConfig = (Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).monitor
+    . (Join-Path $origem 'normalizar-agente.ps1')
+    $dadosAgente = Ler-ConfigAgente $config
+    $monitorConfig = $dadosAgente.monitor
     if (-not $monitorConfig -or -not $monitorConfig.hash) {
         Write-Host 'Defina uma senha exclusiva do monitor local (mínimo 12 caracteres).' -ForegroundColor Yellow
         & (Join-Path $Destino 'diako_agente.exe') --definir-senha $config
         if ($LASTEXITCODE -ne 0) { throw 'Falha ao definir a senha do monitor.' }
     }
 
-    $apiLocal = (Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).apiLocal
+    $dadosAgente = Ler-ConfigAgente $config
+    $apiLocal = $dadosAgente.apiLocal
     $portaLocal = if ($apiLocal -and $null -ne $apiLocal.porta) { [int]$apiLocal.porta } else { 8097 }
     Get-NetFirewallRule -DisplayName 'DiakoNews Agente (tablets)' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
     if ($portaLocal -gt 0) {
@@ -98,7 +101,7 @@ if ($Modo -eq 'agente') {
     if (Test-Path $log) { Get-Content $log -Tail 8 }
     Write-Host ''
     Write-Host "Confira no painel (aba Status) se aparece 'PC da igreja (agente): Conectado'. Log: $log"
-    $portaMonitor = (Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json).monitor.porta
+    $portaMonitor = (Ler-ConfigAgente $config).monitor.porta
     if (-not $portaMonitor) { $portaMonitor = 8096 }
     Write-Host "Monitor local deste PC: http://127.0.0.1:$portaMonitor (senha própria)."
     if ($portaLocal -gt 0) {

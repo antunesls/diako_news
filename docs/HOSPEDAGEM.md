@@ -53,8 +53,9 @@ Teste abrindo `https://diako.minhaigreja.com.br/painel`.
      "chaveAgente": "a chave mostrada no passo 1",
      "holyrics": { "host": "127.0.0.1", "porta": 8091, "token": "TOKEN DO HOLYRICS" },
      "pastaImagensHolyrics": "C:\\caminho\\da\\pasta\\de\\imagens\\do\\Holyrics"
-   }
-   ```
+    }
+    ```
+   Use o caminho real da pasta de imagens (sem a subpasta `Diako`). Ao instalar, caminhos Windows colados com barras simples em `pastaImagensHolyrics` são normalizados automaticamente; outros erros de sintaxe no JSON precisam ser corrigidos antes de continuar.
 5. O agente inicia junto com o Windows (tarefa "DiakoNews Agente"). No painel, a aba **Status** deve mostrar **PC da igreja (agente): Conectado**.
 
 Os cartazes enviados pelo painel ou pelo tablet, e o QR dos pedidos de oração, aparecem sozinhos em `pasta de imagens\Diako`.

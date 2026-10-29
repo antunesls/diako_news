@@ -6,7 +6,7 @@
     "porta": 8091,
     "token": "TOKEN DO HOLYRICS"
   },
-  "pastaImagensHolyrics": "C:\caminho\da\pasta\de\imagens\do\Holyrics",
+  "pastaImagensHolyrics": "C:/caminho/da/pasta/de/imagens/do/Holyrics",
   "monitor": {
     "porta": 8096,
     "hash": "",

@@ -374,7 +374,7 @@ void main() {
       final r = await req('POST', '/api/projetar/oracoes-respondidas', json: {'tema': 'Avisos'});
       expect(await corpo(r), {'status': 'ok'});
       final enviado = jsonDecode(chamadasHolyrics.single.body) as Map;
-      expect((enviado['slides'] as List).single['text'], '<b>Orações respondidas</b>\n✓ Ana — Emprego\n   Contratada!');
+      expect((enviado['slides'] as List).single['text'], '<styled><b>Orações respondidas</b>\n✓ Ana — Emprego\n   Contratada!');
       expect(enviado['theme'], {'name': 'Avisos'});
 
       final h = await corpo(await req('GET', '/api/historico')) as List;

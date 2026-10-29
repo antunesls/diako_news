@@ -7,6 +7,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
+& (Join-Path $PSScriptRoot 'test/normalizar_agente_test.ps1')
 dart test
 if ($LASTEXITCODE -ne 0) { throw 'Testes falharam; pacote não gerado.' }
 
@@ -20,7 +21,7 @@ dart compile exe "-DVERSAO=$Versao" bin\diako_agente.dart -o (Join-Path $saida '
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar o agente.' }
 
 Copy-Item web $saida -Recurse
-Copy-Item config.example.json, agente.example.json, instalar.ps1, LEIA-ME.md $saida
+Copy-Item config.example.json, agente.example.json, instalar.ps1, normalizar-agente.ps1, LEIA-ME.md $saida
 $zip = Join-Path $PSScriptRoot "dist\DiakoServer-$Versao.zip"
 Compress-Archive -Path $saida -DestinationPath $zip -Force
 Write-Host "Pacote gerado: $zip" -ForegroundColor Green

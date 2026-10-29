@@ -56,3 +56,10 @@ jobs:
         run: bash tool/ci/executar.sh "flutter test" flutter test
       - name: Compilar APK (debug)
         run: bash tool/ci/executar.sh "APK debug" flutter build apk --debug
+
+  instalador-windows:
+    name: Configuração do agente (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: ./server/test/normalizar_agente_test.ps1
