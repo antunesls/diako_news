@@ -26,7 +26,9 @@ try {
         Verificar (((Get-Content $arquivo -Raw -Encoding UTF8 | ConvertFrom-Json).pastaImagensHolyrics) -ceq $caso.Esperado) "Arquivo não foi corrigido: $($caso.Nome)"
     }
 
-    $invalido = '{"chaveAgente":"segredo", "holyrics":, "pastaImagensHolyrics":"C:\Holyrics\imagens"}'
+    # Objeto não fechado: inválido tanto no Windows PowerShell 5.1 quanto no PowerShell 7
+    # (o 7 aceita "chave":, como nulo, então esse formato não serve de amostra inválida).
+    $invalido = '{"chaveAgente":"segredo", "holyrics":{"token":"x"}, "pastaImagensHolyrics":"C:\Holyrics\imagens"'
     [System.IO.File]::WriteAllText($arquivo, $invalido)
     $falhou = $false
     try { Ler-ConfigAgente $arquivo | Out-Null } catch { $falhou = $true }
