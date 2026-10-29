@@ -28,56 +28,88 @@ class ControlBar extends StatelessWidget {
               await status.atualizar();
             });
 
-        return BottomAppBar(
-          height: 88,
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(noAr, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium),
-              ),
-              _Botao(
-                icone: Icons.skip_previous,
-                label: 'Anterior',
-                onPressed: conectado ? () => cmd(() => client.anterior(rapida: rapida)) : null,
-              ),
-              _Botao(
-                icone: Icons.stop,
-                label: 'Parar',
-                cor: Colors.redAccent,
-                onPressed: conectado ? () => cmd(client.encerrar) : null,
-              ),
-              _Botao(
-                icone: Icons.skip_next,
-                label: 'Próximo',
-                onPressed: conectado ? () => cmd(() => client.proximo(rapida: rapida)) : null,
-              ),
-              const SizedBox(width: 16),
-              _Botao(
-                icone: Icons.crop_square,
-                label: 'Vazia',
-                ativo: status.telaVazia,
-                onPressed: conectado
-                    ? () => cmd(() async {
-                          await client.telaVazia(!status.telaVazia);
-                          status.telaVazia = !status.telaVazia;
-                        })
-                    : null,
-              ),
-              _Botao(
-                icone: Icons.square,
-                label: 'Preta',
-                ativo: status.telaPreta,
-                onPressed: conectado
-                    ? () => cmd(() async {
-                          await client.telaPreta(!status.telaPreta);
-                          status.telaPreta = !status.telaPreta;
-                        })
-                    : null,
-              ),
-            ],
-          ),
+        return ProjectionControls(
+          status: noAr,
+          actions: [
+            _Botao(
+              icone: Icons.skip_previous,
+              label: 'Anterior',
+              onPressed: conectado ? () => cmd(() => client.anterior(rapida: rapida)) : null,
+            ),
+            _Botao(
+              icone: Icons.stop,
+              label: 'Parar',
+              cor: Colors.redAccent,
+              onPressed: conectado ? () => cmd(client.encerrar) : null,
+            ),
+            _Botao(
+              icone: Icons.skip_next,
+              label: 'Próximo',
+              onPressed: conectado ? () => cmd(() => client.proximo(rapida: rapida)) : null,
+            ),
+            _Botao(
+              icone: Icons.crop_square,
+              label: 'Vazia',
+              ativo: status.telaVazia,
+              onPressed: conectado
+                  ? () => cmd(() async {
+                        await client.telaVazia(!status.telaVazia);
+                        status.telaVazia = !status.telaVazia;
+                      })
+                  : null,
+            ),
+            _Botao(
+              icone: Icons.square,
+              label: 'Preta',
+              ativo: status.telaPreta,
+              onPressed: conectado
+                  ? () => cmd(() async {
+                        await client.telaPreta(!status.telaPreta);
+                        status.telaPreta = !status.telaPreta;
+                      })
+                  : null,
+            ),
+          ],
         );
       },
+    );
+  }
+}
+
+/// Barra inferior de projeção: o que está no ar fica numa linha própria, acima
+/// dos botões, sem ser cortada por eles. Os botões passam para a linha de baixo
+/// quando a largura não basta, e a altura acompanha o conteúdo.
+class ProjectionControls extends StatelessWidget {
+  const ProjectionControls({super.key, required this.status, required this.actions});
+
+  final String status;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+    return Material(
+      color: tema.colorScheme.surfaceContainer,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                status,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: tema.textTheme.titleSmall,
+              ),
+              const SizedBox(height: 6),
+              Wrap(spacing: 8, runSpacing: 4, alignment: WrapAlignment.center, children: actions),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

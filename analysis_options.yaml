@@ -6,3 +6,4 @@ analyzer:
     - server/**
     - packages/**
     - build/**
+    - android/**

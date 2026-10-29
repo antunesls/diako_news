@@ -11,6 +11,7 @@ import 'oracao_panel.dart';
 import 'preview_panel.dart';
 import 'recado_form.dart';
 import 'recado_list.dart';
+import 'section_navigation.dart';
 import 'settings_page.dart';
 import 'tools_sheet.dart';
 import 'visitantes_panel.dart';
@@ -153,48 +154,45 @@ class _HomePageState extends State<HomePage> {
         return Scaffold(
           appBar: AppBar(
             toolbarHeight: 72,
-            title: Row(
-              children: [
-                Image.asset('assets/logo/logo_claro.png', height: 44, semanticLabel: 'Igreja Diakonia Tulipas'),
-                const SizedBox(width: 24),
-                SegmentedButton<_Secao>(
-                  showSelectedIcon: false,
-                  segments: [
-                    const ButtonSegment(value: _Secao.recados, icon: Icon(Icons.campaign_outlined), label: Text('Recados')),
-                    if (permitidas.contains(_Secao.oracao))
-                    ButtonSegment(
-                      value: _Secao.oracao,
-                      icon: Badge(
-                        isLabelVisible: aguardando > 0,
-                        label: Text('$aguardando'),
-                        child: const Icon(Icons.volunteer_activism_outlined),
-                      ),
-                      label: const Text('Motivos de oração'),
+            title: Image.asset('assets/logo/logo_claro.png', height: 44, semanticLabel: 'Igreja Diakonia Tulipas'),
+            bottom: SectionNavigation(
+              child: SegmentedButton<_Secao>(
+                showSelectedIcon: false,
+                segments: [
+                  const ButtonSegment(value: _Secao.recados, icon: Icon(Icons.campaign_outlined), label: Text('Recados')),
+                  if (permitidas.contains(_Secao.oracao))
+                  ButtonSegment(
+                    value: _Secao.oracao,
+                    icon: Badge(
+                      isLabelVisible: aguardando > 0,
+                      label: Text('$aguardando'),
+                      child: const Icon(Icons.volunteer_activism_outlined),
                     ),
-                    if (permitidas.contains(_Secao.visitantes))
-                      ButtonSegment(
-                        value: _Secao.visitantes,
-                        icon: Badge(
-                          isLabelVisible: paraCitar > 0,
-                          label: Text('$paraCitar'),
-                          child: const Icon(Icons.waving_hand_outlined),
-                        ),
-                        label: const Text('Visitantes'),
+                    label: const Text('Motivos de oração'),
+                  ),
+                  if (permitidas.contains(_Secao.visitantes))
+                    ButtonSegment(
+                      value: _Secao.visitantes,
+                      icon: Badge(
+                        isLabelVisible: paraCitar > 0,
+                        label: Text('$paraCitar'),
+                        child: const Icon(Icons.waving_hand_outlined),
                       ),
-                    if (permitidas.contains(_Secao.agenda))
-                      const ButtonSegment(value: _Secao.agenda, icon: Icon(Icons.event_outlined), label: Text('Agenda')),
-                    if (permitidas.contains(_Secao.escala))
-                      const ButtonSegment(value: _Secao.escala, icon: Icon(Icons.groups_outlined), label: Text('Escala')),
-                    if (permitidas.contains(_Secao.mensagens))
-                    ButtonSegment(value: _Secao.mensagens,
-                      icon: Badge(isLabelVisible: scope.mensagens.novas > 0,
-                        label: Text('${scope.mensagens.novas}'), child: const Icon(Icons.mail_outline)),
-                      label: const Text('Mensagens')),
-                  ],
-                  selected: {_secao},
-                  onSelectionChanged: (s) => setState(() => _secao = s.first),
-                ),
-              ],
+                      label: const Text('Visitantes'),
+                    ),
+                  if (permitidas.contains(_Secao.agenda))
+                    const ButtonSegment(value: _Secao.agenda, icon: Icon(Icons.event_outlined), label: Text('Agenda')),
+                  if (permitidas.contains(_Secao.escala))
+                    const ButtonSegment(value: _Secao.escala, icon: Icon(Icons.groups_outlined), label: Text('Escala')),
+                  if (permitidas.contains(_Secao.mensagens))
+                  ButtonSegment(value: _Secao.mensagens,
+                    icon: Badge(isLabelVisible: scope.mensagens.novas > 0,
+                      label: Text('${scope.mensagens.novas}'), child: const Icon(Icons.mail_outline)),
+                    label: const Text('Mensagens')),
+                ],
+                selected: {_secao},
+                onSelectionChanged: (s) => setState(() => _secao = s.first),
+              ),
             ),
             actions: [
               const _StatusChip(),
