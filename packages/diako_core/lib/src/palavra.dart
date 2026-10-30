@@ -472,6 +472,7 @@ class Palavra {
     this.criadoEm,
     this.atualizadoEm,
     List<VersaoPalavra>? versoes,
+    this.ultimoEnsaio,
   })  : decisoes = decisoes ?? {},
         versoes = versoes ?? [];
 
@@ -501,6 +502,9 @@ class Palavra {
 
   /// Versões anteriores, a mais recente primeiro.
   final List<VersaoPalavra> versoes;
+
+  /// Tempos do último ensaio guardado no painel (null = nunca ensaiada).
+  final EnsaioPalavra? ultimoEnsaio;
 
   static const maximoVersoes = 20;
   static const tamanhoMaximo = 200000;
@@ -538,6 +542,7 @@ class Palavra {
         if (criadoEm != null) 'criadoEm': criadoEm!.toIso8601String(),
         if (atualizadoEm != null) 'atualizadoEm': atualizadoEm!.toIso8601String(),
         'versoes': [for (final v in versoes) v.toJson()],
+        if (ultimoEnsaio != null) 'ultimoEnsaio': ultimoEnsaio!.toJson(),
       };
 
   factory Palavra.fromJson(Map<String, dynamic> j) {
@@ -562,11 +567,40 @@ class Palavra {
       criadoEm: DateTime.tryParse(j['criadoEm'] as String? ?? ''),
       atualizadoEm: DateTime.tryParse(j['atualizadoEm'] as String? ?? ''),
       versoes: [for (final v in j['versoes'] as List? ?? const []) VersaoPalavra.fromJson(Map<String, dynamic>.from(v as Map))],
+      ultimoEnsaio: j['ultimoEnsaio'] is Map ? EnsaioPalavra.fromJson(Map<String, dynamic>.from(j['ultimoEnsaio'] as Map)) : null,
     );
   }
 }
 
 /// Uma versão anterior do texto (guardada a cada salvamento).
+/// Tempos de um ensaio da Palavra (feito no painel, sem projetar).
+class EnsaioPalavra {
+  const EnsaioPalavra({required this.em, required this.totalSegundos, this.topicos = const {}});
+
+  final DateTime em;
+  final int totalSegundos;
+
+  /// Segundos em cada tópico, na ordem do texto.
+  final Map<String, int> topicos;
+
+  Map<String, dynamic> toJson() => {'em': em.toIso8601String(), 'totalSegundos': totalSegundos, 'topicos': topicos};
+
+  /// Lê e valida (lança [FormatException]).
+  factory EnsaioPalavra.fromJson(Map<String, dynamic> j) {
+    final em = DateTime.tryParse(j['em'] as String? ?? '');
+    final total = j['totalSegundos'];
+    if (em == null || total is! num || total < 0 || total > 6 * 3600) throw const FormatException('Ensaio inválido.');
+    final topicos = <String, int>{};
+    for (final e in Map<String, dynamic>.from(j['topicos'] as Map? ?? const {}).entries) {
+      final v = e.value;
+      if (v is! num || v < 0 || e.key.length > 200) throw const FormatException('Ensaio inválido.');
+      topicos[e.key] = v.toInt();
+    }
+    if (topicos.length > 100) throw const FormatException('Ensaio inválido.');
+    return EnsaioPalavra(em: em, totalSegundos: total.toInt(), topicos: topicos);
+  }
+}
+
 class VersaoPalavra {
   const VersaoPalavra({required this.em, required this.por, required this.titulo, required this.texto});
 

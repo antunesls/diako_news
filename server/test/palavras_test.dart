@@ -279,6 +279,17 @@ void main() {
       expect((await chamar('DELETE', '/api/roteiros/${padrao['id']}', token: admin)).$1, 200);
     });
 
+        test('guarda o último ensaio sem criar versão nova; ensaio inválido é recusado', () async {
+      final (_, p) = await chamar('POST', '/api/palavras', token: admin, json: {'titulo': 'T', 'texto': '# A mesa (10 min)\nTexto.'});
+      final ensaio = {'em': '2026-10-30T20:00:00.000', 'totalSegundos': 2280, 'topicos': {'A mesa': 640}};
+      final (st, salvo) = await chamar('PUT', '/api/palavras/${p['id']}', token: admin, json: {'ultimoEnsaio': ensaio});
+      expect(st, 200);
+      expect(salvo['ultimoEnsaio']['totalSegundos'], 2280);
+      expect(salvo['versoes'], isEmpty);
+      expect(((await chamar('GET', '/api/palavras', token: admin)).$2 as List).single['ultimoEnsaio']['topicos'], {'A mesa': 640});
+      expect((await chamar('PUT', '/api/palavras/${p['id']}', token: admin, json: {'ultimoEnsaio': {'em': 'ontem', 'totalSegundos': -1}})).$1, 400);
+    });
+
         test('prévia no editor e importação pelo painel', () async {
       final (st, previa) = await chamar('POST', '/api/palavras/analisar', token: admin, json: {'texto': 'Leia Jo 3.16.\n\nE Os 6.6.'});
       expect(st, 200);

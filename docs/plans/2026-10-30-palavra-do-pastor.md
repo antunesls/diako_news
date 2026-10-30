@@ -104,3 +104,10 @@ Falta conferir na igreja: o `ShowVerse` com `ids` e o tamanho do texto na TV do 
 - Marca: `**frase**` no texto (à mão ou pelo botão "Destacar frase", que envolve a seleção). Marca solta some.
 - O core tira as marcas antes de achar os versículos (as posições continuam certas) e guarda as frases em `TrechoAnalisado.destaques`; a TV do palco recebe o texto limpo.
 - No tablet, cada frase vira um botão abaixo do trecho: projeta `“frase”` no telão (apresentação rápida, tirando a tela preta antes). "Tirar do telão" (antes "Tirar versículo") volta a tela preta para versículo ou frase.
+
+## Entrega 3, item 4: ensaio (2026-10-30)
+
+- No painel (o pastor ensaia no computador ou no celular, não no tablet da igreja): botão **Ensaiar** no editor abre a Palavra em tela cheia, trecho por trecho, com versículos e frases de destaque à vista e nada projetado. Setas do teclado ou espaço passam.
+- Mede o tempo total e o de cada tópico (voltar a um trecho soma no tópico dele); ao concluir, tabela por tópico com previsto, ensaio e diferença. As contas ficam em `server/web/palavras-ensaio.js`, testadas no Node.
+- **Guardar tempo do ensaio** grava `ultimoEnsaio` (data, total e segundos por tópico) na Palavra, sem criar versão nova; a lista e o editor mostram o último ensaio.
+- Conferido no navegador com o servidor local.

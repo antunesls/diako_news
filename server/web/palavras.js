@@ -43,6 +43,7 @@ function desenharListaPalavras(lista) {
           pode('palavrasTodas') ? p.autorNome : null,
           `${p.trechos} trecho(s)`,
           `${p.versiculos} versículo(s)`,
+          p.ultimoEnsaio ? `ensaiada em ${duracaoLegivel(p.ultimoEnsaio.totalSegundos)}` : null,
         ].filter(Boolean).join(' · '))),
       el('span', { class: 'palavra-situacao ' + p.situacao }, SITUACOES_PALAVRA[p.situacao]),
       botao('Abrir', () => abrirPalavra(p.id))))
@@ -66,6 +67,7 @@ async function abrirPalavra(id) {
   $('palavra-texto').value = palavraAtual.texto;
   $('palavra-titulo-tela').textContent = id ? palavraAtual.titulo || 'Palavra' : 'Nova Palavra';
   $('palavra-excluir').hidden = !id;
+  $('palavra-ensaio-info').textContent = textoUltimoEnsaio(palavraAtual.ultimoEnsaio);
   marcarPalavraAlterada(false);
   desenharAnalisePalavra(palavraAtual.trechos, palavraAtual.minutosTopicos);
   desenharVersoesPalavra();

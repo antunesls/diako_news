@@ -1880,7 +1880,7 @@ class Servidor {
   Palavra _palavraDoCorpo(Map<String, dynamic> corpo, {required Palavra base}) {
     final palavra = Palavra.fromJson({
       ...base.toJson(),
-      for (final campo in ['titulo', 'data', 'cultoId', 'serie', 'minutos', 'pronta', 'texto', 'decisoes'])
+      for (final campo in ['titulo', 'data', 'cultoId', 'serie', 'minutos', 'pronta', 'texto', 'decisoes', 'ultimoEnsaio'])
         if (corpo.containsKey(campo)) campo: corpo[campo],
     });
     if (palavra.titulo.length > 120) throw const FormatException('Título muito longo (máximo 120 letras).');
