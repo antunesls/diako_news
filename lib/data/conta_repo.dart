@@ -17,9 +17,13 @@ class ContaRepo extends ChangeNotifier {
   String _nome = '';
   String _perfil = '';
   bool _conhecida = false;
+  bool _textoMotivos = true;
 
   String get nome => _nome;
   String get perfil => _perfil;
+
+  /// Regra da igreja (/admin): projetar o texto dos motivos ou só por quem orar e a categoria.
+  bool get textoMotivos => _textoMotivos;
 
   /// Enquanto não sabe o perfil (sem cache e sem servidor, ou servidor antigo), libera tudo:
   /// o servidor recusa o que não for permitido.
@@ -58,6 +62,7 @@ class ContaRepo extends ChangeNotifier {
     _nome = '';
     _perfil = '';
     _conhecida = false;
+    _textoMotivos = true;
     try {
       final f = await _cache();
       if (await f.exists()) await f.delete();
@@ -69,6 +74,7 @@ class ContaRepo extends ChangeNotifier {
     _permissoes = {for (final p in (j['permissoes'] as List? ?? const [])) p as String};
     _nome = j['nome'] as String? ?? '';
     _perfil = j['perfilNome'] as String? ?? '';
+    _textoMotivos = j['textoMotivos'] as bool? ?? true;
     _conhecida = true;
     notifyListeners();
   }

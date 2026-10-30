@@ -420,6 +420,8 @@ class Servidor {
       'perfilNome': c.perfil.nome,
       'permissoes': [for (final p in c.perfil.permissoes) p.name],
       'site': {'ativo': cfg?.siteAtivo ?? false, 'galeria': cfg?.siteGaleria ?? false},
+      // Regra da igreja para o telão (o app projeta direto no Holyrics, então precisa saber).
+      'textoMotivos': cfg?.textoMotivos ?? true,
     });
   }
 
@@ -2854,7 +2856,8 @@ class Servidor {
     final dias = (corpo['dias'] as num?)?.toInt() ?? cfg?.diasRespondidas ?? 30;
     final respondidas = oracoesRespondidas(_motivos(), _agora(), dias: dias);
     if (respondidas.isEmpty) return _erro(400, 'Nenhuma oração respondida (pública) nos últimos $dias dias.');
-    final slides = montarSlidesGratidao(respondidas, porSlide: (corpo['porSlide'] as num?)?.toInt() ?? 3);
+    final slides = montarSlidesGratidao(respondidas,
+        porSlide: (corpo['porSlide'] as num?)?.toInt() ?? 3, comTexto: cfg?.textoMotivos ?? true);
     final segundos = (corpo['segundos'] as num?)?.toInt() ?? cfg?.segundosPorSlide ?? 10;
     final tema = corpo['tema'] as String? ?? cfg?.temaPadrao ?? '';
     return _chamarHolyrics(
@@ -2883,6 +2886,7 @@ class Servidor {
           urlPedidos: urlOracao,
           eventos: _eventosDaSemana(),
           visitas: _visitas(),
+          textoMotivos: cfg?.textoMotivos ?? true,
         ),
       });
 
@@ -3046,6 +3050,7 @@ class Servidor {
       eventos: _eventosDoMural(),
       diasEventos: cfg?.agendaDiasMural ?? 7,
       mostrarDescricao: cfg?.agendaMostrarDescricao ?? true,
+      textoMotivos: cfg?.textoMotivos ?? true,
     );
     return _json({'atualizado': _agora().toIso8601String(), 'slides': [for (final s in slides) s.toJson()]});
   }
@@ -3313,6 +3318,8 @@ class Servidor {
     // PIX das ofertas: refaz (ou apaga) o QR; o agente copia para o PC da igreja.
     await gravarQrPix(cartazes.pasta, chave: c.sitePixChave, nome: c.sitePixNome, cidade: c.sitePixCidade);
     store.avisar('cartazes');
+    // Os apps relêem /api/eu (regra do texto dos motivos no telão).
+    store.avisar('configuracoes');
     // Endereço público mudou: refaz o QR (e o agente o copia para o PC da igreja).
     if (c.urlOracao != urlAntes) {
       await gravarQr(cartazes.pasta, c.urlOracao);

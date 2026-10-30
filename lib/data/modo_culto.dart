@@ -16,7 +16,7 @@ class ModoCultoController extends ChangeNotifier {
   ModoCultoController(this.scope, {Set<String> recadosSelecionados = const {}, DateTime Function()? agora})
       : _agora = agora ?? DateTime.now {
     _restaurar(recadosSelecionados);
-    _fontes = Listenable.merge([scope.repo, scope.motivos, scope.visitas, scope.agenda, scope.escalas, scope.settings, scope.palavra]);
+    _fontes = Listenable.merge([scope.repo, scope.motivos, scope.visitas, scope.agenda, scope.escalas, scope.settings, scope.palavra, scope.conta]);
     _fontes.addListener(_remontar);
     _remontar();
     _conferirPix();
@@ -272,6 +272,7 @@ class ModoCultoController extends ChangeNotifier {
       proximoEvento: scope.agenda.proximo,
       motivosPorSlide: s.motivosPorSlide,
       negritoTitulo: s.negritoTitulo,
+      textoMotivos: scope.conta.textoMotivos,
       pix: _pix,
       modelo: c?.roteiro ?? scope.escalas.roteiroPadrao,
     );

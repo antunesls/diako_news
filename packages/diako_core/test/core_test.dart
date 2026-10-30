@@ -86,6 +86,17 @@ void main() {
       expect(montarSlidesOracao([]), isEmpty);
     });
 
+    test('sem o texto, o telão mostra só por quem orar e a categoria', () {
+      final motivos = [
+        _m('Irmã Maria', 'Cirurgia no joelho')..tipo = TipoMotivo.saude,
+        _m('', 'Pela cidade')..tipo = TipoMotivo.gratidao,
+        _m('Família Souza', 'Mudança'),
+        _m('', 'Algo particular'),
+      ];
+      expect(montarSlidesOracao(motivos, negritoTitulo: false, comTexto: false),
+          ['Motivos de oração\n• Irmã Maria · Saúde\n• Gratidão\n• Família Souza\n• Pedido de oração']);
+    });
+
     test('json ida e volta e compatibilidade com o formato antigo', () {
       final m = Motivo(
         id: '1',

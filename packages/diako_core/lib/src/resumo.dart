@@ -17,6 +17,9 @@ String montarResumoSemanal({
   String? urlPedidos,
   List<Evento> eventos = const [],
   List<Visita> visitas = const [],
+
+  /// Regra da igreja: sem o texto, os pedidos mostram só por quem orar e a categoria.
+  bool textoMotivos = true,
 }) {
   final semana = diasDaSemana(agora);
   final b = StringBuffer('*$igreja — Avisos da semana*\n_${_dm(semana.first)} a ${_dm(semana.last)}_\n');
@@ -52,11 +55,14 @@ String montarResumoSemanal({
     for (final a in aniversariantesDaSemana(membros, agora)) '${a.membro.nome} (${_dm(a.data)})',
   ]);
 
-  secao('🙏 *Motivos de oração*', [for (final m in motivos.where((m) => m.projetavel)) m.linha]);
+  secao('🙏 *Motivos de oração*', [for (final m in motivos.where((m) => m.projetavel)) m.linhaPublica(textoMotivos)]);
 
   secao('🙌 *Orações respondidas*', [
     for (final m in oracoesRespondidas(motivos, agora, dias: 7))
-      m.testemunho.trim().isEmpty ? m.linha : '${m.linha} — ${m.testemunho.trim()}',
+      if (m.testemunhoPublicoTexto(textoMotivos) case final t when t.isNotEmpty)
+        '${m.linhaPublica(textoMotivos)} — $t'
+      else
+        m.linhaPublica(textoMotivos),
   ]);
 
   // Só a contagem (o resumo é público): quantos visitaram nos últimos 7 dias.

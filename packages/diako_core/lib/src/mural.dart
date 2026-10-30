@@ -73,6 +73,9 @@ List<SlideMural> montarMural({
   bool mostrarDescricao = true,
   int eventosPorSlide = 6,
   List<String> visitantesHoje = const [],
+
+  /// Regra da igreja: sem o texto, os pedidos mostram só por quem orar e a categoria.
+  bool textoMotivos = true,
 }) {
   final slides = <SlideMural>[];
 
@@ -108,14 +111,17 @@ List<SlideMural> montarMural({
   List<List<String>> blocos(List<String> linhas, int n) =>
       [for (var i = 0; i < linhas.length; i += n) linhas.sublist(i, (i + n).clamp(0, linhas.length))];
 
-  final pedidos = [for (final m in motivos.where((m) => m.projetavel)) m.linha];
+  final pedidos = [for (final m in motivos.where((m) => m.projetavel)) m.linhaPublica(textoMotivos)];
   for (final b in blocos(pedidos, motivosPorSlide)) {
     slides.add(SlideMural.lista('Motivos de oração', b, corArgb: _corOracao));
   }
 
   final respondidas = [
     for (final m in oracoesRespondidas(motivos, agora))
-      m.testemunho.trim().isEmpty ? m.linha : '${m.linha}\n${m.testemunho.trim()}',
+      if (m.testemunhoPublicoTexto(textoMotivos) case final t when t.isNotEmpty)
+        '${m.linhaPublica(textoMotivos)}\n$t'
+      else
+        m.linhaPublica(textoMotivos),
   ];
   for (final b in blocos(respondidas, 3)) {
     slides.add(SlideMural.lista('Orações respondidas', b, corArgb: _corGratidao));

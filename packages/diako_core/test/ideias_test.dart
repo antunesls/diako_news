@@ -36,6 +36,11 @@ void main() {
       expect(slides, ['Orações respondidas\n✓ Bia — Saúde\n✓ Ana — Emprego\n   Contratada na segunda!']);
     });
 
+    test('sem o texto dos motivos, o testemunho também fica de fora', () {
+      final slides = montarSlidesGratidao(oracoesRespondidas(motivos, agora), negritoTitulo: false, comTexto: false);
+      expect(slides, ['Orações respondidas\n✓ Bia\n✓ Ana']);
+    });
+
     test('json guarda atendidoEm e testemunho', () {
       final m = motivos.first;
       final volta = Motivo.fromJson(m.toJson());

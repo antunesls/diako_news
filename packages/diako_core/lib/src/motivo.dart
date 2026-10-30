@@ -96,6 +96,21 @@ class Motivo {
     return '$p — $m';
   }
 
+  /// Versão discreta para o telão: por quem orar e a categoria, sem o texto do pedido.
+  /// "Outro" não diz nada, então fica de fora.
+  String get linhaResumida {
+    final p = para.trim(), cat = tipo == TipoMotivo.outro ? '' : tipo.label;
+    if (p.isEmpty) return cat.isEmpty ? 'Pedido de oração' : cat;
+    if (cat.isEmpty) return p;
+    return '$p · $cat';
+  }
+
+  /// Linha para lugares públicos, conforme a regra da igreja (texto do pedido ou só o resumo).
+  String linhaPublica(bool comTexto) => comTexto ? linha : linhaResumida;
+
+  /// Testemunho para lugares públicos: sem o texto do pedido, ele também fica de fora.
+  String testemunhoPublicoTexto(bool comTexto) => comTexto ? testemunho.trim() : '';
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'para': para,
@@ -141,7 +156,9 @@ List<Motivo> oracoesRespondidas(Iterable<Motivo> motivos, DateTime agora, {int d
 }
 
 /// Slides "Orações respondidas": cada linha é a pessoa/motivo e, se houver, o testemunho.
-List<String> montarSlidesGratidao(List<Motivo> motivos, {int porSlide = 3, bool negritoTitulo = true}) {
+/// Sem [comTexto], só por quem orar e a categoria, sem o testemunho.
+List<String> montarSlidesGratidao(List<Motivo> motivos,
+    {int porSlide = 3, bool negritoTitulo = true, bool comTexto = true}) {
   if (motivos.isEmpty) return [];
   final n = porSlide < 1 ? 1 : porSlide;
   final total = (motivos.length / n).ceil();
@@ -150,14 +167,19 @@ List<String> montarSlidesGratidao(List<Motivo> motivos, {int porSlide = 3, bool 
       [
         _titulo('Orações respondidas${total > 1 ? ' (${i + 1}/$total)' : ''}', negritoTitulo),
         for (final m in motivos.skip(i * n).take(n))
-          m.testemunho.trim().isEmpty ? '✓ ${m.linha}' : '✓ ${m.linha}\n   ${m.testemunho.trim()}',
+          if (m.testemunhoPublicoTexto(comTexto) case final t when t.isNotEmpty)
+            '✓ ${m.linhaPublica(comTexto)}\n   $t'
+          else
+            '✓ ${m.linhaPublica(comTexto)}',
       ].join('\n'),
   ];
 }
 
 /// Divide os motivos em slides com [porSlide] linhas cada, todos com o título
 /// "Motivos de oração" (e "1/3" quando houver mais de um slide).
-List<String> montarSlidesOracao(List<Motivo> motivos, {int porSlide = 4, bool negritoTitulo = true}) {
+/// Sem [comTexto], cada linha mostra só por quem orar e a categoria ([Motivo.linhaResumida]).
+List<String> montarSlidesOracao(List<Motivo> motivos,
+    {int porSlide = 4, bool negritoTitulo = true, bool comTexto = true}) {
   if (motivos.isEmpty) return [];
   final n = porSlide < 1 ? 1 : porSlide;
   final total = (motivos.length / n).ceil();
@@ -165,7 +187,7 @@ List<String> montarSlidesOracao(List<Motivo> motivos, {int porSlide = 4, bool ne
     for (var i = 0; i < total; i++)
       [
         _titulo('Motivos de oração${total > 1 ? ' (${i + 1}/$total)' : ''}', negritoTitulo),
-        for (final m in motivos.skip(i * n).take(n)) '• ${m.linha}',
+        for (final m in motivos.skip(i * n).take(n)) '• ${m.linhaPublica(comTexto)}',
       ].join('\n'),
   ];
 }

@@ -70,6 +70,7 @@ Future<void> main() async {
       if (tipo == 'mensagens' && conta.pode('mensagens')) mensagens.sincronizar();
       if (tipo == 'visitas' && conta.pode('visitantes')) visitas.sincronizar();
       if (tipo == 'palavras' && conta.pode('projetar')) palavra.sincronizar();
+      if (tipo == 'configuracoes') conta.sincronizar();
     },
     aoReconectar: () async {
       await conta.sincronizar();

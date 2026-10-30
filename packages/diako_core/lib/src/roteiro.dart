@@ -224,6 +224,8 @@ List<Momento> montarRoteiro({
   Evento? proximoEvento,
   int motivosPorSlide = 4,
   bool negritoTitulo = true,
+  /// Regra da igreja (/admin): sem o texto, os motivos mostram só por quem orar e a categoria.
+  bool textoMotivos = true,
 
   /// O servidor tem o QR do PIX: entra depois do slide das ofertas.
   bool pix = false,
@@ -244,8 +246,8 @@ List<Momento> montarRoteiro({
           ? Passo(AcaoPasso.imagem, r.titulo.isEmpty ? 'Cartaz' : r.titulo, valor: r.imagemHolyrics!.trim())
           : Passo(AcaoPasso.texto, r.titulo, valor: montarSlide(r, negritoTitulo: negritoTitulo)),
   ];
-  final oracao = montarSlidesOracao(motivos, porSlide: motivosPorSlide, negritoTitulo: negritoTitulo);
-  final gratidao = montarSlidesGratidao(respondidas, negritoTitulo: negritoTitulo);
+  final oracao = montarSlidesOracao(motivos, porSlide: motivosPorSlide, negritoTitulo: negritoTitulo, comTexto: textoMotivos);
+  final gratidao = montarSlidesGratidao(respondidas, negritoTitulo: negritoTitulo, comTexto: textoMotivos);
 
   /// Conteúdo de cada tipo (null = sem conteúdo hoje, o momento fica de fora).
   ({List<Passo> passos, String detalhe, List<String> linhas})? conteudo(ItemRoteiro item) => switch (item.tipo) {

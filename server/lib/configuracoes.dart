@@ -74,6 +74,7 @@ class Configuracoes {
       'termoLgpdVersao': 1,
       'visitanteQrAtivo': true,
       'muralBoasVindas': false, // boas-vindas também no mural principal (igreja com uma TV só)
+      'textoMotivos': true, // desligado: telão, mural e resumo mostram só por quem orar e a categoria
     };
     if (await arquivo.exists()) {
       var texto = await arquivo.readAsString();
@@ -108,6 +109,10 @@ class Configuracoes {
 
   /// Slide de boas-vindas também no mural principal (o normal é a TV de boas-vindas própria).
   bool get muralBoasVindas => _valores['muralBoasVindas'] as bool? ?? false;
+
+  /// Texto dos pedidos em público (telão, mural, resumo do WhatsApp). Desligado, só por quem orar
+  /// e a categoria; nas orações respondidas também some o testemunho.
+  bool get textoMotivos => _valores['textoMotivos'] as bool? ?? true;
   String get pedidoTitulo => _s('pedidoTitulo');
   String get pedidoIntro => _s('pedidoIntro');
   String get pedidoObrigado => _s('pedidoObrigado');
@@ -297,7 +302,7 @@ class Configuracoes {
             novos['termoLgpdVersao'] = termoLgpdVersao + 1;
           }
           novos[k] = v == termoLgpdPadrao(nomeIgreja) ? '' : v;
-        case 'visitanteQrAtivo' || 'muralBoasVindas':
+        case 'visitanteQrAtivo' || 'muralBoasVindas' || 'textoMotivos':
           if (mudancas[k] is! bool) throw FormatException('"$k" deve ser verdadeiro ou falso.');
           novos[k] = mudancas[k];
         case 'smtpSenha':
@@ -320,6 +325,7 @@ class Configuracoes {
       'smtpHost', 'smtpPorta', 'smtpSsl', 'smtpUsuario', 'smtpRemetente', 'smtpDestinatario',
       'siteAtivo', 'siteAgenda', 'sitePix', 'siteGaleria', 'siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade',
       'siteInstagram', 'siteYoutube', 'siteWhatsapp', 'termoLgpdTexto', 'termoLgpdVersao', 'visitanteQrAtivo', 'muralBoasVindas',
+      'textoMotivos',
     };
     for (final e in dados.entries) {
       if (permitidos.contains(e.key)) _valores[e.key] = e.value;

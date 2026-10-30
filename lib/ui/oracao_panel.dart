@@ -179,16 +179,17 @@ class _Previa extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     final s = scope.settings;
+    final comTexto = scope.conta.textoMotivos; // regra da igreja, no /admin
     final esquema = Theme.of(context).colorScheme;
-    final slides = montarSlidesOracao(projetaveis, porSlide: s.motivosPorSlide, negritoTitulo: false);
+    final slides = montarSlidesOracao(projetaveis, porSlide: s.motivosPorSlide, negritoTitulo: false, comTexto: comTexto);
     final focadoProjetavel = focado != null && focado!.projetavel;
     final podeProjetar = scope.conta.pode('projetar');
     final exemplo = focadoProjetavel
-        ? montarSlidesOracao([focado!], negritoTitulo: false).first
+        ? montarSlidesOracao([focado!], negritoTitulo: false, comTexto: comTexto).first
         : (slides.isEmpty ? null : slides.first);
 
     Future<void> projetarTodos() => executar(context, () async {
-          final textos = montarSlidesOracao(projetaveis, porSlide: s.motivosPorSlide, negritoTitulo: s.negritoTitulo);
+          final textos = montarSlidesOracao(projetaveis, porSlide: s.motivosPorSlide, negritoTitulo: s.negritoTitulo, comTexto: comTexto);
           if (textos.length == 1) {
             await scope.client.projetarTexto(textos.first, tema: s.tema);
           } else {
@@ -200,7 +201,7 @@ class _Previa extends StatelessWidget {
 
     Future<void> projetarEste() => executar(context, () async {
           await scope.client.projetarTexto(
-            montarSlidesOracao([focado!], negritoTitulo: s.negritoTitulo).first,
+            montarSlidesOracao([focado!], negritoTitulo: s.negritoTitulo, comTexto: comTexto).first,
             tema: s.tema,
           );
           scope.status.atualizar();
@@ -208,7 +209,7 @@ class _Previa extends StatelessWidget {
 
     final respondidas = oracoesRespondidas(scope.motivos.todos, DateTime.now());
     Future<void> projetarRespondidas() => executar(context, () async {
-          final textos = montarSlidesGratidao(respondidas, negritoTitulo: s.negritoTitulo);
+          final textos = montarSlidesGratidao(respondidas, negritoTitulo: s.negritoTitulo, comTexto: comTexto);
           if (textos.length == 1) {
             await scope.client.projetarTexto(textos.first, tema: s.tema);
           } else {

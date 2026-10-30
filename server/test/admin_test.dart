@@ -198,6 +198,24 @@ void main() {
       // Chave do agente só existe no modo agente.
       expect((await req('POST', '/api/admin/chave', json: {'tipo': 'agente'})).statusCode, 400);
     });
+
+    test('sem o texto dos motivos, mural, resumo e app mostram só por quem orar e a categoria', () async {
+      await req('POST', '/api/motivos', json: {'para': 'Irmã Maria', 'motivo': 'Cirurgia no joelho', 'tipo': 'saude'});
+      Future<String> mural() async =>
+          (await handler(Request('GET', Uri.parse('http://localhost/api/public/mural?chave=m1')))).readAsString();
+      Future<String> resumo() async => (await corpo(await req('GET', '/api/resumo-semanal')))['texto'] as String;
+      Future<Object?> doApp() async => (await corpo(await req('GET', '/api/eu')))['textoMotivos'];
+
+      expect(await mural(), contains('Irmã Maria — Cirurgia no joelho'));
+      expect(await resumo(), contains('Irmã Maria — Cirurgia no joelho'));
+      expect(await doApp(), isTrue);
+
+      expect((await req('PUT', '/api/admin/configuracoes', json: {'textoMotivos': 'nao'})).statusCode, 400);
+      await req('PUT', '/api/admin/configuracoes', json: {'textoMotivos': false});
+      expect(await mural(), allOf(contains('Irmã Maria · Saúde'), isNot(contains('Cirurgia'))));
+      expect(await resumo(), allOf(contains('Irmã Maria · Saúde'), isNot(contains('Cirurgia'))));
+      expect(await doApp(), isFalse);
+    });
   });
 
   group('senha e sessões', () {
