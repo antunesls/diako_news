@@ -216,6 +216,42 @@ RefBiblica? lerReferencia(String texto) {
   return achada?.ref;
 }
 
+final _tempoDoTopico = RegExp(r'\s*[(\[]\s*(\d{1,3})\s*min(?:utos?)?\s*[)\]]\s*$', caseSensitive: false);
+
+/// Linha de tópico ("# A mesa preparada (10 min)") lida como título e minutos previstos.
+({String titulo, int? minutos}) lerTopico(String linha) {
+  final semMarca = linha.trim().replaceFirst(RegExp(r'^#+\s*'), '');
+  final m = _tempoDoTopico.firstMatch(semMarca);
+  if (m == null) return (titulo: semMarca, minutos: null);
+  final minutos = int.parse(m.group(1)!);
+  return (titulo: semMarca.substring(0, m.start).trim(), minutos: minutos > 0 ? minutos : null);
+}
+
+/// Minutos previstos de cada tópico do texto, na ordem (só os tópicos com tempo).
+Map<String, int> minutosDosTopicos(String texto) => {
+      for (final linha in texto.split('\n'))
+        if (linha.trim().startsWith('#'))
+          if (lerTopico(linha) case (titulo: final titulo, minutos: final int minutos) when titulo.isNotEmpty) titulo: minutos,
+    };
+
+/// Desvio do tempo da pregação no tópico [atual], em minutos (positivo = atrasado, negativo =
+/// adiantado): o atraso com que o tópico começou mais o que ele já passou do tempo dele. Null se o
+/// tópico atual não tem tempo previsto.
+int? desvioDaPregacao({
+  required List<int?> minutosPorTopico,
+  required int atual,
+  required Duration desdeOInicio,
+  required Duration noTopico,
+}) {
+  final previsto = minutosPorTopico[atual];
+  if (previsto == null) return null;
+  final inicioPrevisto = Duration(minutes: minutosPorTopico.take(atual).fold(0, (s, m) => s + (m ?? 0)));
+  final inicioReal = desdeOInicio - noTopico;
+  final estouro = noTopico - Duration(minutes: previsto);
+  final desvio = (inicioReal - inicioPrevisto) + (estouro.isNegative ? Duration.zero : estouro);
+  return (desvio.inSeconds / 60).round();
+}
+
 /// Um trecho do sermão: o que vai de uma vez para a TV do palco.
 class TrechoPalavra {
   const TrechoPalavra(this.numero, this.topico, this.texto);
@@ -248,7 +284,7 @@ List<TrechoPalavra> dividirEmTrechos(String texto, {int maximo = 500}) {
     final l = linha.trim();
     if (l.startsWith('#')) {
       fechar();
-      topico = l.replaceFirst(RegExp(r'^#+\s*'), '');
+      topico = lerTopico(l).titulo;
     } else if (l.isEmpty) {
       fechar();
     } else {
@@ -523,13 +559,23 @@ class VersaoPalavra {
 
 /// A Palavra como o tablet usa no culto: só o necessário, com as referências que dá para projetar.
 class PalavraDoCulto {
-  const PalavraDoCulto({required this.id, required this.titulo, required this.autorNome, required this.minutos, required this.trechos});
+  const PalavraDoCulto({
+    required this.id,
+    required this.titulo,
+    required this.autorNome,
+    required this.minutos,
+    required this.trechos,
+    this.minutosTopicos = const {},
+  });
 
   final String id;
   final String titulo;
   final String autorNome;
   final int minutos;
   final List<TrechoAnalisado> trechos;
+
+  /// Minutos previstos por tópico (os escritos no tópico, como "(10 min)").
+  final Map<String, int> minutosTopicos;
 
   /// Tópicos na ordem, com o índice do primeiro trecho de cada um.
   List<(String, int)> get topicos {
@@ -546,6 +592,7 @@ class PalavraDoCulto {
         titulo: p.titulo,
         autorNome: p.autorNome,
         minutos: p.minutos,
+        minutosTopicos: minutosDosTopicos(p.texto),
         trechos: [
           for (final t in p.trechos)
             TrechoAnalisado(
@@ -562,6 +609,7 @@ class PalavraDoCulto {
         'titulo': titulo,
         'autorNome': autorNome,
         'minutos': minutos,
+        if (minutosTopicos.isNotEmpty) 'minutosTopicos': minutosTopicos,
         'trechos': [for (final t in trechos) t.toJson()],
       };
 
@@ -570,6 +618,10 @@ class PalavraDoCulto {
         titulo: j['titulo'] as String? ?? '',
         autorNome: j['autorNome'] as String? ?? '',
         minutos: (j['minutos'] as num?)?.toInt() ?? 40,
+        minutosTopicos: {
+          for (final e in Map<String, dynamic>.from(j['minutosTopicos'] as Map? ?? const {}).entries)
+            if (e.value is num) e.key: (e.value as num).toInt(),
+        },
         trechos: [for (final t in j['trechos'] as List? ?? const []) TrechoAnalisado.fromJson(Map<String, dynamic>.from(t as Map))],
       );
 }

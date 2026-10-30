@@ -44,6 +44,9 @@ class ModoCultoController extends ChangeNotifier {
   /// Versículo no telão durante a Palavra (ex: Rm 5.8); null = tela preta.
   String? _versiculo;
 
+  /// Hora em que cada tópico da Palavra começou (o primeiro trecho dele na TV do palco).
+  final Map<String, DateTime> _inicioTopicos = {};
+
   List<Momento> get roteiro => _roteiro;
 
   /// Culto de hoje na escala; null se não há (o roteiro sai sem contagem e sem louvor).
@@ -101,12 +104,42 @@ class ModoCultoController extends ChangeNotifier {
   /// Versículo no telão durante a Palavra; null = tela preta.
   String? get versiculo => _versiculo;
 
+  /// Ritmo da pregação no tópico atual, só para o pastor: tempo no tópico, previsto e desvio em
+  /// minutos (positivo = atrasado). Null sem leitura começada ou fora de um tópico.
+  ({int indice, int total, Duration noTopico, int? minutos, int? desvio})? get ritmo {
+    final p = palavra, t = trecho;
+    if (p == null || t == null) return null;
+    final topicos = p.topicos;
+    final atual = p.trechos[t].topico;
+    final indice = topicos.indexWhere((x) => x.$1 == atual);
+    if (indice < 0) return null;
+    final agora = _agora();
+    final inicioTopico = _inicioTopicos[atual] ?? agora;
+    final momento = _roteiro.where((m) => m.tipo == TipoMomento.palavra).firstOrNull;
+    final inicioPalavra = (momento == null ? null : _inicios[momento.chave]) ?? _inicioTopicos[topicos.first.$1] ?? inicioTopico;
+    final minutos = [for (final x in topicos) p.minutosTopicos[x.$1]];
+    return (
+      indice: indice,
+      total: topicos.length,
+      noTopico: agora.difference(inicioTopico),
+      minutos: minutos[indice],
+      desvio: desvioDaPregacao(
+        minutosPorTopico: minutos,
+        atual: indice,
+        desdeOInicio: agora.difference(inicioPalavra),
+        noTopico: agora.difference(inicioTopico),
+      ),
+    );
+  }
+
   /// Passa o trecho [indice] para a TV do palco.
   Future<void> irParaTrecho(int indice) async {
     final p = palavra;
     if (p == null || indice < 0 || indice >= p.trechos.length) return;
     await scope.client.leituraPalco(p.trechos[indice].texto);
     _trecho = indice;
+    final topico = p.trechos[indice].topico;
+    if (topico.isNotEmpty) _inicioTopicos.putIfAbsent(topico, _agora);
     await _salvar();
     notifyListeners();
   }
@@ -282,6 +315,7 @@ class ModoCultoController extends ChangeNotifier {
     _inicios.clear();
     _trecho = null;
     _versiculo = null;
+    _inicioTopicos.clear();
     await scope.settings.salvarModoCulto('');
   }
 
@@ -346,6 +380,7 @@ class ModoCultoController extends ChangeNotifier {
         'inicios': {for (final e in _inicios.entries) e.key: e.value.toIso8601String()},
         'recados': _recados.toList(),
         if (_trecho != null) 'trecho': _trecho,
+        if (_inicioTopicos.isNotEmpty) 'topicos': {for (final e in _inicioTopicos.entries) e.key: e.value.toIso8601String()},
       }));
 
   /// Retoma o culto de hoje se o app fechou no meio. A seleção nova de recados, se houver, vale mais.
@@ -366,6 +401,10 @@ class ModoCultoController extends ChangeNotifier {
         if (quando != null) _inicios[e.key] = quando;
       }
       _trecho = (j['trecho'] as num?)?.toInt();
+      for (final e in Map<String, dynamic>.from(j['topicos'] as Map? ?? const {}).entries) {
+        final quando = DateTime.tryParse('${e.value}');
+        if (quando != null) _inicioTopicos[e.key] = quando;
+      }
       if (_recados.isEmpty) _recados = {for (final id in j['recados'] as List? ?? const []) '$id'};
     } catch (_) {
       // Estado salvo ilegível: começa do zero.

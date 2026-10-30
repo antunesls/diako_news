@@ -92,3 +92,9 @@ Falta conferir na igreja: o `ShowVerse` com `ids` e o tamanho do texto na TV do 
 - **PDF:** lido no navegador com a pdf.js 4.10.38 (carregada do jsDelivr só quando se escolhe um PDF; precisa de internet no computador do pastor). A montagem dos parágrafos fica em `server/web/palavras-pdf.js`, testada no Node. Conferido no navegador com um PDF gerado pelo Chrome.
 - **Google Docs:** `POST /api/palavras/google {link}` exporta o documento como texto pela API do Drive (`drive.readonly`), com a conta de serviço da agenda. O documento precisa estar compartilhado com o e-mail dela; os erros explicam isso e o caso da "Google Drive API" desativada. Testado com cliente HTTP falso; falta testar com a conta real da igreja.
 - **QR do PIX:** o servidor grava `qr-pix.png` (com a chave escrita) na pasta que vai para o Holyrics, na inicialização, ao salvar a configuração e ao restaurar backup; sem chave, apaga. O estado informa `qrPixHolyrics` e o tablet acrescenta o passo "QR do PIX" ao momento das ofertas.
+
+## Entrega 3, item 2: tempo por tópico (2026-10-30)
+
+- O tempo vai no fim da linha do tópico: `# A mesa preparada (10 min)` (também `[10 min]` ou `minutos`). O título fica sem o tempo; tópico sem tempo vale como antes.
+- O painel mostra o tempo de cada tópico na prévia e quanto eles somam diante do tempo previsto; o botão "+ Tópico" já sugere `(5 min)`.
+- O tablet guarda quando cada tópico começou (o primeiro trecho dele na TV do palco, salvo junto com o progresso) e mostra "Tópico 2 de 4 · 03:10 de 10 min" com "no tempo", "N min adiantado" ou "N min atrasado": o atraso com que o tópico começou mais o que ele já passou do tempo dele (`desvioDaPregacao`, testado no core). Fica só no tablet; a TV do palco segue só com o texto.

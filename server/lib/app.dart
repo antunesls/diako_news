@@ -1853,6 +1853,7 @@ class Servidor {
         'situacao': p.situacao(diaIso(_agora())),
         'pendencias': p.pendencias(),
         'trechos': [for (final t in p.trechos) t.toJson()],
+        'minutosTopicos': minutosDosTopicos(p.texto),
       };
 
   Response _listarPalavras(Request req) {
@@ -1950,7 +1951,7 @@ class Servidor {
       final texto = corpo['texto'] as String? ?? '';
       if (texto.length > Palavra.tamanhoMaximo) return _erro(400, 'Texto muito longo.');
       final palavra = Palavra.fromJson({'id': '', 'titulo': '', 'texto': texto, 'decisoes': corpo['decisoes'] ?? const {}});
-      return _json({'trechos': [for (final t in palavra.trechos) t.toJson()]});
+      return _json({'trechos': [for (final t in palavra.trechos) t.toJson()], 'minutosTopicos': minutosDosTopicos(texto)});
     } on TypeError {
       return _erro(400, 'Dados inválidos.');
     }

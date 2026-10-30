@@ -105,6 +105,41 @@ void main() {
     });
   });
 
+  group('tempo por tópico', () {
+    test('lê o tempo escrito no tópico e tira do título', () {
+      expect(lerTopico('# A mesa preparada (10 min)'), (titulo: 'A mesa preparada', minutos: 10));
+      expect(lerTopico('## Apelo [5 minutos]'), (titulo: 'Apelo', minutos: 5));
+      expect(lerTopico('# Introdução'), (titulo: 'Introdução', minutos: null));
+      expect(lerTopico('# Salmo 23 (2 vezes)'), (titulo: 'Salmo 23 (2 vezes)', minutos: null));
+      final t = dividirEmTrechos('# A mesa (10 min)\nTexto.');
+      expect(t.single.topico, 'A mesa');
+    });
+
+    test('minutos de cada tópico vão para o tablet', () {
+      const texto = '# Introdução (3 min)\nA.\n\n# 1 · A mesa (10 min)\nB.\n\n# Apelo\nC.';
+      expect(minutosDosTopicos(texto), {'Introdução': 3, '1 · A mesa': 10});
+      final p = Palavra(id: 'p', titulo: 'T', autorId: 'u', texto: texto);
+      final c = PalavraDoCulto.fromJson(PalavraDoCulto.de(p).toJson());
+      expect(c.minutosTopicos, {'Introdução': 3, '1 · A mesa': 10});
+      expect(c.topicos.map((t) => t.$1), ['Introdução', '1 · A mesa', 'Apelo']);
+    });
+
+    test('desvio: atraso com que o tópico começou mais o que ele estourou', () {
+      int? desvio(int atual, int desdeInicio, int noTopico) => desvioDaPregacao(
+            minutosPorTopico: const [5, 10, null, 10],
+            atual: atual,
+            desdeOInicio: Duration(minutes: desdeInicio),
+            noTopico: Duration(minutes: noTopico),
+          );
+      expect(desvio(0, 3, 3), 0, reason: 'no tempo');
+      expect(desvio(1, 7, 1), 1, reason: 'começou o tópico 2 com 1 min de atraso');
+      expect(desvio(1, 5, 2), -2, reason: 'começou 2 min antes do previsto');
+      expect(desvio(1, 18, 12), 3, reason: '1 min de atraso no início mais 2 de estouro');
+      expect(desvio(2, 20, 2), isNull, reason: 'tópico sem tempo');
+      expect(desvio(3, 22, 1), 6, reason: 'tópico sem tempo conta zero no previsto');
+    });
+  });
+
   test('situação: rascunho, pronta e pregada', () {
     Palavra p(bool pronta, String data) => Palavra(id: 'p', titulo: 'T', autorId: 'u', pronta: pronta, data: data);
     expect(p(false, '2026-11-02').situacao('2026-11-02'), 'rascunho');

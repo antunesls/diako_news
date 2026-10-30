@@ -767,6 +767,10 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
             ),
           ),
         ],
+        if (_c.ritmo case final r?) ...[
+          const SizedBox(height: 10),
+          _RitmoDaPregacao(ritmo: r),
+        ],
         const SizedBox(height: 10),
         Expanded(
           child: ListView.builder(
@@ -1093,6 +1097,48 @@ class SlideDoPasso extends StatelessWidget {
         alignment: Alignment.center,
         child: FittedBox(fit: BoxFit.scaleDown, child: conteudo),
       ),
+    );
+  }
+}
+
+/// "Tópico 2 de 4 · 03:10 de 10 min" e se a pregação está adiantada ou atrasada (só no tablet).
+class _RitmoDaPregacao extends StatelessWidget {
+  const _RitmoDaPregacao({required this.ritmo});
+
+  final ({int indice, int total, Duration noTopico, int? minutos, int? desvio}) ritmo;
+
+  @override
+  Widget build(BuildContext context) {
+    final esquema = Theme.of(context).colorScheme;
+    final d = ritmo.desvio;
+    final (texto, cor) = switch (d) {
+      null => (null, esquema.outline),
+      0 => ('no tempo', Colors.greenAccent),
+      > 0 => ('$d min atrasado', Colors.orangeAccent),
+      _ => ('${-d} min adiantado', Colors.lightBlueAccent),
+    };
+    return Row(
+      children: [
+        Icon(Icons.schedule, size: 18, color: esquema.outline),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            'Tópico ${ritmo.indice + 1} de ${ritmo.total} · ${_mmss(ritmo.noTopico)}'
+            '${ritmo.minutos == null ? '' : ' de ${ritmo.minutos} min'}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+        if (texto != null) ...[
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(color: cor.withAlpha(40), borderRadius: BorderRadius.circular(99)),
+            child: Text(texto, style: TextStyle(color: cor, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ],
+      ],
     );
   }
 }

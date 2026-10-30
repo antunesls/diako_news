@@ -9,6 +9,8 @@ let decisoesPalavra = {};
 /** Última análise do texto (trechos com as referências). */
 let trechosPalavra = [];
 let palavraAlterada = false;
+/** Minutos previstos por tópico (escritos no tópico, como "(10 min)"). */
+let minutosTopicosPalavra = {};
 let analiseAgendada = null;
 
 const SITUACOES_PALAVRA = { rascunho: 'Rascunho', pronta: 'Pronta para o culto', pregada: 'Pregada' };
@@ -65,7 +67,7 @@ async function abrirPalavra(id) {
   $('palavra-titulo-tela').textContent = id ? palavraAtual.titulo || 'Palavra' : 'Nova Palavra';
   $('palavra-excluir').hidden = !id;
   marcarPalavraAlterada(false);
-  desenharAnalisePalavra(palavraAtual.trechos);
+  desenharAnalisePalavra(palavraAtual.trechos, palavraAtual.minutosTopicos);
   desenharVersoesPalavra();
   $('palavras-lista-tela').hidden = true;
   $('palavra-editor').hidden = false;
@@ -85,7 +87,7 @@ function agendarAnalisePalavra(espera = 600) {
   analiseAgendada = setTimeout(async () => {
     try {
       const r = await api('POST', '/api/palavras/analisar', { texto: $('palavra-texto').value, decisoes: decisoesPalavra });
-      desenharAnalisePalavra(r.trechos);
+      desenharAnalisePalavra(r.trechos, r.minutosTopicos);
     } catch (err) {
       mensagem($('palavra-contagem'), err.message, false);
     }
@@ -94,16 +96,26 @@ function agendarAnalisePalavra(espera = 600) {
 
 const ROTULO_STATUS = { pendente: 'Conferir', confirmada: 'Confirmado', ignorada: 'Ignorado', incompleta: 'Incompleto' };
 
-function desenharAnalisePalavra(trechos) {
+function desenharAnalisePalavra(trechos, minutosTopicos = {}) {
   trechosPalavra = trechos;
+  minutosTopicosPalavra = minutosTopicos || {};
   const refs = trechos.flatMap((t) => t.referencias);
-  $('palavra-contagem').textContent = `${trechos.length} trecho(s) · ${refs.filter((r) => r.status !== 'ignorada' && r.ref).length} versículo(s)`;
+  const somaTopicos = Object.values(minutosTopicosPalavra).reduce((s, m) => s + m, 0);
+  const previsto = Number($('palavra-campo-minutos').value) || 40;
+  $('palavra-contagem').textContent = [
+    `${trechos.length} trecho(s)`,
+    `${refs.filter((r) => r.status !== 'ignorada' && r.ref).length} versículo(s)`,
+    somaTopicos ? `tópicos somam ${somaTopicos} de ${previsto} min` : null,
+  ].filter(Boolean).join(' · ');
 
   // Trechos numerados como vão para a TV do palco, com os versículos destacados.
   let topico = null;
   const blocos = [];
   for (const t of trechos) {
-    if (t.topico && t.topico !== topico) blocos.push(el('h3', { class: 'palavra-topico' }, t.topico));
+    if (t.topico && t.topico !== topico) {
+      const min = minutosTopicosPalavra[t.topico];
+      blocos.push(el('h3', { class: 'palavra-topico' }, t.topico, min ? el('span', { class: 'palavra-topico-min' }, ` · ${min} min`) : null));
+    }
     topico = t.topico;
     const partes = [];
     let pos = 0;
@@ -223,7 +235,7 @@ async function salvarPalavra(pronta) {
     $('palavra-titulo-tela').textContent = palavraAtual.titulo || 'Palavra';
     $('palavra-excluir').hidden = false;
     marcarPalavraAlterada(false);
-    desenharAnalisePalavra(palavraAtual.trechos);
+    desenharAnalisePalavra(palavraAtual.trechos, palavraAtual.minutosTopicos);
     desenharVersoesPalavra();
   } catch (err) {
     erro.textContent = err.message;
@@ -279,11 +291,11 @@ $('palavra-topico').addEventListener('click', () => {
   const t = $('palavra-texto');
   const antes = t.value.slice(0, t.selectionStart).replace(/\s*$/, '');
   const depois = t.value.slice(t.selectionEnd).replace(/^\s*/, '');
-  const marca = '# Novo tópico';
+  const marca = '# Novo tópico (5 min)';
   t.value = (antes ? antes + '\n\n' : '') + marca + '\n' + depois;
   const inicio = (antes ? antes.length + 2 : 0) + 2;
   t.focus();
-  t.setSelectionRange(inicio, inicio + marca.length - 2);
+  t.setSelectionRange(inicio, inicio + 'Novo tópico'.length);
   marcarPalavraAlterada();
   agendarAnalisePalavra();
 });

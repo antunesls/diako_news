@@ -166,4 +166,28 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('ritmo da pregação: tópico, tempo previsto e se está no tempo', (tester) async {
+    final palavra = Palavra(
+      id: 'p2',
+      titulo: 'Em memória de mim',
+      autorId: 'u',
+      pronta: true,
+      data: diaIso(DateTime.now()),
+      texto: '# A mesa (3 min)\nPrimeiro trecho.\n\n# O pão (10 min)\nSegundo trecho.',
+    );
+    await abrir(tester, const ModoCultoPage(), palavra: palavra);
+    await tocar(tester, find.text('Começar o culto agora'));
+    await tocar(tester, find.text(TipoMomento.palavra.titulo).first);
+    expect(find.textContaining('Tópico 1'), findsNothing, reason: 'antes de começar a leitura');
+    await tocar(tester, find.text('Começar a leitura'));
+    expect(find.textContaining('Tópico 1 de 2'), findsOneWidget);
+    expect(find.textContaining('de 3 min'), findsOneWidget);
+    expect(find.text('no tempo'), findsOneWidget);
+    await tocar(tester, find.text('Próximo trecho'));
+    expect(find.textContaining('Tópico 2 de 2'), findsOneWidget);
+    expect(find.text('3 min adiantado'), findsOneWidget, reason: 'o tópico 2 começou logo, 3 min antes do previsto');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 }
