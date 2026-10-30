@@ -258,6 +258,7 @@ class Servidor {
       ..get('/api/palavras/hoje', _palavraDeHoje)
       ..post('/api/palavras/analisar', _analisarPalavra)
       ..post('/api/palavras/importar', _importarPalavra)
+      ..post('/api/palavras/google', _importarGoogleDocs)
       ..post('/api/palavras', _criarPalavra)
       ..get('/api/palavras/<id>', _buscarPalavra)
       ..put('/api/palavras/<id>', _editarPalavra)
@@ -655,6 +656,8 @@ class Servidor {
       'urlVisitante': '$_urlBase/visitante',
       'visitanteQrAtivo': cfg?.visitanteQrAtivo ?? true,
       'qrMensagensHolyrics': '${Config.subpastaHolyrics}/$arquivoQrMensagens',
+      // QR do PIX para o momento das ofertas (só quando a chave do PIX está configurada).
+      'qrPixHolyrics': File(p.join(cartazes.pasta, arquivoQrPix)).existsSync() ? '${Config.subpastaHolyrics}/$arquivoQrPix' : null,
       'mensagensNovas': store.listar('mensagens').where((m) => m['status'] == 'nova').length,
       'cartazesNoHolyrics': agente != null ? agente!.agenteConectado : cartazesNoHolyrics,
       'modo': agente != null ? 'agente' : 'local',
@@ -1963,6 +1966,24 @@ class Servidor {
     }
   }
 
+  /// POST /api/palavras/google {link} — texto de um documento do Google Docs compartilhado com a
+  /// conta de serviço do Google (a mesma da agenda).
+  Future<Response> _importarGoogleDocs(Request req) async {
+    final conta = agenda?.conta;
+    if (conta == null || !conta.configurada) {
+      return _erro(400, 'Para importar do Google Docs, ligue a conta de serviço do Google em Administração › Agenda.');
+    }
+    try {
+      final link = (await _corpo(req))['link'] as String? ?? '';
+      final texto = await DocumentosGoogle.daConta(conta.dados!).texto(link);
+      if (texto.trim().isEmpty) return _erro(400, 'O documento está vazio.');
+      if (texto.length > Palavra.tamanhoMaximo) return _erro(400, 'Texto muito longo.');
+      return _json({'texto': texto});
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
   /// GET /api/palavras/hoje?culto=<id> — a Palavra pronta de hoje, como o tablet usa no culto.
   /// Com mais de uma, vale a ligada ao culto pedido; senão, a atualizada por último.
   Response _palavraDeHoje(Request req) {
@@ -3170,6 +3191,9 @@ class Servidor {
     // Holyrics direto: aplica a nova conexão sem reiniciar.
     final h = holyrics;
     if (h is HolyricsDireto) h.atualizar(host: c.holyricsHost, porta: c.holyricsPorta, token: c.holyricsToken);
+    // PIX das ofertas: refaz (ou apaga) o QR; o agente copia para o PC da igreja.
+    await gravarQrPix(cartazes.pasta, chave: c.sitePixChave, nome: c.sitePixNome, cidade: c.sitePixCidade);
+    store.avisar('cartazes');
     // Endereço público mudou: refaz o QR (e o agente o copia para o PC da igreja).
     if (c.urlOracao != urlAntes) {
       await gravarQr(cartazes.pasta, c.urlOracao);
@@ -3278,7 +3302,7 @@ class Servidor {
     if (!_chaveAgenteOk(req)) return _agenteNegado;
     nome = Uri.decodeComponent(nome);
     // O QR não é um "cartaz" para o painel, mas o agente precisa dele.
-    final f = nome == arquivoQr || nome == arquivoQrMensagens ? File(p.join(cartazes.pasta, nome)) : cartazes.arquivo(nome);
+    final f = ehArquivoDeQr(nome) ? File(p.join(cartazes.pasta, nome)) : cartazes.arquivo(nome);
     return _arquivo(f);
   }
 

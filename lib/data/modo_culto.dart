@@ -19,6 +19,7 @@ class ModoCultoController extends ChangeNotifier {
     _fontes = Listenable.merge([scope.repo, scope.motivos, scope.visitas, scope.agenda, scope.escalas, scope.settings, scope.palavra]);
     _fontes.addListener(_remontar);
     _remontar();
+    _conferirPix();
   }
 
   final AppScope scope;
@@ -31,6 +32,10 @@ class ModoCultoController extends ChangeNotifier {
   final Map<TipoMomento, DateTime> _inicios = {};
   List<Momento> _roteiro = [];
   CultoDoDia? _culto;
+
+  /// O servidor tem o QR do PIX (chave configurada em Administração).
+  bool _pix = false;
+  bool _descartado = false;
 
   /// Trecho da Palavra na TV do palco (null = a leitura ainda não começou).
   int? _trecho;
@@ -174,6 +179,17 @@ class ModoCultoController extends ChangeNotifier {
         escalas.cultos.last;
   }
 
+  /// Pergunta ao servidor se há QR do PIX; sem conexão, o momento das ofertas fica só com o slide.
+  Future<void> _conferirPix() async {
+    try {
+      final pix = (await scope.api.estado())['qrPixHolyrics'] is String;
+      if (pix != _pix && !_descartado) {
+        _pix = pix;
+        _remontar();
+      }
+    } on ErroAmigavel catch (_) {}
+  }
+
   static String _hhmm(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
   void _remontar() {
@@ -198,6 +214,7 @@ class ModoCultoController extends ChangeNotifier {
       proximoEvento: scope.agenda.proximo,
       motivosPorSlide: s.motivosPorSlide,
       negritoTitulo: s.negritoTitulo,
+      pix: _pix,
     );
     notifyListeners();
   }
@@ -299,10 +316,17 @@ class ModoCultoController extends ChangeNotifier {
       case AcaoPasso.boasVindas:
         await limpar();
         await scope.visitas.projetarBoasVindas(ids: passo.ids);
-      case AcaoPasso.qrOracao || AcaoPasso.qrMensagens:
+      case AcaoPasso.qrOracao || AcaoPasso.qrMensagens || AcaoPasso.qrPix:
         await limpar();
         final estado = await scope.api.estado();
-        await client.mostrarImagem(estado[passo.acao == AcaoPasso.qrOracao ? 'qrHolyrics' : 'qrMensagensHolyrics'] as String);
+        final chave = switch (passo.acao) {
+          AcaoPasso.qrOracao => 'qrHolyrics',
+          AcaoPasso.qrMensagens => 'qrMensagensHolyrics',
+          _ => 'qrPixHolyrics',
+        };
+        final arquivo = estado[chave];
+        if (arquivo is! String) throw ServidorException('O QR não está disponível no servidor.');
+        await client.mostrarImagem(arquivo);
     }
     await status.atualizar();
   }
@@ -352,6 +376,7 @@ class ModoCultoController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _descartado = true;
     _fontes.removeListener(_remontar);
     super.dispose();
   }

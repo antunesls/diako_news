@@ -92,6 +92,15 @@ void main() {
     expect(fim.last.valor, startsWith('<b>Retiro de Jovens</b>'));
   });
 
+  test('ofertas ganham o QR do PIX quando o servidor tem', () {
+    List<AcaoPasso> ofertas(bool pix) => montarRoteiro(
+          horaCulto: '', ceia: false, musicas: const [], louvor: const {}, pastoral: const {}, tema: '',
+          recados: const [], motivos: const [], respondidas: const [], visitas: const [], pix: pix,
+        ).firstWhere((m) => m.tipo == TipoMomento.ofertas).passos.map((p) => p.acao).toList();
+    expect(ofertas(false), [AcaoPasso.texto]);
+    expect(ofertas(true), [AcaoPasso.texto, AcaoPasso.qrPix]);
+  });
+
   test('ofertas e ceia com o título em negrito', () {
     final r = roteiro(ceia: true);
     expect(r.firstWhere((m) => m.tipo == TipoMomento.ofertas).passos.single.valor, startsWith('<b>Dízimos e ofertas</b>\n'));

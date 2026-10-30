@@ -30,7 +30,7 @@ class Cartazes {
     await for (final e in dir.list()) {
       if (e is! File) continue;
       final nome = p.basename(e.path);
-      if (nome == arquivoQr || nome == arquivoQrMensagens || !extensoes.contains(p.extension(nome).toLowerCase())) continue;
+      if (ehArquivoDeQr(nome) || !extensoes.contains(p.extension(nome).toLowerCase())) continue;
       final s = await e.stat();
       lista.add((nome: nome, tamanho: s.size, modificado: s.modified));
     }
@@ -65,7 +65,7 @@ class Cartazes {
 
   /// Arquivo pelo nome, recusando caminhos fora da pasta.
   File? arquivo(String nome) {
-    if (nome != p.basename(nome) || nome.startsWith('.') || nome == arquivoQr || nome == arquivoQrMensagens) return null;
+    if (nome != p.basename(nome) || nome.startsWith('.') || ehArquivoDeQr(nome)) return null;
     if (!extensoes.contains(p.extension(nome).toLowerCase())) return null;
     return File(p.join(pasta, nome));
   }

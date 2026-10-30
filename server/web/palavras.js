@@ -292,18 +292,61 @@ $('palavra-arquivo').addEventListener('change', async (e) => {
   const arquivo = e.target.files[0];
   e.target.value = '';
   if (!arquivo) return;
-  const erro = $('palavra-erro');
+  const erro = $('palavra-importar-erro');
   erro.hidden = true;
   if ($('palavra-texto').value.trim() && !confirm(`Trocar o texto atual pelo de "${arquivo.name}"?`)) return;
   try {
-    const r = await api('POST', '/api/palavras/importar?nome=' + encodeURIComponent(arquivo.name),
-      await arquivo.arrayBuffer(), { bruto: true, tipo: 'application/octet-stream' });
-    $('palavra-texto').value = r.texto;
-    if (!$('palavra-campo-titulo').value.trim()) $('palavra-campo-titulo').value = arquivo.name.replace(/\.[^.]+$/, '');
-    marcarPalavraAlterada();
-    agendarAnalisePalavra(0);
+    // PDF é lido aqui no navegador; Word e TXT, pelo servidor.
+    const texto = /\.pdf$/i.test(arquivo.name) ? await textoDoPdf(arquivo)
+      : (await api('POST', '/api/palavras/importar?nome=' + encodeURIComponent(arquivo.name),
+        await arquivo.arrayBuffer(), { bruto: true, tipo: 'application/octet-stream' })).texto;
+    usarTextoImportado(texto, arquivo.name.replace(/\.[^.]+$/, ''));
   } catch (err) {
     erro.textContent = err.message;
     erro.hidden = false;
+  }
+});
+
+/** Põe no editor o texto vindo de um arquivo ou do Google Docs (e o título, se ainda não houver). */
+function usarTextoImportado(texto, titulo) {
+  $('palavra-texto').value = texto;
+  if (titulo && !$('palavra-campo-titulo').value.trim()) $('palavra-campo-titulo').value = titulo;
+  marcarPalavraAlterada();
+  agendarAnalisePalavra(0);
+}
+
+$('palavra-google').addEventListener('click', () => {
+  $('palavra-google-linha').hidden = false;
+  $('palavra-google-link').focus();
+});
+$('palavra-google-cancelar').addEventListener('click', () => {
+  $('palavra-google-linha').hidden = true;
+  $('palavra-google-link').value = '';
+});
+async function importarGoogleDocs() {
+  const erro = $('palavra-importar-erro');
+  erro.hidden = true;
+  const link = $('palavra-google-link').value.trim();
+  if (!link) return;
+  if ($('palavra-texto').value.trim() && !confirm('Trocar o texto atual pelo do documento do Google Docs?')) return;
+  const botaoImportar = $('palavra-google-importar');
+  botaoImportar.disabled = true;
+  try {
+    const r = await api('POST', '/api/palavras/google', { link });
+    usarTextoImportado(r.texto, '');
+    $('palavra-google-linha').hidden = true;
+    $('palavra-google-link').value = '';
+  } catch (err) {
+    erro.textContent = err.message;
+    erro.hidden = false;
+  } finally {
+    botaoImportar.disabled = false;
+  }
+}
+$('palavra-google-importar').addEventListener('click', importarGoogleDocs);
+$('palavra-google-link').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    importarGoogleDocs();
   }
 });

@@ -5,6 +5,8 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:qr/qr.dart';
 
+import 'pagina_inicial.dart';
+
 const arquivoQr = 'qr-oracao.png';
 const arquivoQrMensagens = 'qr-mensagens.png';
 
@@ -46,5 +48,25 @@ Future<File> gravarQrMensagens(String pasta, String url) async {
   await Directory(pasta).create(recursive: true);
   final f = File(p.join(pasta, arquivoQrMensagens));
   await f.writeAsBytes(gerarPngQr(url, rotulo: 'DUVIDAS, SUGESTOES E CRITICAS'));
+  return f;
+}
+
+const arquivoQrPix = 'qr-pix.png';
+
+/// QR gerados pelo servidor: não são cartazes (não aparecem na lista nem vão para o backup),
+/// mas o agente os copia para a pasta de imagens do Holyrics.
+bool ehArquivoDeQr(String nome) => nome == arquivoQr || nome == arquivoQrMensagens || nome == arquivoQrPix;
+
+/// QR do PIX (com a chave escrita) para o momento das ofertas no culto. Sem chave, nome e
+/// cidade, apaga o antigo e retorna null.
+Future<File?> gravarQrPix(String pasta, {required String chave, required String nome, required String cidade}) async {
+  final f = File(p.join(pasta, arquivoQrPix));
+  if (chave.trim().isEmpty || nome.trim().isEmpty || cidade.trim().isEmpty) {
+    if (await f.exists()) await f.delete();
+    return null;
+  }
+  await Directory(pasta).create(recursive: true);
+  await f.writeAsBytes(gerarPngQr(payloadPix(chave: chave, nome: nome, cidade: cidade),
+      rotulo: 'PIX: ${formatarChavePix(chave)}'));
   return f;
 }

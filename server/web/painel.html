@@ -305,6 +305,9 @@
   .palavra-versao { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--linha); font-size: 14px; }
   .palavra-acoes { margin-top: 16px; }
   .palavra-importar { cursor: pointer; margin: 0; }
+  .palavra-google { background: var(--superficie); border: 1px solid var(--linha); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+  .palavra-google .barra { margin: 0; flex-wrap: nowrap; }
+  .palavra-google input { flex: 1; }
   @media (max-width: 900px) {
     .palavra-campos, .palavra-grade { grid-template-columns: 1fr; }
     .palavra-lado { position: static; max-height: none; }
@@ -442,9 +445,20 @@
         <div class="palavra-grade">
           <div class="palavra-escrever">
             <div class="barra">
-              <label class="botao secundario pequeno palavra-importar">Importar Word ou TXT<input type="file" id="palavra-arquivo" accept=".docx,.txt" class="escondido"></label>
+              <label class="botao secundario pequeno palavra-importar">Importar Word, PDF ou TXT<input type="file" id="palavra-arquivo" accept=".docx,.pdf,.txt" class="escondido"></label>
+              <button type="button" class="botao secundario pequeno" id="palavra-google">Google Docs</button>
               <button type="button" class="botao secundario pequeno" id="palavra-topico">+ Tópico</button>
-              <span class="dica">Linha em branco separa os trechos. Linha com # é um tópico. PDF: copie o texto e cole.</span>
+              <span class="dica">Linha em branco separa os trechos. Linha com # é um tópico.</span>
+            </div>
+            <p id="palavra-importar-erro" class="erro" role="alert" hidden></p>
+            <div class="palavra-google" id="palavra-google-linha" hidden>
+              <label for="palavra-google-link">Link do documento do Google Docs</label>
+              <div class="barra">
+                <input id="palavra-google-link" type="url" placeholder="https://docs.google.com/document/d/..." autocomplete="off">
+                <button type="button" class="botao pequeno" id="palavra-google-importar">Importar</button>
+                <button type="button" class="botao secundario pequeno" id="palavra-google-cancelar">Cancelar</button>
+              </div>
+              <p class="dica">Antes, no Google Docs, toque em <em>Compartilhar</em> e adicione como leitor o e-mail da conta de serviço do Google (o mesmo da agenda, em Administração › Agenda).</p>
             </div>
             <label for="palavra-texto" class="escondido">Texto da Palavra</label>
             <textarea id="palavra-texto" rows="26" placeholder="# Introdução&#10;Primeiro parágrafo da pregação...&#10;&#10;Segundo parágrafo, com um versículo: Jo 3.16."></textarea>
@@ -1130,7 +1144,8 @@
 <script src="/repertorio-busca.js?v=1"></script>
 <script src="/musica-youtube.js?v=1"></script>
 <script src="/repertorio.js?v=2"></script>
-<script src="/palavras.js?v=1"></script>
+<script src="/palavras-pdf.js?v=1"></script>
+<script src="/palavras.js?v=3"></script>
 <script src="/escala-impressao.js?v=3"></script>
 <script src="/escalas.js?v=9"></script>
 </body>

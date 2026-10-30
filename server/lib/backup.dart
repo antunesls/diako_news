@@ -123,7 +123,7 @@ class Backup {
       await for (final e in dirCartazes.list()) {
         final nome = p.basename(e.path);
         // O QR é refeito pelo servidor a partir do endereço público.
-        if (e is File && nome != arquivoQr && nome != arquivoQrMensagens && Cartazes.nomeValido(nome)) {
+        if (e is File && !ehArquivoDeQr(nome) && Cartazes.nomeValido(nome)) {
           arquivo.add(ArchiveFile.bytes('cartazes/$nome', await e.readAsBytes()));
         }
       }
@@ -408,7 +408,7 @@ class Restauracao {
       if (!f.isFile || !f.name.startsWith('cartazes/')) continue;
       temPastaCartazes = true;
       final nome = f.name.substring('cartazes/'.length);
-        if (Cartazes.nomeValido(nome) && nome != arquivoQr && nome != arquivoQrMensagens) cartazes[nome] = f.content;
+        if (Cartazes.nomeValido(nome) && !ehArquivoDeQr(nome)) cartazes[nome] = f.content;
     }
     final fotos = <String, List<int>>{};
     var temPastaGaleria = false;

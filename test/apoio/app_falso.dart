@@ -123,7 +123,7 @@ class ServidorFalso {
           '/api/agenda' => {'configurada': true, 'eventos': [evento.toJson()]},
           '/api/escalas/hoje' => {'hoje': true, 'cultos': [culto]},
           '/api/palavras/hoje' => {'palavra': palavra == null ? null : PalavraDoCulto.de(palavra!).toJson()},
-          '/api/estado' => {'qrHolyrics': 'DiakoNews/qr.png', 'qrMensagensHolyrics': 'DiakoNews/qr-mensagens.png'},
+          '/api/estado' => {'qrHolyrics': 'DiakoNews/qr.png', 'qrMensagensHolyrics': 'DiakoNews/qr-mensagens.png', 'qrPixHolyrics': 'DiakoNews/qr-pix.png'},
           '/api/projetar/boas-vindas' => {'status': 'ok'},
           _ when caminho.startsWith('/api/holyrics/') => () {
               holyrics.add(caminho.substring('/api/holyrics/'.length));

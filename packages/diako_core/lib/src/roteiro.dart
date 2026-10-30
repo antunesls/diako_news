@@ -42,6 +42,9 @@ enum AcaoPasso {
   telaPreta,
   qrOracao,
   qrMensagens,
+
+  /// QR do PIX da igreja (momento das ofertas), gerado pelo servidor.
+  qrPix,
 }
 
 /// Um toque em Avançar: uma ação no telão, com o rótulo que o pastor vê.
@@ -99,6 +102,9 @@ List<Momento> montarRoteiro({
   Evento? proximoEvento,
   int motivosPorSlide = 4,
   bool negritoTitulo = true,
+
+  /// O servidor tem o QR do PIX: entra depois do slide das ofertas.
+  bool pix = false,
 }) {
   String nomes(Map<String, List<String>> funcoes, String funcao) => (funcoes[funcao] ?? const []).join(', ');
   List<String> escalados(Map<String, List<String>> funcoes) => [
@@ -137,7 +143,10 @@ List<Momento> montarRoteiro({
       Momento(TipoMomento.recados, detalhe: '${textos.length} recado(s), um por vez', passos: textos),
     Momento(TipoMomento.ofertas,
         detalhe: nomes(pastoral, 'Oração e ofertas'),
-        passos: [Passo(AcaoPasso.texto, 'Dízimos e ofertas', valor: _negrito(slideOfertas, negritoTitulo))]),
+        passos: [
+          Passo(AcaoPasso.texto, 'Dízimos e ofertas', valor: _negrito(slideOfertas, negritoTitulo)),
+          if (pix) const Passo(AcaoPasso.qrPix, 'QR do PIX'),
+        ]),
     if (ceia)
       Momento(TipoMomento.ceia, detalhe: nomes(pastoral, 'Santa Ceia'), passos: [
         Passo(AcaoPasso.texto, 'Santa Ceia', valor: _negrito(slideCeia, negritoTitulo)),

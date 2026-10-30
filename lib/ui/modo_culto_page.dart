@@ -1074,7 +1074,7 @@ class SlideDoPasso extends StatelessWidget {
         ]),
       AcaoPasso.telaVazia => icone(Icons.crop_square, 'Tela vazia'),
       AcaoPasso.telaPreta => Text('Tela preta', style: branco.copyWith(color: Colors.white24)),
-      AcaoPasso.qrOracao || AcaoPasso.qrMensagens => icone(Icons.qr_code_2, passo.rotulo),
+      AcaoPasso.qrOracao || AcaoPasso.qrMensagens || AcaoPasso.qrPix => icone(Icons.qr_code_2, passo.rotulo),
     };
 
     return AspectRatio(

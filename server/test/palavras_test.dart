@@ -13,6 +13,7 @@ import 'package:diako_server/historico.dart';
 import 'package:diako_server/holyrics.dart';
 import 'package:diako_server/palavras.dart';
 import 'package:diako_server/permissoes.dart';
+import 'package:diako_server/qr_oracao.dart';
 import 'package:diako_server/store.dart';
 import 'package:diako_server/usuarios.dart';
 import 'package:http/http.dart' as http;
@@ -52,6 +53,63 @@ void main() {
       expect(() => textoDoArquivo('a.png', [1]), throwsFormatException);
       expect(() => textoDoArquivo('a.docx', [1, 2, 3]), throwsFormatException);
     });
+  });
+
+  group('Google Docs', () {
+    const id = '1AbCdEfGhIjKlMnOpQrStUvWxYz012345';
+    test('link do documento', () {
+      expect(idDocumentoGoogle('https://docs.google.com/document/d/$id/edit?usp=sharing'), id);
+      expect(idDocumentoGoogle('https://docs.google.com/document/u/0/d/$id/edit'), id);
+      expect(idDocumentoGoogle('https://drive.google.com/file/d/$id/view'), isNull);
+      expect(idDocumentoGoogle('qualquer coisa'), isNull);
+    });
+
+    test('exporta como texto e separa os parágrafos', () async {
+      final pedidos = <Uri>[];
+      final docs = DocumentosGoogle(
+        emailConta: 'diako@projeto.iam.gserviceaccount.com',
+        cliente: () async => MockClient((req) async {
+          pedidos.add(req.url);
+          return http.Response.bytes(utf8.encode('\uFEFFIntrodução\r\nGraça e paz.\r\n\r\nLeia Jo 3.16.\r\n'), 200);
+        }),
+      );
+      expect(await docs.texto('https://docs.google.com/document/d/$id/edit'), 'Introdução\n\nGraça e paz.\n\nLeia Jo 3.16.');
+      expect(pedidos.single.path, '/drive/v3/files/$id/export');
+      expect(pedidos.single.queryParameters['mimeType'], 'text/plain');
+    });
+
+    test('erros explicam o que fazer', () async {
+      DocumentosGoogle com(int status, String corpo) => DocumentosGoogle(
+            emailConta: 'diako@projeto.iam.gserviceaccount.com',
+            cliente: () async => MockClient((_) async => http.Response(corpo, status)),
+          );
+      Future<String> erro(DocumentosGoogle d, [String link = 'https://docs.google.com/document/d/$id/edit']) async {
+        try {
+          await d.texto(link);
+          return '';
+        } on FormatException catch (e) {
+          return e.message;
+        }
+      }
+
+      expect(await erro(com(404, '{}')), contains('diako@projeto.iam.gserviceaccount.com'));
+      expect(await erro(com(403, '{"error":{"message":"Google Drive API has not been used in project 1"}}')), contains('Google Drive API'));
+      expect(await erro(com(200, ''), 'https://exemplo.com'), contains('Cole o link'));
+    });
+  });
+
+  test('QR do PIX: gravado com a chave completa, apagado sem ela, fora da lista de cartazes', () async {
+    final pasta = await Directory.systemTemp.createTemp('diako_pix');
+    try {
+      final f = await gravarQrPix(pasta.path, chave: '12345678000199', nome: 'Igreja Diakonia', cidade: 'Sao Paulo');
+      expect(f!.existsSync(), isTrue);
+      expect(f.readAsBytesSync().take(4), [0x89, 0x50, 0x4E, 0x47]);
+      expect(ehArquivoDeQr(arquivoQrPix), isTrue);
+      expect(await gravarQrPix(pasta.path, chave: '', nome: 'Igreja', cidade: 'Sao Paulo'), isNull);
+      expect(File(p.join(pasta.path, arquivoQrPix)).existsSync(), isFalse);
+    } finally {
+      await pasta.delete(recursive: true);
+    }
   });
 
   test('rotas: a do tablet pede projetar; o resto, palavras', () {
@@ -189,6 +247,10 @@ void main() {
           headers: {'authorization': 'Bearer $admin'}, body: docx('<w:p><w:r><w:t>Graça e paz.</w:t></w:r></w:p>')));
       expect(r.statusCode, 200);
       expect(jsonDecode(await r.readAsString())['texto'], 'Graça e paz.');
+
+      final (stG, google) = await chamar('POST', '/api/palavras/google', token: admin, json: {'link': 'https://docs.google.com/document/d/x'});
+      expect(stG, 400);
+      expect(google['erro'], contains('Administração › Agenda'));
 
       final pdf = await handler(Request('POST', Uri.parse('http://x/api/palavras/importar?nome=a.pdf'),
           headers: {'authorization': 'Bearer $admin'}, body: [37, 80, 68, 70]));

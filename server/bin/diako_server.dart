@@ -51,6 +51,7 @@ Future<void> main(List<String> args) async {
   final base = cfg.urlBase;
   await gravarQr(config.pastaCartazes, cfg.urlOracao);
   await gravarQrMensagens(config.pastaCartazes, cfg.urlMensagens);
+  await gravarQrPix(config.pastaCartazes, chave: cfg.sitePixChave, nome: cfg.sitePixNome, cidade: cfg.sitePixCidade);
 
   final backup = Backup(
     pastaDados: config.pastaDados,
@@ -116,6 +117,7 @@ Future<void> main(List<String> args) async {
         await cfg.restaurarPublicas(dados);
         await gravarQr(config.pastaCartazes, cfg.urlOracao);
         await gravarQrMensagens(config.pastaCartazes, cfg.urlMensagens);
+        await gravarQrPix(config.pastaCartazes, chave: cfg.sitePixChave, nome: cfg.sitePixNome, cidade: cfg.sitePixCidade);
         store.avisar('cartazes');
       },
     ),

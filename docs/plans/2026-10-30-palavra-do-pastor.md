@@ -86,3 +86,9 @@ Itens 1 a 5 feitos. Verificado nesta máquina:
 - App: 52 testes, incluindo a leitura em tela inteira no tamanho do A9+ com a ordem exata dos comandos ao Holyrics (`SetTextCP` do trecho; `SetF10` desligado e `ShowVerse` com `ids` no versículo; TV do palco limpa ao sair da Palavra).
 
 Falta conferir na igreja: o `ShowVerse` com `ids` e o tamanho do texto na TV do palco (roteiro de teste em `docs/modo-culto.html`).
+
+## Entrega 2b (2026-10-30)
+
+- **PDF:** lido no navegador com a pdf.js 4.10.38 (carregada do jsDelivr só quando se escolhe um PDF; precisa de internet no computador do pastor). A montagem dos parágrafos fica em `server/web/palavras-pdf.js`, testada no Node. Conferido no navegador com um PDF gerado pelo Chrome.
+- **Google Docs:** `POST /api/palavras/google {link}` exporta o documento como texto pela API do Drive (`drive.readonly`), com a conta de serviço da agenda. O documento precisa estar compartilhado com o e-mail dela; os erros explicam isso e o caso da "Google Drive API" desativada. Testado com cliente HTTP falso; falta testar com a conta real da igreja.
+- **QR do PIX:** o servidor grava `qr-pix.png` (com a chave escrita) na pasta que vai para o Holyrics, na inicialização, ao salvar a configuração e ao restaurar backup; sem chave, apaga. O estado informa `qrPixHolyrics` e o tablet acrescenta o passo "QR do PIX" ao momento das ofertas.
