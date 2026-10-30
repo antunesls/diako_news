@@ -238,7 +238,48 @@ void main() {
       expect(culto.trechos.first.referencias.single.ref!.ids, ['45005008']);
     });
 
-    test('prévia no editor e importação pelo painel', () async {
+    test('modelos de roteiro: pastoral edita, o tablet recebe o do culto de hoje', () async {
+      final telao = await criar('telao', Perfil.telao);
+      const itens = [
+        {'chave': 'contagem', 'tipo': 'contagem'},
+        {'chave': 'louvor', 'tipo': 'louvor', 'minutos': 25},
+        {'chave': 'livre-criancas', 'tipo': 'livre', 'titulo': 'Apresentação de crianças'},
+        {'chave': 'palavra', 'tipo': 'palavra'},
+      ];
+      final (st, domingo) = await chamar('POST', '/api/roteiros', token: admin,
+          json: {'nome': 'Domingo', 'cultos': ['Culto da família'], 'itens': itens});
+      expect(st, 201, reason: '$domingo');
+      final (st2, padrao) = await chamar('POST', '/api/roteiros', token: admin,
+          json: {'nome': 'Padrão', 'padrao': true, 'itens': [itens.last]});
+      expect(st2, 201);
+
+      // O telão vê, mas não altera; o mesmo culto não pode estar em dois modelos.
+      expect((await chamar('GET', '/api/roteiros', token: telao)).$1, 200);
+      expect((await chamar('POST', '/api/roteiros', token: telao, json: {'nome': 'X', 'itens': itens})).$1, 403);
+      final (st3, conflito) = await chamar('POST', '/api/roteiros', token: admin,
+          json: {'nome': 'Outro', 'cultos': ['culto da Família'], 'itens': itens});
+      expect(st3, 409);
+      expect(conflito['erro'], contains('Domingo'));
+      expect((await chamar('POST', '/api/roteiros', token: admin, json: {'nome': 'Vazio', 'itens': []})).$1, 400);
+
+      // Só um padrão por vez.
+      await chamar('PUT', '/api/roteiros/${domingo['id']}', token: admin, json: {...domingo, 'padrao': true});
+      final lista = (await chamar('GET', '/api/roteiros', token: admin)).$2 as List;
+      expect([for (final m in lista) if (m['padrao'] == true) m['nome']], ['Domingo']);
+
+      // A escala de hoje leva o modelo de cada culto.
+      await store.salvar('escalas', CultoEscala(id: 'c1', data: diaEscala(DateTime.now()), hora: '19:00', nome: 'Culto da família').toJson());
+      await store.salvar('escalas', CultoEscala(id: 'c2', data: diaEscala(DateTime.now()), hora: '09:00', nome: 'Escola Bíblica').toJson());
+      final (_, hoje) = await chamar('GET', '/api/escalas/hoje', token: telao);
+      final porNome = {for (final c in hoje['cultos'] as List) c['nome']: c['roteiro']};
+      expect((porNome['Culto da família'] as List).map((i) => i['chave']), ['contagem', 'louvor', 'livre-criancas', 'palavra']);
+      expect((porNome['Escola Bíblica'] as List).length, 4, reason: 'sem modelo próprio: o padrão (agora o Domingo)');
+      expect(hoje['roteiroPadrao'], isNotNull);
+
+      expect((await chamar('DELETE', '/api/roteiros/${padrao['id']}', token: admin)).$1, 200);
+    });
+
+        test('prévia no editor e importação pelo painel', () async {
       final (st, previa) = await chamar('POST', '/api/palavras/analisar', token: admin, json: {'texto': 'Leia Jo 3.16.\n\nE Os 6.6.'});
       expect(st, 200);
       expect([for (final t in previa['trechos'] as List) (t['referencias'] as List).single['ref']], ['Jo 3.16', 'Os 6.6']);

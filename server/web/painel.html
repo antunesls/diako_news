@@ -305,6 +305,20 @@
   .palavra-versao { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--linha); font-size: 14px; }
   .palavra-acoes { margin-top: 16px; }
   .palavra-importar { cursor: pointer; margin: 0; }
+  /* Roteiros do culto */
+  .roteiro-campos { grid-template-columns: 1fr 1.6fr 1fr; align-items: start; }
+  .roteiro-campos .marcar { margin-top: 34px; }
+  .roteiro-itens { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 8px; }
+  .roteiro-item { display: grid; grid-template-columns: 30px 1fr 110px auto; gap: 12px; align-items: center; background: var(--superficie); border: 1px solid var(--linha); border-radius: 12px; padding: 10px 12px; }
+  .roteiro-item.livre { border-color: var(--primaria); background: #f6fbfa; }
+  .roteiro-num { color: var(--suave); font-variant-numeric: tabular-nums; }
+  .roteiro-livre { display: grid; gap: 6px; }
+  .roteiro-livre textarea { min-height: 0; }
+  .roteiro-minutos { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 400; }
+  .roteiro-minutos input { padding: 8px 10px; }
+  .roteiro-mover { display: flex; gap: 6px; }
+  #roteiro-adicionar { width: auto; flex: 1; max-width: 460px; }
+  @media (max-width: 900px) { .roteiro-campos { grid-template-columns: 1fr; } .roteiro-campos .marcar { margin-top: 0; } .roteiro-item { grid-template-columns: 30px 1fr; } }
   .palavra-google { background: var(--superficie); border: 1px solid var(--linha); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
   .palavra-google .barra { margin: 0; flex-wrap: nowrap; }
   .palavra-google input { flex: 1; }
@@ -418,6 +432,42 @@
       <p id="repertorio-contagem" class="dica" role="status"></p>
       <p id="repertorio-resultado" role="status"></p>
       <div id="repertorio-lista"></div>
+    </section>
+
+    <section data-painel="roteiros" hidden>
+      <div id="roteiros-lista-tela">
+        <div class="barra">
+          <h1>Roteiros do culto</h1><span class="espaco"></span>
+          <button type="button" class="botao pequeno" id="roteiro-novo">+ Novo modelo</button>
+        </div>
+        <p class="dica">A ordem dos momentos que o tablet segue no <strong>Modo Culto</strong>. Cada modelo vale para os cultos com o nome indicado; o modelo padrão vale para os outros. Momentos sem conteúdo no dia (sem visitantes, sem Santa Ceia…) ficam de fora sozinhos.</p>
+        <p id="roteiros-resultado" role="status"></p>
+        <div id="roteiros-lista"></div>
+      </div>
+      <div id="roteiro-editor" hidden>
+        <div class="barra">
+          <button type="button" class="botao secundario pequeno" id="roteiro-voltar">&larr; Roteiros</button>
+          <h1 id="roteiro-titulo-tela">Novo modelo</h1><span class="espaco"></span>
+          <span id="roteiro-salvo" role="status"></span>
+        </div>
+        <div class="palavra-campos roteiro-campos">
+          <div class="campo"><label for="roteiro-nome">Nome do modelo</label><input id="roteiro-nome" maxlength="60" placeholder="Domingo à noite" autocomplete="off"></div>
+          <div class="campo"><label for="roteiro-cultos">Vale para os cultos chamados</label><input id="roteiro-cultos" placeholder="Culto da família, Culto de Santa Ceia" autocomplete="off"><p class="dica">Separe por vírgula. Escreva como na escala.</p></div>
+          <div class="campo"><label class="marcar"><input type="checkbox" id="roteiro-padrao"> Modelo padrão (vale para os cultos sem modelo)</label></div>
+        </div>
+        <ol id="roteiro-itens" class="roteiro-itens"></ol>
+        <div class="barra" id="roteiro-adicionar-linha">
+          <label for="roteiro-adicionar" class="escondido">Momento para adicionar</label>
+          <select id="roteiro-adicionar"></select>
+          <button type="button" class="botao secundario pequeno" id="roteiro-adicionar-botao">Adicionar momento</button>
+        </div>
+        <p id="roteiro-erro" class="erro" role="alert" hidden></p>
+        <div class="barra palavra-acoes" id="roteiro-acoes">
+          <button type="button" class="botao perigo pequeno" id="roteiro-excluir">Excluir</button>
+          <span class="espaco"></span>
+          <button type="button" class="botao" id="roteiro-salvar">Salvar modelo</button>
+        </div>
+      </div>
     </section>
 
     <section data-painel="palavras" hidden>
@@ -1138,12 +1188,13 @@
 
 <script src="/comum.js?v=5"></script>
 <script src="/form-visitante.js?v=1"></script>
-<script src="/menu-lateral.js?v=2"></script>
+<script src="/menu-lateral.js?v=3"></script>
 <script src="/painel.js?v=16"></script>
 <script src="/acessos-escala.js?v=2"></script>
 <script src="/repertorio-busca.js?v=1"></script>
 <script src="/musica-youtube.js?v=1"></script>
 <script src="/repertorio.js?v=2"></script>
+<script src="/roteiros.js?v=1"></script>
 <script src="/palavras-pdf.js?v=1"></script>
 <script src="/palavras.js?v=3"></script>
 <script src="/escala-impressao.js?v=3"></script>

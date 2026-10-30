@@ -14,6 +14,7 @@ const MENU_GRUPOS = [
   { nome: 'Cultos', itens: [
     { id: 'escalas', titulo: 'Escalas', permissao: 'escalasVer' },
     { id: 'repertorio', titulo: 'Repertório', permissao: 'escalasVer' },
+    { id: 'roteiros', titulo: 'Roteiros', permissao: 'escalasVer' },
     { id: 'palavras', titulo: 'Palavras', permissao: 'palavras' },
   ] },
   { nome: 'Comunicação', itens: [

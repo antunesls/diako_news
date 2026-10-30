@@ -20,6 +20,7 @@ class CultoDoDia {
     required this.pastoral,
     required this.louvor,
     required this.musicas,
+    this.roteiro,
   });
 
   final String id;
@@ -42,6 +43,9 @@ class CultoDoDia {
   final Map<String, List<String>> louvor;
   final List<Musica> musicas;
 
+  /// Modelo de roteiro deste culto (montado no painel); null = o padrão.
+  final List<ItemRoteiro>? roteiro;
+
   static Map<String, List<String>> _funcoes(Map<String, dynamic> j, String tipo) {
     final funcoes = [for (final f in ((j['funcoes'] as Map?)?[tipo] as List? ?? const [])) f as String];
     final pessoas = Map<String, dynamic>.from(j[tipo] as Map? ?? const {});
@@ -62,7 +66,19 @@ class CultoDoDia {
         pastoral: _funcoes(j, 'pastoral'),
         louvor: _funcoes(j, 'louvor'),
         musicas: [for (final m in (j['musicas'] as List? ?? const [])) Musica.fromJson(Map<String, dynamic>.from(m as Map))],
+        roteiro: lerItensRoteiro(j['roteiro']),
       );
+}
+
+/// Itens de um modelo de roteiro vindos do servidor; null se não houver ou se algum for inválido
+/// (aí vale o roteiro do sistema, em vez de um roteiro pela metade).
+List<ItemRoteiro>? lerItensRoteiro(Object? j) {
+  if (j is! List || j.isEmpty) return null;
+  try {
+    return [for (final i in j) ItemRoteiro.fromJson(Map<String, dynamic>.from(i as Map))];
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Escala de hoje (ou do próximo culto, em até 7 dias), com cópia local para usar sem conexão.
@@ -82,6 +98,10 @@ class EscalaRepo extends ChangeNotifier {
 
   /// Os [cultos] são de hoje (senão, são do próximo dia com culto).
   bool get hoje => _hoje;
+
+  /// Modelo de roteiro padrão da igreja (para dia sem culto na escala); null = o do sistema.
+  List<ItemRoteiro>? get roteiroPadrao => _roteiroPadrao;
+  List<ItemRoteiro>? _roteiroPadrao;
   bool get online => _online;
   String? get erro => _erro;
 
@@ -100,6 +120,7 @@ class EscalaRepo extends ChangeNotifier {
 
   void _ler(Map<String, dynamic> j) {
     _hoje = j['hoje'] == true;
+    _roteiroPadrao = lerItensRoteiro(j['roteiroPadrao']);
     _cultos = [for (final c in (j['cultos'] as List? ?? const [])) CultoDoDia.fromJson(Map<String, dynamic>.from(c as Map))];
   }
 

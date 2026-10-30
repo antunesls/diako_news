@@ -125,6 +125,8 @@ Permissao permissaoDaRota(String metodo, String caminho) {
   // Ver basta para entrar; cada alteração confere no handler se é da pastoral ou do louvor.
   if (comeca('api/escalas')) return Permissao.escalasVer;
   if (comeca('api/repertorio')) return Permissao.escalasVer;
+  // Modelos de roteiro do Modo Culto: ver com a escala; alterar confere a pastoral no handler.
+  if (comeca('api/roteiros')) return Permissao.escalasVer;
   // A Palavra do dia desce para o tablet do culto; o resto é do pregador (cada um vê as suas).
   if (caminho == 'api/palavras/hoje') return Permissao.projetar;
   if (comeca('api/palavras')) return Permissao.palavras;

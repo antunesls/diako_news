@@ -15,11 +15,12 @@ void main() {
   setUp(() async => pasta = await Directory.systemTemp.createTemp('diako_telas'));
   tearDown(() => pasta.delete(recursive: true));
 
-  Future<ServidorFalso> abrir(WidgetTester tester, Widget home, {Palavra? palavra}) async {
+  Future<ServidorFalso> abrir(WidgetTester tester, Widget home, {Palavra? palavra, void Function(ServidorFalso)? antes}) async {
     tester.view.physicalSize = const Size(1920, 1200);
     tester.view.devicePixelRatio = 1.5;
     addTearDown(tester.view.reset);
     final servidor = ServidorFalso(DateTime.now())..palavra = palavra;
+    antes?.call(servidor);
     final app = await tester.runAsync(() => montarApp(servidor, pasta, home));
     await tester.pumpWidget(app!);
     await tester.pump();
@@ -142,6 +143,27 @@ void main() {
     expect(servidor.corpos.lastWhere((c) => c.containsKey('show'))['show'], false);
     expect(tester.takeException(), isNull);
 
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('modelo do painel: ordem própria e momento livre com slide', (tester) async {
+    final servidor = await abrir(tester, const ModoCultoPage(), antes: (s) => s.culto['roteiro'] = [
+          {'chave': 'louvor', 'tipo': 'louvor', 'minutos': 25},
+          {'chave': 'livre-criancas', 'tipo': 'livre', 'titulo': 'Apresentação de crianças', 'texto': 'Apresentação de crianças'},
+          {'chave': 'palavra', 'tipo': 'palavra'},
+        ]);
+    await tocar(tester, find.text('Começar o culto agora'));
+    expect(tester.takeException(), isNull);
+    expect(find.text('Recados'), findsNothing, reason: 'fora do modelo');
+    expect(find.text('25 min'), findsNothing);
+    expect(find.textContaining('/ 25 min'), findsOneWidget, reason: 'minutos do modelo no louvor');
+
+    await tocar(tester, find.text('Avançar'));
+    expect(find.text('Apresentação de crianças'), findsWidgets);
+    expect(servidor.holyrics.last, 'GetCurrentPresentation');
+    expect(servidor.holyrics, contains('ShowQuickPresentation'));
+    expect(servidor.corpos.lastWhere((c) => c.containsKey('text'))['text'], '<b>Apresentação de crianças</b>');
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
 }

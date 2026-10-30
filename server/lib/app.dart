@@ -269,6 +269,11 @@ class Servidor {
       ..post('/api/repertorio/importar', _importarRepertorio)
       ..post('/api/repertorio', _criarMusicaRepertorio)
       ..put('/api/repertorio/<id>', _editarMusicaRepertorio)
+      // Modelos de roteiro do Modo Culto
+      ..get('/api/roteiros', _listarRoteiros)
+      ..post('/api/roteiros', _criarRoteiro)
+      ..put('/api/roteiros/<id>', _editarRoteiro)
+      ..delete('/api/roteiros/<id>', _excluirRoteiro)
       ..get('/api/escalas', _listarEscalas)
       ..get('/api/escalas/hoje', _escalaDeHoje)
       ..get('/api/escalas/pdf', _escalaPdf)
@@ -1997,6 +2002,64 @@ class Servidor {
     return _json({'palavra': escolhida == null ? null : PalavraDoCulto.de(escolhida).toJson()});
   }
 
+  // ---------- Modelos de roteiro do Modo Culto ----------
+
+  List<ModeloRoteiro> _modelosRoteiro() => [
+        for (final j in store.listar('roteiros'))
+          if (_modeloValido(j) case final m?) m,
+      ];
+
+  static ModeloRoteiro? _modeloValido(Map<String, dynamic> j) {
+    try {
+      return ModeloRoteiro.fromJson(j);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  bool _podeEditarRoteiros(Request req) => Auth.contaDa(req)?.pode(Permissao.escalaPastoral) ?? false;
+
+  Response _listarRoteiros(Request _) => _json([
+        for (final m in _modelosRoteiro()..sort((a, b) => a.nome.toLowerCase().compareTo(b.nome.toLowerCase()))) m.toJson(),
+      ]);
+
+  /// Salva o modelo; se ele é o padrão, os outros deixam de ser.
+  Future<Response> _salvarRoteiro(Request req, String id, {required bool novo}) async {
+    if (!_podeEditarRoteiros(req)) return _erro(403, 'Só quem monta a escala pastoral altera os roteiros.');
+    if (!novo && store.buscar('roteiros', id) == null) return _erro(404, 'Modelo não encontrado.');
+    try {
+      final modelo = ModeloRoteiro.fromJson({...await _corpo(req), 'id': id});
+      final outros = _modelosRoteiro().where((m) => m.id != id);
+      if (outros.any((m) => m.nome.toLowerCase() == modelo.nome.toLowerCase())) {
+        return _erro(409, 'Já existe um modelo com este nome.');
+      }
+      for (final culto in modelo.cultos) {
+        final dono = outros.where((m) => m.valePara(culto)).firstOrNull;
+        if (dono != null) return _erro(409, 'O culto "$culto" já está no modelo "${dono.nome}".');
+      }
+      await store.salvarVarios('roteiros', [
+        modelo.toJson(),
+        if (modelo.padrao)
+          for (final m in outros)
+            if (m.padrao) ModeloRoteiro(id: m.id, nome: m.nome, itens: m.itens, cultos: m.cultos).toJson(),
+      ]);
+      return _json(modelo.toJson(), status: novo ? 201 : 200);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    } on TypeError {
+      return _erro(400, 'Dados inválidos.');
+    }
+  }
+
+  Future<Response> _criarRoteiro(Request req) => _salvarRoteiro(req, novoId(), novo: true);
+  Future<Response> _editarRoteiro(Request req, String id) => _salvarRoteiro(req, id, novo: false);
+
+  Future<Response> _excluirRoteiro(Request req, String id) async {
+    if (!_podeEditarRoteiros(req)) return _erro(403, 'Só quem monta a escala pastoral altera os roteiros.');
+    if (!await store.excluir('roteiros', id)) return _erro(404, 'Modelo não encontrado.');
+    return _json({'ok': true});
+  }
+
   // ---------- Escalas (pastoral e louvor) ----------
 
   bool _podeEditarRepertorio(Request req) => Auth.contaDa(req)?.pode(Permissao.escalaLouvor) ?? false;
@@ -2181,7 +2244,20 @@ class Servidor {
     }
     final membros = _membrosPorId();
     final ind = _indisponibilidades();
-    return _json({'hoje': ehHoje, 'cultos': [for (final c in lista) _cultoParaTela(c, membros, ind)]});
+    final modelos = _modelosRoteiro();
+    final padrao = modelos.where((m) => m.padrao).firstOrNull;
+    return _json({
+      'hoje': ehHoje,
+      'cultos': [
+        for (final c in lista)
+          {
+            ..._cultoParaTela(c, membros, ind),
+            // Modelo de roteiro do Modo Culto (o do culto, senão o padrão; sem nenhum, o do sistema).
+            if (modeloDoCulto(modelos, c.nome) case final m?) 'roteiro': [for (final i in m.itens) i.toJson()],
+          },
+      ],
+      if (padrao != null) 'roteiroPadrao': [for (final i in padrao.itens) i.toJson()],
+    });
   }
 
   /// GET /api/escalas/pdf?mes=aaaa-mm&tipo=...&formato=paisagem|retrato — PDF pronto para baixar.

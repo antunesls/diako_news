@@ -33,6 +33,7 @@ IconData iconeDoMomento(TipoMomento t) => switch (t) {
       TipoMomento.palavra => Icons.menu_book_outlined,
       TipoMomento.oracaoFinal => Icons.front_hand_outlined,
       TipoMomento.encerramento => Icons.qr_code_2,
+      TipoMomento.livre => Icons.star_outline,
     };
 
 String _dd(int n) => n.toString().padLeft(2, '0');
@@ -337,7 +338,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
                 const SizedBox(height: 14),
                 _Cartao(children: [
                   Text('ROTEIRO DE HOJE · ${_c.roteiro.length} MOMENTOS', style: rotulo),
-                  Text(_c.roteiro.map((m) => m.tipo.titulo).join(' · '), style: TextStyle(color: tema.colorScheme.outline)),
+                  Text(_c.roteiro.map((m) => m.titulo).join(' · '), style: TextStyle(color: tema.colorScheme.outline)),
                   SizedBox(
                     height: 60,
                     child: FilledButton.tonalIcon(
@@ -389,7 +390,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
   Widget _trilha(BuildContext context) {
     final esquema = Theme.of(context).colorScheme;
     final roteiro = _c.roteiro;
-    final atual = roteiro.indexWhere((m) => m.tipo == _c.posicao!.tipo);
+    final atual = roteiro.indexWhere((m) => m.chave == _c.posicao!.chave);
     return Material(
       color: esquema.surfaceContainerLow,
       child: ListView.builder(
@@ -398,7 +399,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
         itemBuilder: (context, i) {
           final m = roteiro[i];
           final agora = i == atual;
-          final inicio = _c.inicioDe(m.tipo);
+          final inicio = _c.inicioDe(m);
           // Passou por ele: ✓ só se foi projetado; pulado fica apagado, sem ✓.
           final passou = i < atual, feito = passou && inicio != null;
           return Opacity(
@@ -413,7 +414,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
                 ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: () => _acao(() => _c.irPara(PosicaoRoteiro(m.tipo, 0))),
+                  onTap: () => _acao(() => _c.irPara(PosicaoRoteiro.de(m))),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     child: Row(
@@ -434,7 +435,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(m.tipo.titulo, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                              Text(m.titulo, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                               if (m.detalhe.isNotEmpty)
                                 Text(m.detalhe,
                                     maxLines: 1,
@@ -459,8 +460,8 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
     final tema = Theme.of(context);
     final esquema = tema.colorScheme;
     final momento = _c.momentoAtual!;
-    final inicio = _c.inicioDe(momento.tipo);
-    final previsto = _c.previsto(momento.tipo);
+    final inicio = _c.inicioDe(momento);
+    final previsto = _c.previsto(momento);
     final decorrido = inicio == null ? Duration.zero : DateTime.now().difference(inicio);
     final passou = previsto > 0 && decorrido.inMinutes >= previsto;
 
@@ -482,7 +483,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(momento.tipo.titulo, style: tema.textTheme.headlineSmall),
+                    Text(momento.titulo, style: tema.textTheme.headlineSmall),
                     if (momento.detalhe.isNotEmpty)
                       Text(momento.detalhe, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: esquema.outline)),
                   ],
@@ -545,7 +546,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
             SizedBox(
               width: 250,
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _Rotulo(prox != null && prox.tipo != p.tipo ? 'A seguir · ${prox.tipo.titulo}' : 'A seguir'),
+                _Rotulo(prox != null && prox.chave != p.chave ? 'A seguir · ${_c.momentoDe(prox).titulo}' : 'A seguir'),
                 if (prox == null)
                   AspectRatio(
                     aspectRatio: 16 / 9,
@@ -578,7 +579,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
-                    onTap: () => _acao(() => _c.irPara(PosicaoRoteiro(momento.tipo, i))),
+                    onTap: () => _acao(() => _c.irPara(PosicaoRoteiro.de(momento, i))),
                     child: Padding(
                       padding: const EdgeInsets.all(6),
                       child: Column(
@@ -659,7 +660,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
   Widget _palavra(BuildContext context) {
     final esquema = Theme.of(context).colorScheme;
     final settings = _scope.settings;
-    final inicio = _c.inicioDe(TipoMomento.palavra) ?? DateTime.now();
+    final inicio = _c.inicioDe(_c.momentoAtual!) ?? DateTime.now();
     final previsto = Duration(minutes: settings.minutosPregacao);
     final resta = previsto - DateTime.now().difference(inicio);
     final rotulo = Theme.of(context).textTheme.labelLarge?.copyWith(color: esquema.outline);
@@ -929,7 +930,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
               child: OutlinedButton.icon(
                 onPressed: prox == null ? null : _avancar,
                 icon: const Icon(Icons.skip_next),
-                label: Text(prox == null ? 'Fim do roteiro' : 'Próximo momento: ${prox.tipo.titulo}',
+                label: Text(prox == null ? 'Fim do roteiro' : 'Próximo momento: ${_c.momentoDe(prox).titulo}',
                     maxLines: 1, overflow: TextOverflow.ellipsis),
               ),
             ),
@@ -944,11 +945,11 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
     final status = _scope.status;
     final atual = _c.posicao!;
     final prox = _c.proxima;
-    final horaDoCulto = atual.tipo == TipoMomento.contagem && _c.horaDoCulto;
+    final horaDoCulto = _c.momentoDe(atual).tipo == TipoMomento.contagem && _c.horaDoCulto;
     final rotuloProx = prox == null
         ? 'Fim do roteiro'
-        : prox.tipo != atual.tipo
-            ? '${prox.tipo.titulo} · ${_c.passoDe(prox).rotulo}'
+        : prox.chave != atual.chave
+            ? '${_c.momentoDe(prox).titulo} · ${_c.passoDe(prox).rotulo}'
             : _c.passoDe(prox).rotulo;
     final rotulo = Theme.of(context).textTheme.labelLarge?.copyWith(color: esquema.outline);
 

@@ -5,21 +5,21 @@ const path = require('node:path');
 
 const menu = require('../web/menu-lateral.js');
 
-test('organiza as treze páginas nos grupos aprovados, com Agenda em Comunicação', () => {
+test('organiza as catorze páginas nos grupos aprovados, com Agenda em Comunicação', () => {
   const grupos = menu.gruposPermitidos(['painel', 'motivosVer', 'mensagens', 'membros', 'escalasVer',
     'agendaVer', 'recados', 'cartazes', 'galeria', 'resumo', 'admin']);
   assert.deepEqual(grupos.map((g) => g.nome), ['Início', 'Acompanhamento', 'Cultos', 'Comunicação', 'Operação']);
-  assert.deepEqual(grupos.find((g) => g.nome === 'Cultos').itens.map((i) => i.id), ['escalas', 'repertorio']);
+  assert.deepEqual(grupos.find((g) => g.nome === 'Cultos').itens.map((i) => i.id), ['escalas', 'repertorio', 'roteiros']);
   assert.deepEqual(grupos.find((g) => g.nome === 'Comunicação').itens.map((i) => i.id),
     ['agenda', 'recados', 'cartazes', 'galeria', 'resumo']);
-  assert.equal(grupos.flatMap((g) => g.itens).filter((i) => i.id !== 'admin').length, 13);
+  assert.equal(grupos.flatMap((g) => g.itens).filter((i) => i.id !== 'admin').length, 14);
 });
 
 test('perfil Louvor só vê suas páginas e grupos sem permissão desaparecem', () => {
   const grupos = menu.gruposPermitidos(['painel', 'agendaVer', 'escalasVer', 'escalaLouvor']);
   assert.deepEqual(grupos.map((g) => g.nome), ['Início', 'Cultos', 'Comunicação', 'Operação']);
   assert.deepEqual(grupos.flatMap((g) => g.itens.map((i) => i.id)),
-    ['inicio', 'escalas', 'repertorio', 'agenda', 'historico', 'status']);
+    ['inicio', 'escalas', 'repertorio', 'roteiros', 'agenda', 'historico', 'status']);
 });
 
 test('menu mantém os avisos nas páginas e respeita autorização para Administração', () => {
@@ -46,7 +46,7 @@ test('painel oferece menu lateral, botão móvel e preserva as páginas existent
 
 test('Palavras fica em Cultos e aparece só para quem prepara Palavras', () => {
   const pregador = menu.gruposPermitidos(['painel', 'escalasVer', 'palavras', 'minhaEscala']);
-  assert.deepEqual(pregador.find((g) => g.nome === 'Cultos').itens.map((i) => i.id), ['escalas', 'repertorio', 'palavras']);
+  assert.deepEqual(pregador.find((g) => g.nome === 'Cultos').itens.map((i) => i.id), ['escalas', 'repertorio', 'roteiros', 'palavras']);
   assert.ok(!menu.gruposPermitidos(['painel', 'escalasVer']).flatMap((g) => g.itens).some((i) => i.id === 'palavras'));
 });
 
@@ -54,5 +54,5 @@ test('painel carrega o script das Palavras e o menu na versão nova', () => {
   const html = fs.readFileSync(path.join(__dirname, '../web/painel.html'), 'utf8');
   assert.match(html, /data-painel="palavras"/);
   assert.match(html, /<script src="\/palavras-pdf\.js\?v=1"><\/script>\s*<script src="\/palavras\.js\?v=3"><\/script>/);
-  assert.match(html, /<script src="\/menu-lateral\.js\?v=2"><\/script>/);
+  assert.match(html, /<script src="\/menu-lateral\.js\?v=3"><\/script>/);
 });

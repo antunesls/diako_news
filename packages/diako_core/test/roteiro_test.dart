@@ -111,24 +111,24 @@ void main() {
     final r = roteiro();
 
     test('avança dentro do momento e depois para o próximo', () {
-      expect(proximaPosicao(r, const PosicaoRoteiro(TipoMomento.recados, 0)), const PosicaoRoteiro(TipoMomento.recados, 1));
-      expect(proximaPosicao(r, const PosicaoRoteiro(TipoMomento.recados, 1)), const PosicaoRoteiro(TipoMomento.ofertas, 0));
-      expect(proximaPosicao(r, PosicaoRoteiro(TipoMomento.encerramento, r.last.passos.length - 1)), isNull);
+      expect(proximaPosicao(r, const PosicaoRoteiro('recados', 0)), const PosicaoRoteiro('recados', 1));
+      expect(proximaPosicao(r, const PosicaoRoteiro('recados', 1)), const PosicaoRoteiro('ofertas', 0));
+      expect(proximaPosicao(r, PosicaoRoteiro.de(r.last, r.last.passos.length - 1)), isNull);
     });
 
     test('volta para o último passo do momento anterior', () {
-      expect(posicaoAnterior(r, const PosicaoRoteiro(TipoMomento.ofertas, 0)), const PosicaoRoteiro(TipoMomento.recados, 1));
-      expect(posicaoAnterior(r, const PosicaoRoteiro(TipoMomento.contagem, 0)), isNull);
+      expect(posicaoAnterior(r, const PosicaoRoteiro('ofertas', 0)), const PosicaoRoteiro('recados', 1));
+      expect(posicaoAnterior(r, const PosicaoRoteiro('contagem', 0)), isNull);
     });
 
     test('momento que saiu do roteiro: segue para o seguinte na ordem padrão', () {
-      expect(localizar(r, const PosicaoRoteiro(TipoMomento.ceia, 1)), const PosicaoRoteiro(TipoMomento.palavra, 0));
-      expect(proximaPosicao(r, const PosicaoRoteiro(TipoMomento.motivos, 0)), const PosicaoRoteiro(TipoMomento.palavra, 0),
+      expect(localizar(r, PosicaoRoteiro('ceia', 1, TipoMomento.ceia.index)), const PosicaoRoteiro('palavra', 0));
+      expect(proximaPosicao(r, PosicaoRoteiro('motivos', 0, TipoMomento.motivos.index)), const PosicaoRoteiro('palavra', 0),
           reason: 'motivos sumiu: localiza em Palavra e avança dali');
     });
 
     test('passo além do fim fica no último do momento', () {
-      expect(localizar(r, const PosicaoRoteiro(TipoMomento.recados, 9)), const PosicaoRoteiro(TipoMomento.recados, 1));
+      expect(localizar(r, const PosicaoRoteiro('recados', 9)), const PosicaoRoteiro('recados', 1));
     });
   });
 
@@ -142,5 +142,66 @@ void main() {
     expect(cultoProximo('2026-11-02', '19:00', DateTime(2026, 11, 2, 21, 59)), isTrue);
     expect(cultoProximo('2026-11-02', '19:00', DateTime(2026, 11, 2, 22, 0)), isFalse);
     expect(cultoProximo('2026-11-02', '', DateTime(2026, 11, 2, 19)), isFalse);
+  });
+
+  group('modelos de roteiro', () {
+    final modelo = [
+      const ItemRoteiro(chave: 'contagem', tipo: TipoMomento.contagem),
+      const ItemRoteiro(chave: 'louvor', tipo: TipoMomento.louvor, minutos: 25),
+      const ItemRoteiro(chave: 'livre-criancas', tipo: TipoMomento.livre, titulo: 'Apresentação de crianças', texto: 'Apresentação\nSejam bem-vindos, pequeninos!'),
+      const ItemRoteiro(chave: 'palavra', tipo: TipoMomento.palavra),
+      const ItemRoteiro(chave: 'recados', tipo: TipoMomento.recados),
+      const ItemRoteiro(chave: 'livre-batismo', tipo: TipoMomento.livre, titulo: 'Batismo'),
+    ];
+    List<Momento> comModelo() => montarRoteiro(
+          horaCulto: '19:00', ceia: false, musicas: const ['Bondade de Deus · G'], louvor: const {}, pastoral: const {},
+          tema: '', recados: [Recado(id: 'r', titulo: 'Retiro')], motivos: const [], respondidas: const [], visitas: const [],
+          modelo: modelo,
+        );
+
+    test('segue a ordem do modelo, com minutos próprios e momentos livres', () {
+      final r = comModelo();
+      expect(r.map((m) => m.chave), ['contagem', 'louvor', 'livre-criancas', 'palavra', 'recados', 'livre-batismo']);
+      expect(r[1].minutos, 25);
+      expect(r[2].titulo, 'Apresentação de crianças');
+      expect(r[2].passos.single.acao, AcaoPasso.texto);
+      expect(r[2].passos.single.valor, '<b>Apresentação</b>\nSejam bem-vindos, pequeninos!');
+      expect(r[5].passos.single.acao, AcaoPasso.telaVazia, reason: 'livre sem texto: tela vazia');
+    });
+
+    test('dois momentos livres seguidos não se confundem na navegação', () {
+      final r = comModelo();
+      expect(proximaPosicao(r, PosicaoRoteiro.de(r[1])), const PosicaoRoteiro('livre-criancas', 0));
+      expect(proximaPosicao(r, PosicaoRoteiro.de(r[4])), const PosicaoRoteiro('livre-batismo', 0));
+      expect(posicaoAnterior(r, PosicaoRoteiro.de(r[5])), const PosicaoRoteiro('recados', 0));
+    });
+
+    test('valida o modelo e escolhe o do culto, senão o padrão', () {
+      final j = {
+        'id': 'm1',
+        'nome': 'Domingo',
+        'cultos': ['Culto da Família ', ''],
+        'itens': [for (final i in modelo) i.toJson()],
+      };
+      final m = ModeloRoteiro.fromJson(j);
+      expect(m.cultos, ['Culto da Família']);
+      expect(ModeloRoteiro.fromJson(m.toJson()).itens.map((i) => i.chave), modelo.map((i) => i.chave));
+      final padrao = ModeloRoteiro(id: 'p', nome: 'Padrão', itens: roteiroPadrao, padrao: true);
+      expect(modeloDoCulto([padrao, m], 'culto  da família')?.id, 'm1');
+      expect(modeloDoCulto([padrao, m], 'Quarta de oração')?.id, 'p');
+      expect(modeloDoCulto([m], 'Quarta de oração'), isNull);
+
+      expect(() => ModeloRoteiro.fromJson({...j, 'nome': ''}), throwsFormatException);
+      expect(() => ModeloRoteiro.fromJson({...j, 'itens': []}), throwsFormatException);
+      expect(() => ModeloRoteiro.fromJson({...j, 'itens': [modelo[1].toJson(), modelo[1].toJson()]}), throwsFormatException);
+      expect(() => ModeloRoteiro.fromJson({...j, 'itens': [{'chave': 'louvor', 'tipo': 'palavra'}]}), throwsFormatException);
+      expect(() => ModeloRoteiro.fromJson({...j, 'itens': [{'chave': 'livre-x', 'tipo': 'livre'}]}), throwsFormatException,
+          reason: 'livre sem título');
+    });
+
+    test('sem modelo, o roteiro do sistema (sem momento livre)', () {
+      expect(roteiroPadrao.map((i) => i.tipo), isNot(contains(TipoMomento.livre)));
+      expect(roteiroPadrao.length, TipoMomento.values.length - 1);
+    });
   });
 }

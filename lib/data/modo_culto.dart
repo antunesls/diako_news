@@ -29,7 +29,8 @@ class ModoCultoController extends ChangeNotifier {
   Set<String> _recados = {};
   bool _iniciado = false;
   PosicaoRoteiro? _posicao;
-  final Map<TipoMomento, DateTime> _inicios = {};
+  /// Hora em que cada momento começou, pela chave do momento.
+  final Map<String, DateTime> _inicios = {};
   List<Momento> _roteiro = [];
   CultoDoDia? _culto;
 
@@ -56,7 +57,7 @@ class ModoCultoController extends ChangeNotifier {
 
   Momento? get momentoAtual {
     final p = posicao;
-    return p == null ? null : _roteiro.firstWhere((m) => m.tipo == p.tipo);
+    return p == null ? null : momentoDe(p);
   }
 
   Passo? get passoAtual {
@@ -67,26 +68,26 @@ class ModoCultoController extends ChangeNotifier {
   /// O que um toque em Avançar vai projetar.
   PosicaoRoteiro? get proxima {
     final p = _posicao;
-    if (p == null) return _roteiro.isEmpty ? null : PosicaoRoteiro(_roteiro.first.tipo, 0);
+    if (p == null) return _roteiro.isEmpty ? null : PosicaoRoteiro.de(_roteiro.first);
     return proximaPosicao(_roteiro, p);
   }
 
-  Momento momentoDe(PosicaoRoteiro p) => _roteiro.firstWhere((m) => m.tipo == p.tipo);
+  Momento momentoDe(PosicaoRoteiro p) => _roteiro.firstWhere((m) => m.chave == p.chave);
   Passo passoDe(PosicaoRoteiro p) => momentoDe(p).passos[p.passo];
 
   /// Quando o momento começou (null se ainda não chegou nele).
-  DateTime? inicioDe(TipoMomento tipo) => _inicios[tipo];
+  DateTime? inicioDe(Momento m) => _inicios[m.chave];
 
   /// Início do culto propriamente dito: o primeiro momento depois da contagem.
   DateTime? get inicioDoCulto {
-    final inicios = [for (final e in _inicios.entries) if (e.key != TipoMomento.contagem) e.value]..sort();
+    final inicios = [for (final e in _inicios.entries) if (e.key != TipoMomento.contagem.name) e.value]..sort();
     return inicios.firstOrNull;
   }
 
-  /// Minutos previstos para o momento; a Palavra usa o tempo ajustado no tablet.
-  /// Minutos previstos para o momento; a Palavra usa o tempo dela (do painel) ou o ajustado no tablet.
-  int previsto(TipoMomento tipo) =>
-      tipo == TipoMomento.palavra ? palavra?.minutos ?? scope.settings.minutosPregacao : tipo.minutos;
+  /// Minutos previstos para o momento (do modelo); a Palavra usa o tempo dela (do painel) ou o
+  /// ajustado no tablet.
+  int previsto(Momento m) =>
+      m.tipo == TipoMomento.palavra ? palavra?.minutos ?? scope.settings.minutosPregacao : m.minutos;
 
   /// A Palavra pronta de hoje (preparada no painel); null = Palavra sem texto (só cronômetro).
   PalavraDoCulto? get palavra => scope.palavra.palavra;
@@ -215,6 +216,7 @@ class ModoCultoController extends ChangeNotifier {
       motivosPorSlide: s.motivosPorSlide,
       negritoTitulo: s.negritoTitulo,
       pix: _pix,
+      modelo: c?.roteiro ?? scope.escalas.roteiroPadrao,
     );
     notifyListeners();
   }
@@ -225,7 +227,8 @@ class ModoCultoController extends ChangeNotifier {
     final p = localizar(_roteiro, destino);
     if (p == null) return;
     final anterior = _posicao == null ? null : localizar(_roteiro, _posicao!);
-    final saindoDaPalavra = anterior?.tipo == TipoMomento.palavra && p.tipo != TipoMomento.palavra;
+    final saindoDaPalavra = anterior != null && momentoDe(anterior).tipo == TipoMomento.palavra &&
+        momentoDe(p).tipo != TipoMomento.palavra;
     await _executar(passoDe(p));
     if (saindoDaPalavra) {
       _versiculo = null;
@@ -238,7 +241,7 @@ class ModoCultoController extends ChangeNotifier {
     }
     _iniciado = true;
     _posicao = p;
-    _inicios.putIfAbsent(p.tipo, _agora);
+    _inicios.putIfAbsent(p.chave, _agora);
     await _salvar();
     notifyListeners();
   }
@@ -261,12 +264,15 @@ class ModoCultoController extends ChangeNotifier {
   }
 
   /// Contagem no telão até a hora do culto (primeiro momento do roteiro).
-  Future<void> iniciarContagem() => irPara(const PosicaoRoteiro(TipoMomento.contagem, 0));
+  Future<void> iniciarContagem() async {
+    final contagem = _roteiro.where((m) => m.tipo == TipoMomento.contagem).firstOrNull;
+    if (contagem != null) await irPara(PosicaoRoteiro.de(contagem));
+  }
 
   /// Pula a contagem e começa pelo primeiro momento do culto.
   Future<void> comecarCulto() {
     final primeiro = _roteiro.firstWhere((m) => m.tipo != TipoMomento.contagem, orElse: () => _roteiro.first);
-    return irPara(PosicaoRoteiro(primeiro.tipo, 0));
+    return irPara(PosicaoRoteiro.de(primeiro));
   }
 
   /// Sai do Modo Culto e esquece o progresso deste culto.
@@ -334,9 +340,10 @@ class ModoCultoController extends ChangeNotifier {
   Future<void> _salvar() => scope.settings.salvarModoCulto(jsonEncode({
         'dia': diaIso(_agora()),
         'iniciado': _iniciado,
-        if (_posicao != null) 'momento': _posicao!.tipo.name,
+        if (_posicao != null) 'momento': _posicao!.chave,
+        if (_posicao != null) 'ordem': _posicao!.ordem,
         if (_posicao != null) 'passo': _posicao!.passo,
-        'inicios': {for (final e in _inicios.entries) e.key.name: e.value.toIso8601String()},
+        'inicios': {for (final e in _inicios.entries) e.key: e.value.toIso8601String()},
         'recados': _recados.toList(),
         if (_trecho != null) 'trecho': _trecho,
       }));
@@ -350,12 +357,13 @@ class ModoCultoController extends ChangeNotifier {
       final j = Map<String, dynamic>.from(jsonDecode(texto) as Map);
       if (j['dia'] != diaIso(_agora())) return;
       _iniciado = j['iniciado'] == true;
-      final tipo = TipoMomento.porNome(j['momento']);
-      if (tipo != null) _posicao = PosicaoRoteiro(tipo, (j['passo'] as num?)?.toInt() ?? 0);
+      final chave = j['momento'];
+      if (chave is String && chave.isNotEmpty) {
+        _posicao = PosicaoRoteiro(chave, (j['passo'] as num?)?.toInt() ?? 0, (j['ordem'] as num?)?.toInt() ?? -1);
+      }
       for (final e in Map<String, dynamic>.from(j['inicios'] as Map? ?? const {}).entries) {
-        final t = TipoMomento.porNome(e.key);
         final quando = DateTime.tryParse('${e.value}');
-        if (t != null && quando != null) _inicios[t] = quando;
+        if (quando != null) _inicios[e.key] = quando;
       }
       _trecho = (j['trecho'] as num?)?.toInt();
       if (_recados.isEmpty) _recados = {for (final id in j['recados'] as List? ?? const []) '$id'};
