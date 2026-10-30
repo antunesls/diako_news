@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:diako_core/diako_core.dart' show livrosBiblia;
 import 'package:path/path.dart' as p;
 
 /// Registro do que foi projetado, uma linha JSON por evento em data/historico.jsonl.
@@ -14,7 +15,7 @@ class Historico {
   Future<void> _fila = Future.value();
 
   /// Ações que entram no histórico.
-  static const acoes = {'ShowQuickPresentation', 'ShowImage', 'ShowCountdown', 'SetTextCP', 'StartCountdownCP'};
+  static const acoes = {'ShowQuickPresentation', 'ShowImage', 'ShowVerse', 'ShowCountdown', 'SetTextCP', 'StartCountdownCP'};
 
   /// Registra a ação se ela for de projeção. [corpo] é o JSON enviado ao Holyrics; [usuario] é
   /// o nome de quem projetou (vazio em registros antigos). [quando] vem do agente quando a projeção
@@ -72,6 +73,8 @@ class Historico {
         return primeiraLinha(j['text'] as String?);
       case 'ShowImage':
         return 'Imagem: ${j['file'] ?? ''}';
+      case 'ShowVerse':
+        return 'Versículo: ${_referenciaDosIds([for (final i in j['ids'] as List? ?? const []) '$i'])}';
       case 'ShowCountdown':
         return 'Contagem no telão: ${j['time'] ?? ''}${j['exact_time'] == true ? ' (horário)' : ''}';
       case 'StartCountdownCP':
@@ -81,5 +84,17 @@ class Historico {
         return 'Palco: ${limpar(j['text'] as String?)}';
     }
     return null;
+  }
+
+  /// "1 Coríntios 11.23-24" a partir dos ids LLCCCVVV do Holyrics.
+  static String _referenciaDosIds(List<String> ids) {
+    final validos = [for (final i in ids) if (RegExp(r'^\d{8}$').hasMatch(i)) i];
+    if (validos.isEmpty) return ids.join(', ');
+    final livro = int.parse(validos.first.substring(0, 2));
+    final nome = livro >= 1 && livro <= livrosBiblia.length ? livrosBiblia[livro - 1].nome : 'Livro $livro';
+    final capitulo = int.parse(validos.first.substring(2, 5));
+    final de = int.parse(validos.first.substring(5));
+    final ate = int.parse(validos.last.substring(5));
+    return '$nome $capitulo.$de${ate != de ? '-$ate' : ''}';
   }
 }

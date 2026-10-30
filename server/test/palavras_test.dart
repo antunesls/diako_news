@@ -312,6 +312,13 @@ void main() {
       expect(resumo['texto'], contains('“frase”'));
     });
 
+        test('o versículo da Palavra passa pelo servidor e entra no histórico', () async {
+      final (st, _) = await chamar('POST', '/api/holyrics/ShowVerse', token: admin, json: {'ids': ['46011023', '46011024']});
+      expect(st, 200, reason: 'ShowVerse precisa estar entre as ações permitidas');
+      final (_, historico) = await chamar('GET', '/api/historico', token: admin);
+      expect(jsonEncode(historico), contains('Versículo: 1 Coríntios 11.23-24'));
+    });
+
         test('prévia no editor e importação pelo painel', () async {
       final (st, previa) = await chamar('POST', '/api/palavras/analisar', token: admin, json: {'texto': 'Leia Jo 3.16.\n\nE Os 6.6.'});
       expect(st, 200);

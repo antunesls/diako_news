@@ -9,6 +9,8 @@ const acoesPermitidas = {
   'GetCurrentPresentation',
   'ShowQuickPresentation',
   'ShowImage',
+  // Versículo da Palavra no telão (Modo Culto), por ids LLCCCVVV.
+  'ShowVerse',
   'ActionNext',
   'ActionPrevious',
   'ActionNextQuickPresentation',
