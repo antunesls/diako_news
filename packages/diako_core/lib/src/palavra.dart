@@ -356,18 +356,28 @@ class ReferenciaNoTrecho {
 
 /// Trecho com as referências que o tablet mostra como botões.
 class TrechoAnalisado {
-  const TrechoAnalisado({required this.numero, required this.topico, required this.texto, required this.referencias});
+  const TrechoAnalisado({
+    required this.numero,
+    required this.topico,
+    required this.texto,
+    required this.referencias,
+    this.destaques = const [],
+  });
 
   final int numero;
   final String topico;
   final String texto;
   final List<ReferenciaNoTrecho> referencias;
 
+  /// Frases marcadas com **…** para projetar no telão (o [texto] já vem sem as marcas).
+  final List<String> destaques;
+
   Map<String, dynamic> toJson() => {
         'numero': numero,
         'topico': topico,
         'texto': texto,
         'referencias': [for (final r in referencias) r.toJson()],
+        if (destaques.isNotEmpty) 'destaques': destaques,
       };
 
   factory TrechoAnalisado.fromJson(Map<String, dynamic> j) => TrechoAnalisado(
@@ -377,6 +387,7 @@ class TrechoAnalisado {
         referencias: [
           for (final r in j['referencias'] as List? ?? const []) ReferenciaNoTrecho.fromJson(Map<String, dynamic>.from(r as Map)),
         ],
+        destaques: [for (final d in j['destaques'] as List? ?? const []) '$d'],
       );
 }
 
@@ -401,15 +412,32 @@ class DecisaoReferencia {
 /// Chave da decisão: o texto original sem espaços sobrando.
 String chaveReferencia(String original) => original.trim().replaceAll(RegExp(r'\s+'), ' ');
 
+final _destaque = RegExp(r'\*\*(.+?)\*\*');
+
+/// Tira as marcas de destaque (**frase**) do texto e devolve as frases marcadas. Marca solta some.
+({String texto, List<String> destaques}) extrairDestaques(String texto) {
+  final destaques = [
+    for (final m in _destaque.allMatches(texto))
+      if (m.group(1)!.trim().isNotEmpty) m.group(1)!.trim(),
+  ];
+  final limpo = texto.replaceAllMapped(_destaque, (m) => m.group(1)!).replaceAll('**', '');
+  return (texto: limpo, destaques: destaques);
+}
+
+/// Slide de uma frase de destaque no telão.
+String slideDestaque(String frase) => '“${frase.trim()}”';
+
 /// Trechos do [texto] com as referências e as [decisoes] do pastor aplicadas.
 List<TrechoAnalisado> analisarPalavra(String texto, Map<String, DecisaoReferencia> decisoes) => [
-      for (final t in dividirEmTrechos(texto))
+      for (final bruto in dividirEmTrechos(texto))
+        if (extrairDestaques(bruto.texto) case (texto: final limpo, destaques: final destaques))
         TrechoAnalisado(
-          numero: t.numero,
-          topico: t.topico,
-          texto: t.texto,
+          numero: bruto.numero,
+          topico: bruto.topico,
+          texto: limpo,
+          destaques: destaques,
           referencias: [
-            for (final a in acharReferencias(t.texto))
+            for (final a in acharReferencias(limpo))
               () {
                 final d = decisoes[chaveReferencia(a.original)];
                 final ajustada = d == null || d.ajuste.isEmpty ? null : lerReferencia(d.ajuste);
@@ -599,6 +627,7 @@ class PalavraDoCulto {
               numero: t.numero,
               topico: t.topico,
               texto: t.texto,
+              destaques: t.destaques,
               referencias: [for (final r in t.referencias) if (r.projetavel) r],
             ),
         ],

@@ -838,6 +838,21 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
                           const Text('NA TV DO PALCO',
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.greenAccent, letterSpacing: .8)),
                         Text.rich(TextSpan(children: partes), style: const TextStyle(fontSize: 18, height: 1.5)),
+                        if (t.destaques.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              for (final d in t.destaques)
+                                _BotaoDestaque(
+                                  frase: d,
+                                  noTelao: _c.destaque == d,
+                                  onTap: () => _acao(() => _c.projetarDestaque(d), sucesso: 'Frase no telão'),
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -857,6 +872,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
     final seguinte = atual == null ? 0 : atual + 1;
     final fim = seguinte >= palavra.trechos.length;
     final versiculo = _c.versiculo == null ? null : lerReferencia(_c.versiculo!);
+    final destaque = _c.destaque;
     final prox = _c.proxima;
     final subtitulo = fim
         ? 'Fim do texto'
@@ -888,11 +904,15 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
               height: 60,
               alignment: Alignment.center,
               decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white12)),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Text(
-                versiculo?.nome ?? 'Tela preta',
-                style: versiculo == null
+                destaque != null ? slideDestaque(destaque) : versiculo?.nome ?? 'Tela preta',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: versiculo == null && destaque == null
                     ? const TextStyle(color: Colors.white24)
-                    : const TextStyle(color: Color(0xFFFFD27A), fontWeight: FontWeight.bold, fontSize: 16),
+                    : const TextStyle(color: Color(0xFFFFD27A), fontWeight: FontWeight.bold, fontSize: 15),
               ),
             ),
             const SizedBox(height: 12),
@@ -922,7 +942,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
                 Expanded(
                   child: _BotaoQuadrado(
                     icone: Icons.square,
-                    label: 'Tirar versículo',
+                    label: 'Tirar do telão',
                     onPressed: () => _acao(_c.tirarVersiculo),
                   ),
                 ),
@@ -1139,6 +1159,42 @@ class _RitmoDaPregacao extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Frase marcada no trecho: um toque projeta no telão, entre aspas.
+class _BotaoDestaque extends StatelessWidget {
+  const _BotaoDestaque({required this.frase, required this.noTelao, required this.onTap});
+
+  final String frase;
+  final bool noTelao;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final frente = noTelao ? Colors.white : const Color(0xFFE6DBFF);
+    return Material(
+      color: noTelao ? Colors.red.shade600 : const Color(0xFF3B2F5C),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.format_quote, size: 18, color: frente),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(frase, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: frente, fontSize: 14)),
+              ),
+              if (noTelao) Text('  NO TELÃO', style: TextStyle(color: frente, fontWeight: FontWeight.bold, fontSize: 10)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

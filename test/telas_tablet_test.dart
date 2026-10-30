@@ -134,7 +134,7 @@ void main() {
     expect(servidor.corpos[antes + 1]['ids'], ['46011023', '46011024']);
     expect(find.text('1 Coríntios 11.23-24'), findsOneWidget);
 
-    await tocar(tester, find.text('Tirar versículo'));
+    await tocar(tester, find.text('Tirar do telão'));
     expect(servidor.holyrics, contains('SetF10'));
     expect(find.text('Tela preta'), findsOneWidget);
 
@@ -187,6 +187,34 @@ void main() {
     await tocar(tester, find.text('Próximo trecho'));
     expect(find.textContaining('Tópico 2 de 2'), findsOneWidget);
     expect(find.text('3 min adiantado'), findsOneWidget, reason: 'o tópico 2 começou logo, 3 min antes do previsto');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('frase de destaque: um toque projeta no telão entre aspas', (tester) async {
+    final palavra = Palavra(
+      id: 'p3',
+      titulo: 'Em memória de mim',
+      autorId: 'u',
+      pronta: true,
+      data: diaIso(DateTime.now()),
+      texto: 'Repare que a mesa foi posta antes da cruz. **A graça chegou primeiro.**',
+    );
+    final servidor = await abrir(tester, const ModoCultoPage(), palavra: palavra);
+    await tocar(tester, find.text('Começar o culto agora'));
+    await tocar(tester, find.text(TipoMomento.palavra.titulo).first);
+    await tocar(tester, find.text('Começar a leitura'));
+    expect(servidor.corpos.last['text'], 'Repare que a mesa foi posta antes da cruz. A graça chegou primeiro.',
+        reason: 'a TV do palco recebe o texto sem as marcas');
+
+    final antes = servidor.holyrics.length;
+    await tocar(tester, find.text('A graça chegou primeiro.'));
+    expect(servidor.holyrics.sublist(antes), ['SetF10', 'ShowQuickPresentation', 'GetCurrentPresentation']);
+    expect(servidor.corpos[antes + 1]['text'], '“A graça chegou primeiro.”');
+    expect(find.text('“A graça chegou primeiro.”'), findsOneWidget, reason: 'prévia do telão');
+
+    await tocar(tester, find.text('Tirar do telão'));
+    expect(find.text('Tela preta'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

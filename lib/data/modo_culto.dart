@@ -104,6 +104,10 @@ class ModoCultoController extends ChangeNotifier {
   /// Versículo no telão durante a Palavra; null = tela preta.
   String? get versiculo => _versiculo;
 
+  /// Frase de destaque no telão durante a Palavra; null = nenhuma.
+  String? get destaque => _destaque;
+  String? _destaque;
+
   /// Ritmo da pregação no tópico atual, só para o pastor: tempo no tópico, previsto e desvio em
   /// minutos (positivo = atrasado). Null sem leitura começada ou fora de um tópico.
   ({int indice, int total, Duration noTopico, int? minutos, int? desvio})? get ritmo {
@@ -173,15 +177,35 @@ class ModoCultoController extends ChangeNotifier {
     }
     await scope.client.mostrarVersiculo(ref.ids);
     _versiculo = ref.abreviada;
+    _destaque = null;
     notifyListeners();
     await status.atualizar();
   }
 
-  /// Tira o versículo: volta a tela preta da pregação.
+  /// Projeta no telão uma frase marcada no trecho (a tela preta da pregação sai antes).
+  Future<void> projetarDestaque(String frase) async {
+    final status = scope.status;
+    if (status.telaPreta) {
+      await scope.client.telaPreta(false);
+      status.telaPreta = false;
+    }
+    if (status.telaVazia) {
+      await scope.client.telaVazia(false);
+      status.telaVazia = false;
+    }
+    await scope.client.projetarTexto(slideDestaque(frase), tema: scope.settings.tema);
+    _destaque = frase;
+    _versiculo = null;
+    notifyListeners();
+    await status.atualizar();
+  }
+
+  /// Tira o versículo ou a frase: volta a tela preta da pregação.
   Future<void> tirarVersiculo() async {
     await scope.client.telaPreta(true);
     scope.status.telaPreta = true;
     _versiculo = null;
+    _destaque = null;
     notifyListeners();
     await scope.status.atualizar();
   }
@@ -265,6 +289,7 @@ class ModoCultoController extends ChangeNotifier {
     await _executar(passoDe(p));
     if (saindoDaPalavra) {
       _versiculo = null;
+      _destaque = null;
       // A TV do palco volta a ficar livre (frases e contagem); falha aqui não segura o culto.
       if (_trecho != null) {
         try {
@@ -315,6 +340,7 @@ class ModoCultoController extends ChangeNotifier {
     _inicios.clear();
     _trecho = null;
     _versiculo = null;
+    _destaque = null;
     _inicioTopicos.clear();
     await scope.settings.salvarModoCulto('');
   }

@@ -291,6 +291,7 @@
   .palavra-trecho { display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--linha); }
   .palavra-trecho:last-child { border-bottom: 0; }
   .palavra-trecho p { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 15px; }
+  .palavra-destaque { margin: 4px 0 0; font: italic 600 14px var(--fonte); color: #5b3fa0; }
   .palavra-topico-min { color: var(--suave); font-weight: 500; letter-spacing: 0; text-transform: none; }
   .palavra-num { font-size: 12px; color: var(--suave); padding-top: 3px; font-variant-numeric: tabular-nums; }
   .palavra-ref { border-radius: 4px; padding: 0 3px; font: 600 14px var(--fonte); }
@@ -499,7 +500,8 @@
               <label class="botao secundario pequeno palavra-importar">Importar Word, PDF ou TXT<input type="file" id="palavra-arquivo" accept=".docx,.pdf,.txt" class="escondido"></label>
               <button type="button" class="botao secundario pequeno" id="palavra-google">Google Docs</button>
               <button type="button" class="botao secundario pequeno" id="palavra-topico">+ Tópico</button>
-              <span class="dica">Linha em branco separa os trechos. Linha com # é um tópico; o tempo vai no fim, como <code># A mesa (10 min)</code>.</span>
+              <button type="button" class="botao secundario pequeno" id="palavra-destacar" title="Selecione uma frase e toque aqui: ela vira um slide para o telão">Destacar frase</button>
+              <span class="dica">Linha em branco separa os trechos. Linha com # é um tópico; o tempo vai no fim, como <code># A mesa (10 min)</code>. Frase entre <code>**</code> vira slide para o telão.</span>
             </div>
             <p id="palavra-importar-erro" class="erro" role="alert" hidden></p>
             <div class="palavra-google" id="palavra-google-linha" hidden>
@@ -1197,7 +1199,7 @@
 <script src="/repertorio.js?v=2"></script>
 <script src="/roteiros.js?v=1"></script>
 <script src="/palavras-pdf.js?v=1"></script>
-<script src="/palavras.js?v=4"></script>
+<script src="/palavras.js?v=5"></script>
 <script src="/escala-impressao.js?v=3"></script>
 <script src="/escalas.js?v=9"></script>
 </body>

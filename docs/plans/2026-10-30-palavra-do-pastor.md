@@ -98,3 +98,9 @@ Falta conferir na igreja: o `ShowVerse` com `ids` e o tamanho do texto na TV do 
 - O tempo vai no fim da linha do tópico: `# A mesa preparada (10 min)` (também `[10 min]` ou `minutos`). O título fica sem o tempo; tópico sem tempo vale como antes.
 - O painel mostra o tempo de cada tópico na prévia e quanto eles somam diante do tempo previsto; o botão "+ Tópico" já sugere `(5 min)`.
 - O tablet guarda quando cada tópico começou (o primeiro trecho dele na TV do palco, salvo junto com o progresso) e mostra "Tópico 2 de 4 · 03:10 de 10 min" com "no tempo", "N min adiantado" ou "N min atrasado": o atraso com que o tópico começou mais o que ele já passou do tempo dele (`desvioDaPregacao`, testado no core). Fica só no tablet; a TV do palco segue só com o texto.
+
+## Entrega 3, item 3: frases de destaque (2026-10-30)
+
+- Marca: `**frase**` no texto (à mão ou pelo botão "Destacar frase", que envolve a seleção). Marca solta some.
+- O core tira as marcas antes de achar os versículos (as posições continuam certas) e guarda as frases em `TrechoAnalisado.destaques`; a TV do palco recebe o texto limpo.
+- No tablet, cada frase vira um botão abaixo do trecho: projeta `“frase”` no telão (apresentação rápida, tirando a tela preta antes). "Tirar do telão" (antes "Tirar versículo") volta a tela preta para versículo ou frase.

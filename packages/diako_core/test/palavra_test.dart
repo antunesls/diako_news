@@ -105,6 +105,29 @@ void main() {
     });
   });
 
+  group('frases de destaque', () {
+    test('tira as marcas e guarda as frases; marca solta some', () {
+      final marcado = extrairDestaques('Repare: **A graça chegou primeiro.** E mais.');
+      expect(marcado.texto, 'Repare: A graça chegou primeiro. E mais.');
+      expect(marcado.destaques, ['A graça chegou primeiro.']);
+      final solto = extrairDestaques('Sem par ** aqui');
+      expect(solto.texto, 'Sem par  aqui');
+      expect(solto.destaques, isEmpty);
+      expect(slideDestaque(' A graça chegou primeiro. '), '“A graça chegou primeiro.”');
+    });
+
+    test('no trecho: texto limpo, referências na posição certa e destaques para o tablet', () {
+      final p = Palavra(id: 'p', titulo: 'T', autorId: 'u', texto: '**A mesa foi posta.** Paulo repete: 1Co 11.23-24.');
+      final t = p.trechos.single;
+      expect(t.texto, 'A mesa foi posta. Paulo repete: 1Co 11.23-24.');
+      expect(t.destaques, ['A mesa foi posta.']);
+      final r = t.referencias.single;
+      expect(t.texto.substring(r.inicio, r.fim), '1Co 11.23-24');
+      final c = PalavraDoCulto.fromJson(PalavraDoCulto.de(p).toJson());
+      expect(c.trechos.single.destaques, ['A mesa foi posta.']);
+    });
+  });
+
   group('tempo por tópico', () {
     test('lê o tempo escrito no tópico e tira do título', () {
       expect(lerTopico('# A mesa preparada (10 min)'), (titulo: 'A mesa preparada', minutos: 10));

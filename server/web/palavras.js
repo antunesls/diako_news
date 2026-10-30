@@ -105,6 +105,7 @@ function desenharAnalisePalavra(trechos, minutosTopicos = {}) {
   $('palavra-contagem').textContent = [
     `${trechos.length} trecho(s)`,
     `${refs.filter((r) => r.status !== 'ignorada' && r.ref).length} versículo(s)`,
+    trechos.some((t) => (t.destaques || []).length) ? `${trechos.reduce((s, t) => s + (t.destaques || []).length, 0)} destaque(s)` : null,
     somaTopicos ? `tópicos somam ${somaTopicos} de ${previsto} min` : null,
   ].filter(Boolean).join(' · ');
 
@@ -125,7 +126,9 @@ function desenharAnalisePalavra(trechos, minutosTopicos = {}) {
       pos = r.fim;
     }
     partes.push(t.texto.slice(pos));
-    blocos.push(el('div', { class: 'palavra-trecho' }, el('span', { class: 'palavra-num' }, String(t.numero)), el('p', {}, partes)));
+    blocos.push(el('div', { class: 'palavra-trecho' }, el('span', { class: 'palavra-num' }, String(t.numero)),
+      el('div', {}, el('p', {}, partes),
+        (t.destaques || []).map((d) => el('p', { class: 'palavra-destaque' }, '“' + d + '”')))));
   }
   $('palavra-trechos').replaceChildren(...(blocos.length ? blocos
     : [el('p', { class: 'dica' }, 'Escreva ou cole o texto: cada parágrafo vira um trecho.')]));
@@ -285,6 +288,24 @@ for (const id of ['palavra-campo-titulo', 'palavra-campo-data', 'palavra-campo-s
 $('palavra-texto').addEventListener('input', () => {
   marcarPalavraAlterada();
   agendarAnalisePalavra();
+});
+
+// Destacar: envolve o trecho selecionado em **…** (vira uma frase para projetar no telão).
+$('palavra-destacar').addEventListener('click', () => {
+  const t = $('palavra-texto');
+  const [ini, fim] = [t.selectionStart, t.selectionEnd];
+  const selecionado = t.value.slice(ini, fim).trim();
+  if (!selecionado) {
+    $('palavra-importar-erro').textContent = 'Selecione no texto a frase que vai para o telão e toque em Destacar.';
+    $('palavra-importar-erro').hidden = false;
+    return;
+  }
+  $('palavra-importar-erro').hidden = true;
+  t.value = t.value.slice(0, ini) + '**' + selecionado + '**' + t.value.slice(fim);
+  t.focus();
+  t.setSelectionRange(ini, ini + selecionado.length + 4);
+  marcarPalavraAlterada();
+  agendarAnalisePalavra(0);
 });
 
 $('palavra-topico').addEventListener('click', () => {
