@@ -156,7 +156,7 @@ class MonitorAgente {
           if (etapa == 'iniciar') {
             if (atual != null) return _json(res, 409, {'erro': 'Telão ocupado. Nada foi projetado.'});
             final resposta = await _holyrics('ShowQuickPresentation', {'slides': [
-              {'text': 'TESTE DIAKONEWS — 1/2'}, {'text': 'TESTE DIAKONEWS — 2/2'}
+              {'text': 'TESTE DIAKOHUB — 1/2'}, {'text': 'TESTE DIAKOHUB — 2/2'}
             ]});
             if (resposta == _falha) return _json(res, 502, {'erro': 'Holyrics não confirmou o ensaio.'});
             final criado = await _holyrics('GetCurrentPresentation');
@@ -227,9 +227,9 @@ class MonitorAgente {
 }
 
 const _pagina = r'''<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Monitor do Agente DiakoNews</title><style>
+<title>Monitor do Agente DiakoHub</title><style>
 body{font:16px system-ui;background:#101b29;color:#f4f7fb;max-width:1100px;margin:auto;padding:20px}button,input,select{font:inherit;padding:9px;margin:4px}button{cursor:pointer;background:#227caa;color:white;border:0;border-radius:6px}nav button{background:#283d54}section{background:#192b3e;padding:18px;border-radius:10px;margin:12px 0}pre{white-space:pre-wrap;overflow:auto}small{color:#bbcfdf}.erro{color:#ffb2a9}.ok{color:#9de9b7}img{width:160px;max-height:100px;object-fit:contain}.card{display:inline-grid;padding:12px;border:1px solid #526878;margin:5px;max-width:170px}
-</style><h1>Monitor do Agente DiakoNews</h1><section id="login"><label>Senha do monitor <input id="senha" type="password" autocomplete="current-password"></label><button onclick="entrar()">Entrar</button></section>
+</style><h1>Monitor do Agente DiakoHub</h1><section id="login"><label>Senha do monitor <input id="senha" type="password" autocomplete="current-password"></label><button onclick="entrar()">Entrar</button></section>
 <main hidden id="painel"><nav><button onclick="aba('geral')">Geral</button><button onclick="aba('diagnosticos')">Diagnósticos</button><button onclick="aba('temas')">Temas</button><button onclick="aba('ensaio')">Ensaio</button><button onclick="aba('logs')">Logs</button><button onclick="sair()">Sair</button></nav>
 <section id="geral"><h2>Conexões e sincronização</h2><pre id="estado"></pre><button onclick="atualizar()">Atualizar</button></section>
 <section id="diagnosticos" hidden><h2>Diagnósticos de leitura</h2><p>Consultas não alteram o telão.</p><div id="testes"></div><pre id="resultado"></pre></section>

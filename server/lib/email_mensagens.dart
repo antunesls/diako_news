@@ -24,7 +24,7 @@ Future<void> enviarEmailMensagem(
       Message()
         ..from = Address(cfg.smtpRemetente)
         ..recipients.add(cfg.smtpDestinatario)
-        ..subject = 'DiakoNews: nova $tipo na caixa de mensagens'
+        ..subject = 'DiakoHub: nova $tipo na caixa de mensagens'
         ..text =
             'Chegou uma nova $tipo. Abra o painel protegido para ler: $urlPainel',
       _servidor(cfg));
@@ -35,7 +35,7 @@ Future<void> enviarEmailTeste(Configuracoes cfg) async {
       Message()
         ..from = Address(cfg.smtpRemetente)
         ..recipients.add(cfg.smtpDestinatario)
-        ..subject = 'DiakoNews: teste de e-mail'
+        ..subject = 'DiakoHub: teste de e-mail'
         ..text =
             'A configuração de avisos da caixa de mensagens está funcionando.',
       _servidor(cfg));
@@ -49,7 +49,7 @@ Future<void> enviarEmailFalhaBackup(Configuracoes cfg, DateTime quando, String u
       Message()
         ..from = Address(cfg.smtpRemetente)
         ..recipients.add(cfg.smtpDestinatario)
-        ..subject = 'DiakoNews: o backup automático falhou'
+        ..subject = 'DiakoHub: o backup automático falhou'
         ..text = 'O backup automático de $data não foi gravado. O servidor tenta de novo a cada hora.\n'
             'Abra a administração para gravar um backup e conferir: $urlAdmin',
       _servidor(cfg));

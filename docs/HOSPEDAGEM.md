@@ -1,4 +1,4 @@
-# Hospedar o DiakoNews na internet (LXC / VPS)
+# Hospedar o DiakoHub na internet (LXC / VPS)
 
 Com o servidor na internet, o painel, o formulário de pedidos de oração, o mural e o tablet funcionam de qualquer lugar. O Holyrics continua no PC da igreja. Lá roda um pequeno **agente**, que se conecta ao servidor **para fora** (não é preciso abrir portas no roteador da igreja).
 

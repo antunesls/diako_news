@@ -1,4 +1,4 @@
-﻿# Instala o DiakoNews no PC do Holyrics. Execute como administrador, de dentro da pasta descompactada:
+﻿# Instala o DiakoHub no PC do Holyrics. Execute como administrador, de dentro da pasta descompactada:
 #   powershell -ExecutionPolicy Bypass -File .\instalar.ps1               # servidor completo neste PC
 #   powershell -ExecutionPolicy Bypass -File .\instalar.ps1 -Modo agente  # servidor na internet: só o agente
 param(
@@ -94,7 +94,7 @@ if ($Modo -eq 'agente') {
     $log = Join-Path $Destino 'agente.log'
     Remover-TarefaAntiga 'DiakoNews Agente'
     Registrar-Tarefa 'DiakoNews Agente' (Join-Path $Destino 'diako_agente.exe') $config $log `
-        'Agente do DiakoNews: liga o servidor na internet ao Holyrics deste PC'
+        'Agente do DiakoHub: liga o servidor na internet ao Holyrics deste PC'
     Start-Sleep -Seconds 4
     Write-Host ''
     Write-Host 'Pronto! Últimas linhas do log do agente:' -ForegroundColor Green
@@ -146,7 +146,7 @@ Write-Host 'Criando a tarefa que inicia o servidor junto com o Windows ...'
 $log = Join-Path $Destino 'servidor.log'
 Remover-TarefaAntiga 'DiakoNews'
 Registrar-Tarefa 'DiakoNews' (Join-Path $Destino 'diako_server.exe') $config $log `
-    'Servidor do DiakoNews (recados e motivos de oração para o Holyrics)'
+    'Servidor do DiakoHub (recados e motivos de oração para o Holyrics)'
 
 Start-Sleep -Seconds 3
 $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^(192\.168|10\.|172\.(1[6-9]|2\d|3[01]))' } | Select-Object -First 1).IPAddress

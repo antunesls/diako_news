@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Instala ou atualiza o servidor DiakoNews num LXC/VPS Debian 12 ou Ubuntu 22.04+ (x86_64).
+# Instala ou atualiza o servidor DiakoHub num LXC/VPS Debian 12 ou Ubuntu 22.04+ (x86_64).
 #
 # Uso (como root, de dentro da pasta descompactada DiakoServer-linux-x64-X.Y.Z):
 #   bash deploy/instalar-lxc.sh --dominio diako.minhaigreja.com.br
@@ -103,7 +103,7 @@ if [ "$COM_CADDY" -eq 1 ]; then
     cp /etc/caddy/Caddyfile "/etc/caddy/Caddyfile.antes-diako.$(date +%Y%m%d%H%M%S)"
   fi
   cat > /etc/caddy/Caddyfile <<EOF
-# DiakoNews — gerado por instalar-lxc.sh
+# DiakoHub — gerado por instalar-lxc.sh
 $DOMINIO {
 	encode gzip
 	reverse_proxy 127.0.0.1:$PORTA
@@ -114,7 +114,7 @@ EOF
 fi
 
 echo
-echo "Pronto! DiakoNews rodando."
+echo "Pronto! DiakoHub rodando."
 echo "  Painel:   https://$DOMINIO/painel"
 echo "  Admin:    https://$DOMINIO/admin   (troque a senha, backup e restauração)"
 echo "  Tablet:   https://$DOMINIO"

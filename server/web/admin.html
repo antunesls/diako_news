@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Administração — DiakoNews</title>
+<title>Administração — DiakoHub</title>
 <link rel="stylesheet" href="/estilo.css?v=5">
 <style>
   .topo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px max(20px, calc((100% - 1060px) / 2)); background: var(--superficie); border-bottom: 1px solid var(--linha); }
@@ -233,7 +233,7 @@
         <ul id="teste-agenda" class="dica" style="margin-top:12px"></ul>
 
         <div id="agenda-google" class="bloco-google">
-          <h3>Criar e editar eventos pelo DiakoNews</h3>
+          <h3>Criar e editar eventos pelo DiakoHub</h3>
           <p class="dica">Com uma <strong>conta de serviço</strong> do Google (gratuita), o painel e o tablet criam, editam e excluem eventos direto na agenda da igreja, e as mudanças aparecem na hora.
             <a href="/ajuda/agenda-google" target="_blank" rel="noopener">Veja o passo a passo completo</a> (uns 15 minutos, no computador).</p>
           <p id="estado-google" role="status"></p>
@@ -342,7 +342,7 @@
         </div>
 
         <h3 style="font-size:16px;margin-top:24px">Restaurar de um arquivo</h3>
-        <p class="dica">Use um .zip baixado daqui (deste ou de outro servidor DiakoNews) ou uma cópia <code>.cifrado</code> do PC da igreja. Antes de restaurar, um backup de segurança do estado atual é gravado.</p>
+        <p class="dica">Use um .zip baixado daqui (deste ou de outro servidor DiakoHub) ou uma cópia <code>.cifrado</code> do PC da igreja. Antes de restaurar, um backup de segurança do estado atual é gravado.</p>
         <div class="campo"><label for="arquivo-restaurar">Arquivo de backup (.zip ou .cifrado)</label><input type="file" id="arquivo-restaurar" accept=".zip,.cifrado,application/zip"></div>
         <div class="campo" id="campo-senha-restaurar" hidden><label for="senha-restaurar">Senha do backup (a que estava definida quando a cópia foi feita)</label><input type="password" id="senha-restaurar" autocomplete="off"></div>
         <div class="campo"><label class="marcar"><input type="checkbox" id="restaurar-config"><span>Restaurar também as configurações (nome, textos, endereço público, projeção, agenda)</span></label></div>

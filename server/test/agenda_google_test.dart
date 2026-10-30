@@ -209,7 +209,7 @@ void main() {
       expect(google.eventos.containsKey(criado.id), isFalse);
     });
 
-    test('evento recorrente não é alterado pelo DiakoNews', () async {
+    test('evento recorrente não é alterado pelo DiakoHub', () async {
       final a = nova();
       await a.atualizarAgora();
       await expectLater(a.excluir('ceia_20261108'),

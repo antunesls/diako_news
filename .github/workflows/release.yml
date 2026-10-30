@@ -82,11 +82,11 @@ jobs:
           bash tool/ci/executar.sh "APK release" flutter build apk --release \
             --build-name ${{ steps.versao.outputs.valor }} \
             --build-number ${{ github.run_number }}
-          mv build/app/outputs/flutter-apk/app-release.apk "DiakoNews-${{ steps.versao.outputs.valor }}.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "DiakoHub-${{ steps.versao.outputs.valor }}.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: app
-          path: DiakoNews-*.apk
+          path: DiakoHub-*.apk
           if-no-files-found: error
 
   publicar:
@@ -102,7 +102,7 @@ jobs:
           files: |
             DiakoServer-*.zip
             DiakoServer-linux-x64-*.tar.gz
-            DiakoNews-*.apk
+            DiakoHub-*.apk
           generate_release_notes: true
           body: |
             ## Como instalar
@@ -110,6 +110,6 @@ jobs:
 
             **Servidor no próprio PC do Holyrics:** baixe o `DiakoServer-*.zip`, descompacte e rode `instalar.ps1` como administrador. Detalhes no [LEIA-ME do servidor](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/server/LEIA-ME.md).
 
-            **Tablet:** baixe o `DiakoNews-*.apk` no tablet e abra para instalar (permita "instalar apps desconhecidos" se o Android pedir).
+            **Tablet:** baixe o `DiakoHub-*.apk` no tablet e abra para instalar (permita "instalar apps desconhecidos" se o Android pedir).
 
             Ao atualizar, `config.json`, `agente.json` e os dados são mantidos.

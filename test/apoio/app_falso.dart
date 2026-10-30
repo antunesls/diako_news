@@ -25,7 +25,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 String _hhmm(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
-/// Servidor DiakoNews falso com um domingo típico: escala com Santa Ceia daqui a 30 min,
+/// Servidor DiakoHub falso com um domingo típico: escala com Santa Ceia daqui a 30 min,
 /// recados, motivos, visitantes de hoje e um evento na agenda. Holyrics sempre aceita.
 class ServidorFalso {
   ServidorFalso(this.agora);

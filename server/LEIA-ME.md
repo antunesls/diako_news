@@ -1,4 +1,4 @@
-# Servidor DiakoNews
+# Servidor DiakoHub
 
 Programa que roda **no PC do Holyrics** e centraliza recados, motivos de oração, cartazes e aniversariantes.
 O tablet, o painel da secretaria e o formulário de pedidos de oração conversam com ele, e ele comanda o Holyrics.
@@ -118,7 +118,7 @@ O endereço do site (`/`) abre uma página pública com:
 Tudo se configura em `/admin` › *Página inicial*. Bloco sem conteúdo não aparece. Pedidos de oração, mensagens, nomes e aniversariantes nunca vão para a página. Para voltar ao comportamento antigo (o endereço abre o painel), desligue a página inicial no `/admin`. O painel continua em `/painel` ("Área da equipe").
 
 ## Agenda do Google
-Os eventos continuam sendo criados no **Google Agenda**. O DiakoNews só lê e mostra:
+Os eventos continuam sendo criados no **Google Agenda**. O DiakoHub só lê e mostra:
 - na **TV** (mural), com um slide **Hoje** e os **Próximos eventos** (7 dias por padrão, com descrição se quiser);
 - no **tablet**, na aba **Agenda**, onde o pastor projeta um evento no telão ou o transforma em recado;
 - no **painel**, na aba *Agenda*, com o botão **Criar recado**;
@@ -133,11 +133,11 @@ O servidor busca a agenda a cada 15 minutos (use **Atualizar agora** para não e
 
 Trate o endereço secreto como uma senha: ele dá acesso a todos os eventos. Ele não aparece no painel nem vai para os backups. Se vazar, use **Redefinir** no Google e cole o novo endereço.
 
-### Criar e editar eventos pelo DiakoNews
+### Criar e editar eventos pelo DiakoHub
 Com uma **conta de serviço** do Google (gratuita), o painel e o tablet também **criam, editam e excluem** eventos direto na agenda da igreja, e as mudanças aparecem na hora (o servidor passa a ler pela API do Google em vez do iCal). Resumo:
 1. No Google Cloud, crie um projeto, ative a **Google Calendar API** e crie uma conta de serviço com uma chave **JSON**.
 2. No Google Agenda, compartilhe a agenda da igreja com o e-mail da conta de serviço com a permissão **Fazer alterações e ver detalhes do evento**.
-3. Em `/admin` › *Agenda (Google)* › *Criar e editar eventos pelo DiakoNews*, envie o arquivo JSON e clique em **Testar e ligar**.
+3. Em `/admin` › *Agenda (Google)* › *Criar e editar eventos pelo DiakoHub*, envie o arquivo JSON e clique em **Testar e ligar**.
 
 O passo a passo completo, com os problemas comuns, fica no próprio servidor em **`/ajuda/agenda-google`**. A chave é guardada em `data/google-conta-servico.json`, não vai para os backups e nunca aparece no painel. Eventos que se repetem continuam sendo alterados no Google Agenda.
 

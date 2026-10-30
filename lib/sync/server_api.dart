@@ -57,7 +57,7 @@ class Cartaz {
   final String url;
 }
 
-/// Cliente REST do servidor DiakoNews.
+/// Cliente REST do servidor DiakoHub.
 class ServerApi {
   ServerApi(this._config, {http.Client? httpClient}) : _http = httpClient ?? http.Client();
 

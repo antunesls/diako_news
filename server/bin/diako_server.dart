@@ -126,7 +126,7 @@ Future<void> main(List<String> args) async {
   final http = await io.serve(servidor.handler, config.endereco, config.porta);
   final mural = cfg.chaveMural.isEmpty ? '$base/mural' : '$base/mural?chave=${cfg.chaveMural}';
   stdout.writeln('''
-DiakoNews $versao rodando em ${config.endereco}:${config.porta}.
+DiakoHub $versao rodando em ${config.endereco}:${config.porta}.
   Painel:              $base/painel
   Pedidos de oração:   ${cfg.urlOracao}
   Caixa de mensagens:  ${cfg.urlMensagens}

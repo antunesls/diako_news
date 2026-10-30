@@ -102,7 +102,7 @@ try {
             Write-Host '[BLOQUEADO] Ja existe uma apresentacao ativa. Libere o telao antes do teste; nada foi projetado.' -ForegroundColor Yellow
             exit 5
         }
-        Write-Host 'O texto "TESTE DIAKONEWS - HOLYRICS" sera projetado no telao.' -ForegroundColor Yellow
+        Write-Host 'O texto "TESTE DIAKOHUB - HOLYRICS" sera projetado no telao.' -ForegroundColor Yellow
         $confirmacao = Read-Host 'Digite SIM para projetar (qualquer outra resposta cancela)'
         if ($confirmacao -cne 'SIM') {
             Write-Host 'Teste cancelado; nada foi projetado.'
@@ -114,7 +114,7 @@ try {
             Write-Host '[BLOQUEADO] Nao foi possivel confirmar que o telao continua livre; nada foi projetado.' -ForegroundColor Yellow
             exit 5
         }
-        $corpo = @{ text = 'TESTE DIAKONEWS - HOLYRICS' } | ConvertTo-Json -Compress
+        $corpo = @{ text = 'TESTE DIAKOHUB - HOLYRICS' } | ConvertTo-Json -Compress
         $projecao = Consultar-Api 'ShowQuickPresentation' $corpo
         if ($projecao.Resultado -ne 'ok') {
             Write-Host '[FALHA] Holyrics nao confirmou a projecao. Confira a permissao ShowQuickPresentation do token.' -ForegroundColor Red
@@ -122,7 +122,7 @@ try {
         }
         Write-Host '[OK] Holyrics aceitou o comando. Confira o texto no telao; o script nao fecha a apresentacao.' -ForegroundColor Green
     }
-    Write-Host 'API local funcionando. Se o DiakoNews ainda mostrar desconectado, confira host, porta e token na configuracao dele.'
+    Write-Host 'API local funcionando. Se o DiakoHub ainda mostrar desconectado, confira host, porta e token na configuracao dele.'
     exit 0
 } finally {
     $token = $null

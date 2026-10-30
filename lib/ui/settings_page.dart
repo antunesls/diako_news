@@ -368,7 +368,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Text('Servidor da igreja', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              'Endereço do servidor DiakoNews (ex: diako.minhaigreja.com.br ou 192.168.0.10:8080) e o '
+              'Endereço do servidor DiakoHub (ex: diako.minhaigreja.com.br ou 192.168.0.10:8080) e o '
               'usuário e a senha criados em Administração › Usuários e perfis. Usuário em branco entra com a senha principal.',
               style: TextStyle(color: esquema.outline),
             ),

@@ -10,7 +10,7 @@ import 'package:path/path.dart' as p;
 /// Versão definida na compilação (dart compile exe -DVERSAO=1.2.0).
 const versao = String.fromEnvironment('VERSAO', defaultValue: 'dev');
 
-/// Agente do PC da igreja: liga o servidor DiakoNews da internet ao Holyrics local.
+/// Agente do PC da igreja: liga o servidor DiakoHub da internet ao Holyrics local.
 /// Uso: diako_agente [caminho/do/agente.json]
 Future<void> main(List<String> args) async {
   final definirSenha = args.isNotEmpty && args.first == '--definir-senha';
@@ -62,7 +62,7 @@ Future<void> main(List<String> args) async {
   }
 
   stdout.writeln('''
-Agente DiakoNews $versao
+Agente DiakoHub $versao
   Servidor:  ${config.servidor}
   Holyrics:  ${config.holyricsHost}:${config.holyricsPorta}
   Cartazes:  ${config.pastaCartazes}

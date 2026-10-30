@@ -2,7 +2,7 @@
     <!-- Necessário para falar com o Holyrics pela rede local -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="DiakoNews"
+        android:label="DiakoHub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

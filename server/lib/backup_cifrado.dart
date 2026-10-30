@@ -59,7 +59,7 @@ Uint8List cifrarBackup(Uint8List dados, {required Uint8List chave, required Uint
 /// Abre um backup cifrado com a [senha]. Senha errada ou arquivo alterado: [FormatException].
 Uint8List decifrarBackup(Uint8List arquivo, String senha) {
   if (!pareceBackupCifrado(arquivo) || arquivo.length < _tamCabecalho + 16) {
-    throw const FormatException('Este arquivo não é um backup cifrado do DiakoNews.');
+    throw const FormatException('Este arquivo não é um backup cifrado do DiakoHub.');
   }
   final cab = arquivo.sublist(0, _tamCabecalho);
   final iteracoes = ByteData.sublistView(cab, 8, 12).getUint32(0);

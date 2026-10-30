@@ -343,7 +343,7 @@ class Restauracao {
     try {
       arquivo = ZipDecoder().decodeBytes(zip);
     } catch (_) {
-      throw const FormatException('O arquivo não é um backup do DiakoNews (.zip).');
+      throw const FormatException('O arquivo não é um backup do DiakoHub (.zip).');
     }
     if (arquivo.files.fold<int>(0, (t, f) => t + f.size) > tamanhoMaximo) {
       throw const FormatException('Backup grande demais.');
@@ -400,7 +400,7 @@ class Restauracao {
         throw FormatException('Backup com dados inválidos em data/$nome.json.');
       }
     }
-    if (colecoes.isEmpty) throw const FormatException('O arquivo não contém dados do DiakoNews.');
+    if (colecoes.isEmpty) throw const FormatException('O arquivo não contém dados do DiakoHub.');
 
     final cartazes = <String, List<int>>{};
     var temPastaCartazes = false;

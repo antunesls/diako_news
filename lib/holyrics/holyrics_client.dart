@@ -30,7 +30,7 @@ class Apresentacao {
 }
 
 /// Comandos para o Holyrics. Com o tablet pareado, vão primeiro direto ao agente do PC da igreja
-/// pela rede local; senão (ou se ele não responder), passam pelo servidor DiakoNews, que guarda
+/// pela rede local; senão (ou se ele não responder), passam pelo servidor DiakoHub, que guarda
 /// o token e repassa para a API Server do Holyrics.
 /// Docs: https://github.com/holyrics/API-Server
 class HolyricsClient {

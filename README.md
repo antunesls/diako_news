@@ -1,10 +1,10 @@
-# DiakoNews
+# DiakoHub
 
 Sistema da Igreja Diakonia Tulipas para projetar recados e motivos de oração no Holyrics.
 
 ```
  Celular (membro) ──QR──▶ /oracao ─┐
- Navegador (secretaria) ─▶ /painel ├─▶  Servidor DiakoNews (PC do Holyrics) ──▶ Holyrics
+ Navegador (secretaria) ─▶ /painel ├─▶  Servidor DiakoHub (PC do Holyrics) ──▶ Holyrics
  TV da recepção ─────────▶ /mural  │      dados, cartazes, histórico, backup
  Tablet do pastor (este app) ──────┘
 ```
@@ -73,7 +73,7 @@ git push origin v1.0.0
 Em alguns minutos aparece em **Releases** uma versão com:
 - `DiakoServer-1.0.0.zip`: o servidor para o PC do Holyrics (instalar com `instalar.ps1`).
 - `DiakoServer-linux-x64-1.0.0.tar.gz`: o servidor para LXC/VPS (veja [`docs/HOSPEDAGEM.md`](docs/HOSPEDAGEM.md)).
-- `DiakoNews-1.0.0.apk`: o app para baixar e instalar no tablet.
+- `DiakoHub-1.0.0.apk`: o app para baixar e instalar no tablet.
 
 **Assinatura do APK (fazer uma vez):** para que cada versão nova instale por cima da anterior, o APK precisa ser assinado sempre com a mesma chave.
 1. Rode `powershell -ExecutionPolicy Bypass -File .\tool\gerar_keystore.ps1` (precisa do Android Studio ou de um JDK).

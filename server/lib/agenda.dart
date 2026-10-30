@@ -70,7 +70,7 @@ class AgendaGoogle {
     return _cal;
   }
 
-  /// A agenda pode ser alterada pelo DiakoNews (modo API).
+  /// A agenda pode ser alterada pelo DiakoHub (modo API).
   bool get editavel => calendario != null;
 
   /// Endereço atual (lido das configurações a cada atualização).

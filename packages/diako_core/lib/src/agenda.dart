@@ -22,7 +22,7 @@ class Evento {
   final String local;
   final String descricao;
 
-  /// Pode ser alterado pelo DiakoNews (agenda ligada pela conta de serviço e evento que não se repete).
+  /// Pode ser alterado pelo DiakoHub (agenda ligada pela conta de serviço e evento que não se repete).
   final bool editavel;
 
   Map<String, dynamic> toJson() => {
