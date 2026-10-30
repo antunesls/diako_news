@@ -22,7 +22,7 @@ No **Proxmox**, um container *unprivileged* com Debian 12 serve. Com a opção *
 Pegue o link do `DiakoServer-linux-x64-X.Y.Z.tar.gz` na [página de releases](../../releases) e, como root no LXC:
 ```bash
 cd /tmp
-curl -LO https://github.com/antunesls/diako_news/releases/download/vX.Y.Z/DiakoServer-linux-x64-X.Y.Z.tar.gz
+curl -LO https://github.com/antunesls/diakohub/releases/download/vX.Y.Z/DiakoServer-linux-x64-X.Y.Z.tar.gz
 tar xzf DiakoServer-linux-x64-X.Y.Z.tar.gz
 cd DiakoServer-linux-x64-X.Y.Z
 bash deploy/instalar-lxc.sh --dominio diako.minhaigreja.com.br
