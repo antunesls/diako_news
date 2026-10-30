@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import '../holyrics/status_controller.dart';
+import 'tools_sheet.dart';
 
 class ControlBar extends StatelessWidget {
   const ControlBar({super.key});
@@ -34,17 +35,21 @@ class ControlBar extends StatelessWidget {
             _Botao(
               icone: Icons.skip_previous,
               label: 'Anterior',
+              grande: true,
               onPressed: conectado ? () => cmd(() => client.anterior(rapida: rapida)) : null,
             ),
             _Botao(
               icone: Icons.stop,
               label: 'Parar',
+              grande: true,
               cor: Colors.redAccent,
               onPressed: conectado ? () => cmd(client.encerrar) : null,
             ),
             _Botao(
               icone: Icons.skip_next,
               label: 'Próximo',
+              grande: true,
+              ativo: true,
               onPressed: conectado ? () => cmd(() => client.proximo(rapida: rapida)) : null,
             ),
             _Botao(
@@ -69,6 +74,12 @@ class ControlBar extends StatelessWidget {
                       })
                   : null,
             ),
+            if (scope.conta.pode('projetar'))
+              _Botao(
+                icone: Icons.timer_outlined,
+                label: 'Contagem',
+                onPressed: () => mostrarFerramentas(context),
+              ),
           ],
         );
       },
@@ -76,9 +87,9 @@ class ControlBar extends StatelessWidget {
   }
 }
 
-/// Barra inferior de projeção: o que está no ar fica numa linha própria, acima
-/// dos botões, sem ser cortada por eles. Os botões passam para a linha de baixo
-/// quando a largura não basta, e a altura acompanha o conteúdo.
+/// Controles de projeção da coluna do palco: o que está no ar fica numa linha
+/// própria, acima dos botões, sem ser cortado por eles. Os botões ficam numa
+/// grade de três colunas de mesma largura, que acompanha a largura da coluna.
 class ProjectionControls extends StatelessWidget {
   const ProjectionControls({super.key, required this.status, required this.actions});
 
@@ -88,34 +99,36 @@ class ProjectionControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
-    return Material(
-      color: tema.colorScheme.surfaceContainer,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                status,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: tema.textTheme.titleSmall,
-              ),
-              const SizedBox(height: 6),
-              Wrap(spacing: 8, runSpacing: 4, alignment: WrapAlignment.center, children: actions),
-            ],
-          ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          status,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: tema.textTheme.titleSmall,
         ),
-      ),
+        const SizedBox(height: 10),
+        for (var i = 0; i < actions.length; i += 3)
+          Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
+            child: Row(
+              children: [
+                for (var j = i; j < i + 3; j++) ...[
+                  if (j > i) const SizedBox(width: 10),
+                  Expanded(child: j < actions.length ? actions[j] : const SizedBox.shrink()),
+                ],
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
 
 class _Botao extends StatelessWidget {
-  const _Botao({required this.icone, required this.label, this.onPressed, this.cor, this.ativo = false});
+  const _Botao({required this.icone, required this.label, this.onPressed, this.cor, this.ativo = false, this.grande = false});
 
   final IconData icone;
   final String label;
@@ -123,26 +136,30 @@ class _Botao extends StatelessWidget {
   final Color? cor;
   final bool ativo;
 
+  /// Anterior, Parar e Próximo: mais altos, para acertar sem olhar durante o culto.
+  final bool grande;
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: SizedBox(
-        width: 88,
-        child: ativo
-            ? FilledButton(onPressed: onPressed, style: _estilo, child: _conteudo())
-            : OutlinedButton(onPressed: onPressed, style: _estilo, child: _conteudo()),
-      ),
+    return SizedBox(
+      height: grande ? 96 : 72,
+      child: ativo
+          ? FilledButton(onPressed: onPressed, style: _estilo, child: _conteudo())
+          : OutlinedButton(onPressed: onPressed, style: _estilo, child: _conteudo()),
     );
   }
 
   ButtonStyle get _estilo => ButtonStyle(
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6)),
+        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6, horizontal: 4)),
+        shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
         foregroundColor: cor != null && !ativo ? WidgetStatePropertyAll(cor) : null,
       );
 
   Widget _conteudo() => Column(
         mainAxisSize: MainAxisSize.min,
-        children: [Icon(icone, size: 28), Text(label, style: const TextStyle(fontSize: 12))],
+        children: [
+          Icon(icone, size: grande ? 40 : 28),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+        ],
       );
 }

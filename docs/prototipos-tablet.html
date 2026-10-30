@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novas telas do tablet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" rel="stylesheet">
+<style>
+/* Página de escolha: tudo escuro, como o app. Um seletor de 5 opções em cima,
+   a maquete em escala real (1280×800 dp do Galaxy Tab A9+) e as notas ao lado. */
+:root {
+  color-scheme: dark;
+  --bg: #0e0f14;
+  --paper: #171821;
+  --ink: #e6e3ec;
+  --muted: #a4a3b3;
+  --line: #2c2d3a;
+  --accent: #aeb9ff;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: Roboto, "Segoe UI", system-ui, sans-serif;
+  /* Tokens do app (Material 3, semente índigo 0xFF5C6BC0, tema escuro) */
+  --a-bg: #121318; --a-s1: #1a1b21; --a-s2: #1f2027; --a-s3: #292a31; --a-s4: #34343c;
+  --a-line: #45464f; --a-tx: #e4e1e9; --a-mu: #c6c5d0; --a-mu2: #90909a;
+  --a-pri: #bac3ff; --a-onpri: #202c6a; --a-pric: #384381; --a-onpric: #dee0ff;
+  --a-red: #ff7b72; --a-ok: #8bd6a0; --a-warn: #f3c26b;
+  --c-aviso: #42a5f5; --c-evento: #66bb6a; --c-aniv: #ffa726;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.ms { font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal; font-size: 24px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; direction: ltr; -webkit-font-smoothing: antialiased; font-variation-settings: "FILL" 0; user-select: none; }
+.ms.f { font-variation-settings: "FILL" 1; }
+
+.page { max-width: 1480px; margin: 0 auto; padding: 36px 24px 72px; display: grid; gap: 26px; }
+.eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 6px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -.02em; }
+h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1.08; font-weight: 800; }
+.lede { color: var(--muted); max-width: 68ch; margin: 10px 0 0; }
+
+.choices { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.choice { text-align: left; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 6px; align-content: start; transition: border-color .15s, transform .15s; }
+.choice:hover { border-color: #4a4c63; transform: translateY(-2px); }
+.choice[aria-pressed="true"] { border: 2px solid var(--accent); padding: 15px; background: #1d1f2e; }
+.choice .n { font: 800 22px/1 var(--display); color: var(--accent); }
+.choice strong { font-size: 16px; }
+.choice small { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.effort { justify-self: start; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: #262838; color: var(--muted); }
+.effort.baixo { color: #8bd6a0; background: #1c2e24; }
+.effort.medio { color: #f3c26b; background: #33291a; }
+.effort.alto { color: #ff9b8f; background: #36201f; }
+
+.show { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start; }
+.stagebar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.stagebar h2 { font-size: 26px; flex: 1; min-width: 240px; }
+.btn { border: 1px solid #44465a; background: transparent; border-radius: 12px; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; }
+.btn.pri { background: var(--accent); color: #1a2260; border-color: var(--accent); font-weight: 700; }
+.viewport { position: relative; overflow: hidden; border-radius: 22px; background: #000; box-shadow: 0 0 0 10px #23242b, 0 0 0 11px #33343d, 0 30px 60px #0008; margin: 11px; width: calc(100% - 22px); }
+.viewport .app { transform-origin: 0 0; position: absolute; top: 0; left: 0; }
+.notes { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 20px; display: grid; gap: 16px; position: sticky; top: 16px; }
+.notes h3 { font-size: 13px; font-family: var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--accent); margin-bottom: 4px; }
+.notes p, .notes ul { margin: 0; color: var(--ink); font-size: 14px; }
+.notes ul { padding-left: 18px; display: grid; gap: 4px; }
+.notes .muted { color: var(--muted); }
+.hint { color: var(--muted); font-size: 13px; margin: 14px 0 0; }
+.panel[hidden] { display: none; }
+
+/* Tela cheia: a maquete ocupa a tela toda, como ficaria no tablet */
+body.real { overflow: hidden; }
+body.real .viewport.on { position: fixed; inset: 0; margin: 0; width: 100% !important; max-width: none !important; height: 100% !important; border-radius: 0; box-shadow: none; z-index: 50; background: #000; }
+.sair { display: none; position: fixed; right: 14px; top: 14px; z-index: 60; background: #000c; color: #fff; border: 1px solid #fff4; border-radius: 99px; padding: 8px 14px; align-items: center; gap: 6px; }
+body.real .sair { display: inline-flex; }
+
+@media (max-width: 1100px) {
+  .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .show { grid-template-columns: 1fr; }
+  .notes { position: static; }
+}
+@media (max-width: 420px) { .choices { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- Componentes do app ---------- */
+.app { width: 1280px; height: 800px; background: var(--a-bg); color: var(--a-tx); font: 14px/1.35 Roboto, sans-serif; overflow: hidden; }
+.app.retrato { width: 800px; height: 1280px; }
+.app button { border: 0; background: none; }
+.app .mu { color: var(--a-mu); }
+.app .mu2 { color: var(--a-mu2); }
+.app h4 { margin: 0; font: 500 22px/1.2 Roboto, sans-serif; letter-spacing: 0; }
+.app h5 { margin: 0; font: 500 13px/1.2 Roboto, sans-serif; color: var(--a-mu); text-transform: uppercase; letter-spacing: .08em; }
+.logo { width: 44px; height: 44px; border-radius: 12px; background: var(--a-pric) url(data:image/png;base64,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) center/76% no-repeat; flex: none; }
+.slide { container-type: inline-size; aspect-ratio: 16/9; background: radial-gradient(ellipse at 50% 40%, #1d2340, #000 72%); border-radius: 10px; display: grid; place-content: center; text-align: center; padding: 6% 8%; color: #fff; border: 1px solid #ffffff1a; position: relative; }
+.slide .t { font-weight: 700; font-size: 6.4cqw; line-height: 1.1; }
+.slide .x { font-size: 3.6cqw; margin-top: 3cqw; opacity: .92; line-height: 1.3; }
+.slide .tag { position: absolute; left: 8px; top: 8px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: #e53935; color: #fff; letter-spacing: .06em; }
+.slide .tag.prev { background: #ffffff26; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--a-line) !important; color: var(--a-mu); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.chip.on { background: var(--a-pric) !important; border-color: var(--a-pric) !important; color: var(--a-onpric); }
+.chip .ms { font-size: 18px; }
+.ok-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 99px; background: #1f3328; color: var(--a-ok); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.ok-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--a-ok); }
+.fbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 20px; border-radius: 99px; background: var(--a-pri) !important; color: var(--a-onpri); font-weight: 700; font-size: 15px; }
+.tbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 18px; border-radius: 99px; background: var(--a-pric) !important; color: var(--a-onpric); font-weight: 500; font-size: 15px; }
+.obtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 99px; border: 1px solid var(--a-line) !important; color: var(--a-pri); font-weight: 500; }
+.badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: #ff5449; color: #fff; font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; }
+.tp { display: grid; place-items: center; align-content: center; gap: 4px; border-radius: 18px; background: var(--a-s3) !important; color: var(--a-tx); font-size: 13px; font-weight: 500; }
+.tp .ms { font-size: 32px; }
+.tp.big .ms { font-size: 44px; }
+.tp.red { color: var(--a-red); }
+.tp.pri { background: var(--a-pri) !important; color: var(--a-onpri); }
+.tp.ativo { background: var(--a-pric) !important; color: var(--a-onpric); outline: 2px solid var(--a-pri); }
+.tp:active, .fbtn:active, .tbtn:active { filter: brightness(1.2); }
+.rc { display: grid; grid-template-columns: 5px 40px 1fr auto; align-items: center; gap: 12px; background: var(--a-s1); border-radius: 14px; padding: 12px 14px 12px 0; overflow: hidden; border: 1px solid transparent; }
+.rc .bar { align-self: stretch; margin: -12px 0; }
+.rc .sel { width: 26px; height: 26px; border-radius: 7px; border: 2px solid var(--a-mu2); display: grid; place-items: center; margin-left: 8px; }
+.rc .sel.on { background: var(--a-pri); border-color: var(--a-pri); color: var(--a-onpri); }
+.rc .sel .ms { font-size: 20px; }
+.rc .sel.auto { border-color: var(--c-aniv); color: var(--c-aniv); }
+.rc b { display: block; font-size: 16px; font-weight: 500; }
+.rc .tx { color: var(--a-mu); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.rc .meta { display: flex; gap: 10px; align-items: center; color: var(--a-mu2); font-size: 12px; margin-top: 3px; }
+.rc.foco { border-color: var(--a-pri); background: #23263a; }
+.cat { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; letter-spacing: .03em; }
+.cat.aviso { color: var(--c-aviso); background: #42a5f522; }
+.cat.evento { color: var(--c-evento); background: #66bb6a22; }
+.cat.aniv { color: var(--c-aniv); background: #ffa72622; }
+.toast { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); background: #e4e1e9; color: #1b1b21; padding: 12px 18px; border-radius: 10px; font-weight: 500; box-shadow: 0 8px 24px #0008; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 9; }
+.toast.on { opacity: 1; }
+
+/* ---------- Opção 1: trilho + palco fixo ---------- */
+.o1 { display: grid; grid-template-columns: 100px 1fr 390px; }
+.rail { background: var(--a-s1); display: flex; flex-direction: column; align-items: center; padding: 18px 0 14px; gap: 6px; }
+.rail .logo { margin-bottom: 14px; }
+.ri { display: grid; justify-items: center; gap: 4px; width: 92px; padding: 6px 0; font-size: 12px; font-weight: 500; color: var(--a-mu); position: relative; }
+.ri .pill { width: 60px; height: 34px; border-radius: 99px; display: grid; place-items: center; }
+.ri.on .pill { background: var(--a-pric); color: var(--a-onpric); }
+.ri.on { color: var(--a-tx); }
+.ri .badge { position: absolute; top: 2px; left: 54px; }
+.rail .gap { flex: 1; }
+.o1 main { padding: 22px 24px 0; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.o1 .hd { display: flex; align-items: center; gap: 14px; }
+.o1 .hd h4 { flex: 1; font-size: 28px; }
+.search { display: flex; align-items: center; gap: 8px; height: 48px; width: 260px; padding: 0 16px; border-radius: 99px; background: var(--a-s3); color: var(--a-mu2); }
+.evbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 14px; background: #1c2a24; color: #bfe9cc; }
+.evbar b { color: #fff; font-weight: 500; }
+.list { display: grid; gap: 8px; }
+.selbar { margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 16px; border-radius: 16px; background: var(--a-s3); }
+.selbar span { flex: 1; }
+.palco { background: var(--a-s2); border-left: 1px solid #ffffff10; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.palco .row { display: flex; gap: 10px; align-items: center; }
+.palco .noar { font-size: 13px; color: var(--a-mu); }
+.palco .noar b { color: var(--a-tx); font-weight: 500; }
+.tgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tgrid .tp { height: 84px; }
+.tgrid .tp.big { height: 104px; }
+.frases { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- Opção 2: roteiro do culto ---------- */
+.o2 { display: grid; grid-template-rows: 84px 1fr; }
+.o2 .top { display: flex; align-items: center; gap: 18px; padding: 0 24px; background: var(--a-s1); }
+.o2 .top .tt { flex: 1; }
+.o2 .top .tt b { font-size: 20px; font-weight: 500; display: block; }
+.clock { font: 500 34px/1 "Roboto Mono", monospace; font-variant-numeric: tabular-nums; }
+.seg { display: inline-flex; border: 1px solid var(--a-line); border-radius: 99px; overflow: hidden; }
+.seg button { height: 44px; padding: 0 18px; color: var(--a-mu); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.seg button.on { background: var(--a-pric); color: var(--a-onpric); }
+.o2 .body { display: grid; grid-template-columns: 1fr 400px; min-height: 0; }
+.tl { padding: 18px 24px; display: grid; gap: 8px; align-content: start; }
+.st { display: grid; grid-template-columns: 64px 28px 1fr auto; gap: 14px; align-items: center; padding: 12px 16px; border-radius: 16px; background: var(--a-s1); }
+.st .hr { font: 500 16px "Roboto Mono", monospace; color: var(--a-mu2); font-variant-numeric: tabular-nums; }
+.st .dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--a-line); display: grid; place-items: center; color: var(--a-mu2); }
+.st .dot .ms { font-size: 18px; }
+.st.feito { opacity: .55; }
+.st.feito .dot { background: var(--a-s4); border-color: var(--a-s4); color: var(--a-ok); }
+.st.agora { background: #252a48; outline: 2px solid var(--a-pri); }
+.st.agora .dot { background: var(--a-pri); border-color: var(--a-pri); color: var(--a-onpri); }
+.st b { font-size: 17px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.st .d { color: var(--a-mu); font-size: 13px; margin-top: 2px; }
+.st .acts { display: flex; gap: 8px; }
+.st .agtag { font-size: 11px; font-weight: 700; color: var(--a-onpri); background: var(--a-pri); padding: 2px 8px; border-radius: 99px; letter-spacing: .05em; }
+.mini { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.mini span { font-size: 12px; padding: 4px 9px; border-radius: 8px; background: var(--a-s3); color: var(--a-mu); }
+.mini span.on { background: var(--a-pric); color: var(--a-onpric); }
+.o2 aside { background: var(--a-s2); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.o2 .tr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.o2 .tr .tp { height: 96px; }
+.o2 .tr3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.o2 .tr3 .tp { height: 58px; grid-auto-flow: column; gap: 8px; font-size: 14px; }
+.o2 .tr3 .tp .ms { font-size: 22px; }
+.inb { display: grid; gap: 8px; }
+.inb .it { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; background: var(--a-s3); border-radius: 14px; padding: 10px 12px; }
+.inb .it .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: #3a2f1a; color: var(--a-warn); }
+.inb .it .ic.v { background: #1c2e3a; color: #8ccaf7; }
+.inb .it b { font-weight: 500; display: block; }
+.inb .it small { color: var(--a-mu); }
+
+/* ---------- Opção 3: mesa de projeção ---------- */
+.o3 { display: grid; grid-template-rows: 64px 1fr; }
+.o3 .top { display: flex; align-items: center; gap: 14px; padding: 0 18px; background: var(--a-s1); }
+.o3 .top .sp { flex: 1; }
+.o3 .body { display: grid; grid-template-columns: 340px 1fr 330px; min-height: 0; }
+.lib { background: var(--a-s1); padding: 14px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid #ffffff0d; }
+.lib .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.lib .tabs .chip { justify-content: center; padding: 0 6px; height: 40px; position: relative; }
+.lib .tabs .badge { position: absolute; top: -6px; right: -4px; transform: scale(.85); }
+.li { display: grid; grid-template-columns: 5px 1fr 44px; gap: 10px; align-items: center; background: var(--a-s2); border-radius: 12px; padding: 10px 6px 10px 0; overflow: hidden; }
+.li .bar { align-self: stretch; margin: -10px 0; }
+.li b { font-weight: 500; display: block; font-size: 15px; }
+.li small { color: var(--a-mu2); }
+.li .add { width: 44px; height: 44px; border-radius: 12px; background: var(--a-s4) !important; color: var(--a-pri); display: grid; place-items: center; }
+.li.na { opacity: .5; }
+.mesa { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.mon { display: grid; grid-template-columns: 1fr 210px; gap: 14px; align-items: end; }
+.mon .lb { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--a-mu2); margin-bottom: 6px; display: flex; gap: 8px; align-items: center; }
+.mon .lb .r { width: 9px; height: 9px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 4px #e5393533; }
+.trans { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 12px; }
+.trans .tp { height: 112px; font-size: 15px; }
+.trans .tp.big .ms { font-size: 56px; }
+.trans2 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.trans2 .tp { height: 60px; grid-auto-flow: column; gap: 8px; font-size: 14px; }
+.trans2 .tp .ms { font-size: 22px; }
+.fila { background: var(--a-s2); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.fila .hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.fi { display: grid; grid-template-columns: 26px 1fr 24px; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--a-s3); }
+.fi .n { font: 500 15px "Roboto Mono", monospace; color: var(--a-mu2); }
+.fi b { font-weight: 500; display: block; }
+.fi small { color: var(--a-mu2); font-size: 12px; }
+.fi .ms { color: var(--a-mu2); }
+.fi.feito { opacity: .45; }
+.fi.ar { background: #3a1f22; outline: 2px solid #e53935; }
+.fi.ar .n { color: #ff8a80; }
+.fi.prox { outline: 2px dashed var(--a-pri); }
+
+/* ---------- Opção 4: início com entrada unificada ---------- */
+.o4 { display: grid; grid-template-rows: 72px 1fr 84px; position: relative; }
+.o4 .top { display: flex; align-items: center; gap: 16px; padding: 0 24px; }
+.o4 .top .tt { flex: 1; }
+.o4 .top .tt b { font-size: 24px; font-weight: 500; display: block; }
+.o4 .body { display: grid; grid-template-columns: 1fr 380px; gap: 20px; padding: 4px 24px 0; min-height: 0; overflow: hidden; }
+.ent { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ent .filt { display: flex; gap: 8px; }
+.ec { display: grid; grid-template-columns: 48px 1fr; gap: 14px; background: var(--a-s1); border-radius: 18px; padding: 14px 16px; }
+.ec .ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; }
+.ec .ic.p { background: #3a2f1a; color: var(--a-warn); }
+.ec .ic.v { background: #1c2e3a; color: #8ccaf7; }
+.ec .ic.m { background: #2c2140; color: #d2b6ff; }
+.ec .k { font-size: 12px; color: var(--a-mu2); display: flex; gap: 8px; align-items: center; }
+.ec b { display: block; font-size: 17px; font-weight: 500; margin: 2px 0 4px; }
+.ec p { margin: 0; color: var(--a-mu); font-size: 14px; }
+.ec .acts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.ec .acts button { height: 42px; }
+.hoje { display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--a-s1); border-radius: 18px; padding: 14px 16px; display: grid; gap: 8px; }
+.card .ln { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.card .ln span:first-child { color: var(--a-mu2); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stats div { background: var(--a-s2); border-radius: 12px; padding: 10px; }
+.stats b { font: 500 26px/1 Roboto, sans-serif; display: block; font-variant-numeric: tabular-nums; }
+.stats small { color: var(--a-mu2); font-size: 12px; }
+.bnav { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--a-s1); align-items: center; }
+.bn { display: grid; justify-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: var(--a-mu); position: relative; }
+.bn .pill { width: 64px; height: 32px; border-radius: 99px; display: grid; place-items: center; }
+.bn.on .pill { background: var(--a-pric); color: var(--a-onpric); }
+.bn.on { color: var(--a-tx); }
+.bn .badge { position: absolute; top: -4px; left: calc(50% + 10px); }
+.dock { position: absolute; right: 24px; bottom: 100px; display: flex; align-items: center; gap: 6px; background: #2b2f4a; border: 1px solid #4a5080; border-radius: 99px; padding: 8px 8px 8px 10px; box-shadow: 0 10px 30px #000a; }
+.dock .th { width: 96px; }
+.dock .th .slide { padding: 4px; border-radius: 6px; }
+.dock .tx { padding: 0 8px; min-width: 150px; }
+.dock .tx small { color: var(--a-mu2); display: flex; gap: 6px; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+.dock .tx small i { width: 7px; height: 7px; border-radius: 50%; background: #e53935; }
+.dock .tx b { font-weight: 500; }
+.dock .db { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: var(--a-s4) !important; }
+.dock .db.pri { background: var(--a-pri) !important; color: var(--a-onpri); }
+.dock .db.red { color: var(--a-red); }
+
+/* ---------- Opção 5: controle em retrato ---------- */
+.o5 { display: grid; grid-template-rows: 76px auto auto auto 1fr auto 84px; }
+.o5 .top { display: flex; align-items: center; gap: 14px; padding: 0 22px; }
+.o5 .top .tt { flex: 1; }
+.o5 .top .tt b { font-size: 20px; font-weight: 500; display: block; }
+.o5 .live { padding: 4px 22px 0; display: grid; gap: 10px; }
+.o5 .live .cap { display: flex; justify-content: space-between; align-items: center; }
+.o5 .live .cap b { font-size: 18px; font-weight: 500; }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 28px; height: 6px; border-radius: 3px; background: var(--a-s4); }
+.dots i.on { background: var(--a-pri); }
+.o5 .nav2 { display: grid; grid-template-columns: 1fr 1.4fr; gap: 14px; padding: 18px 22px 0; }
+.o5 .nav2 .tp { height: 170px; font-size: 18px; }
+.o5 .nav2 .tp .ms { font-size: 64px; }
+.o5 .nav3 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 12px 22px 0; }
+.o5 .nav3 .tp { height: 76px; }
+.o5 .proxs { padding: 18px 22px 16px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.o5 .proxs .hd { display: flex; justify-content: space-between; align-items: center; }
+.carr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.carr .c { background: var(--a-s1); border-radius: 14px; padding: 8px; display: grid; gap: 6px; }
+.carr .c .slide { border-radius: 8px; }
+.carr .c b { font-weight: 500; font-size: 13px; padding: 0 4px; }
+.carr .c small { color: var(--a-mu2); font-size: 12px; padding: 0 4px 4px; }
+.sheet { background: var(--a-s2); border-radius: 26px 26px 0 0; padding: 10px 22px 16px; display: grid; gap: 10px; }
+.sheet .handle { width: 40px; height: 5px; border-radius: 3px; background: var(--a-line); justify-self: center; }
+.sheet .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.o5 .bnav { grid-template-columns: repeat(4, 1fr); }
+.rot { display: flex; gap: 10px; align-items: center; background: #23263a; border: 1px dashed #4a5080; border-radius: 14px; padding: 10px 14px; color: var(--a-mu); font-size: 13px; margin-top: auto; }
+</style>
+</head>
+<body>
+<button class="sair" id="sair" type="button"><span class="ms">close_fullscreen</span> Sair da tela cheia</button>
+<div class="page">
+  <header>
+    <p class="eyebrow">DiakoNews · tablet do pastor · Galaxy Tab A9+ 5G (11″, 1280 × 800 dp)</p>
+    <h1>Cinco propostas de tela para o app do tablet</h1>
+    <p class="lede">Cada maquete está no tamanho lógico do A9+ deitado (a opção 5 em pé), com o tema escuro índigo atual. Hoje o cabeçalho, as abas e a barra de projeção ocupam perto de 230 dp dos 800 de altura, e todas as propostas devolvem parte desse espaço. Os dados são exemplos. Botões e abas respondem ao toque.</p>
+  </header>
+
+  <nav class="choices" aria-label="Propostas">
+    <button class="choice" type="button" data-op="1" aria-pressed="true"><span class="n">1</span><strong>Trilho e palco fixo</strong><small>Abas viram trilho à esquerda; controles de projeção sempre à direita.</small><span class="effort baixo">Esforço baixo</span></button>
+    <button class="choice" type="button" data-op="2" aria-pressed="false"><span class="n">2</span><strong>Roteiro do culto</strong><small>A tela segue a ordem do culto, momento a momento.</small><span class="effort alto">Esforço alto</span></button>
+    <button class="choice" type="button" data-op="3" aria-pressed="false"><span class="n">3</span><strong>Mesa de projeção</strong><small>Biblioteca, No ar e A seguir, e uma fila que mistura tudo.</small><span class="effort medio">Esforço médio</span></button>
+    <button class="choice" type="button" data-op="4" aria-pressed="false"><span class="n">4</span><strong>Início com entrada</strong><small>Pedidos, visitantes e mensagens numa lista só; navegação embaixo.</small><span class="effort medio">Esforço médio</span></button>
+    <button class="choice" type="button" data-op="5" aria-pressed="false"><span class="n">5</span><strong>Controle em retrato</strong><small>Tablet em pé vira controle remoto de botões grandes.</small><span class="effort medio">Esforço médio</span></button>
+  </nav>
+
+  <!-- ================= OPÇÃO 1 ================= -->
+  <section class="panel" id="p1">
+    <div class="show">
+      <div>
+        <div class="stagebar"><h2>1 · Trilho lateral e palco fixo</h2><button class="btn pri real-btn" type="button"><span class="ms">open_in_full</span> Ver em tela cheia</button></div>
+        <div class="viewport">
+          <div class="app o1">
+            <nav class="rail">
+              <div class="logo" role="img" aria-label="Igreja Diakonia Tulipas"></div>
+              <button class="ri on" data-g="r1"><span class="pill"><span class="ms">campaign</span></span>Recados</button>
+              <button class="ri" data-g="r1"><span class="pill"><span class="ms">volunteer_activism</span></span>Oração<span class="badge">3</span></button>
+              <button class="ri" data-g="r1"><span class="pill"><span class="ms">waving_hand</span></span>Visitantes<span class="badge">2</span></button>
+              <button class="ri" data-g="r1"><span class="pill"><span class="ms">event</span></span>Agenda</button>
+              <button class="ri" data-g="r1"><span class="pill"><span class="ms">groups</span></span>Escala</button>
+              <button class="ri" data-g="r1"><span class="pill"><span class="ms">mail</span></span>Mensagens<span class="badge">1</span></button>
+              <span class="gap"></span>
+              <button class="ri"><span class="pill"><span class="ms">settings</span></span>Ajustes</button>
+            </nav>
+            <main>
+              <div class="hd">
+                <h4>Recados</h4>
+                <span class="search"><span class="ms">search</span> Buscar recado</span>
+                <button class="fbtn"><span class="ms">add</span> Novo recado</button>
+              </div>
+              <div class="evbar"><span class="ms">event</span><span>Próximo evento: <b>Culto de Santa Ceia</b> · domingo, 2/11 às 19h00</span></div>
+              <div style="display:flex;gap:8px">
+                <button class="chip on" data-g="f1">Todos · 9</button>
+                <button class="chip" data-g="f1"><span class="ms f" style="color:var(--c-aviso)">circle</span>Aviso</button>
+                <button class="chip" data-g="f1"><span class="ms f" style="color:var(--c-evento)">circle</span>Evento</button>
+                <button class="chip" data-g="f1"><span class="ms f" style="color:var(--c-aniv)">circle</span>Aniversário</button>
+                <button class="chip" data-g="f1"><span class="ms">history</span>Expirados · 4</button>
+              </div>
+              <div class="list">
+                <div class="rc"><span class="bar" style="background:var(--c-aniv)"></span><span class="sel auto"><span class="ms">cake</span></span><div><b>Aniversariantes da semana</b><span class="tx">Ana Paula (30/10), Jorge (31/10), Débora (2/11)</span><div class="meta"><span class="cat aniv">ANIVERSÁRIO</span><span>Automático</span></div></div><span class="ms mu2">push_pin</span></div>
+                <div class="rc foco"><span class="bar" style="background:var(--c-evento)"></span><span class="sel on"><span class="ms">check</span></span><div><b>Retiro de Jovens 2026</b><span class="tx">De 14 a 16/11 no Sítio Boa Esperança. Inscrições com a Larissa até 7/11.</span><div class="meta"><span class="cat evento">EVENTO</span><span>até 16/11</span></div></div><span class="ms mu2">drag_indicator</span></div>
+                <div class="rc"><span class="bar" style="background:var(--c-aviso)"></span><span class="sel on"><span class="ms">check</span></span><div><b>Campanha do Quilo</b><span class="tx">Traga 1 kg de alimento não perecível. Doações vão para 18 famílias do bairro.</span><div class="meta"><span class="cat aviso">AVISO</span><span>até 30/11</span></div></div><span class="ms mu2">drag_indicator</span></div>
+                <div class="rc"><span class="bar" style="background:var(--c-evento)"></span><span class="sel"></span><div><b>Ensaio geral do louvor</b><span class="tx">Sábado, 1/11, às 16h00. Todos os escalados para a Santa Ceia.</span><div class="meta"><span class="cat evento">EVENTO</span><span>até 1/11</span></div></div><span class="ms mu2">drag_indicator</span></div>
+                <div class="rc"><span class="bar" style="background:var(--c-aviso)"></span><span class="sel"></span><div><b>Escola Bíblica Dominical</b><span class="tx">Nova classe de casais começa domingo às 9h00, na sala 3.</span><div class="meta"><span class="cat aviso">AVISO</span><span>sem validade</span></div></div><span class="ms mu2">drag_indicator</span></div>
+              </div>
+              <div class="selbar"><span class="ms">checklist</span><span><b>2 selecionados</b> para a sequência</span><button class="obtn">Limpar</button><button class="tbtn"><span class="ms">slideshow</span> Projetar sequência</button></div>
+            </main>
+            <aside class="palco">
+              <div class="row" style="justify-content:space-between"><h5>Palco</h5><span class="ok-chip"><i></i>Holyrics conectado</span></div>
+              <div class="slide"><span class="tag">NO AR</span><div class="t">Campanha do Quilo</div><div class="x">Traga 1 kg de alimento não perecível.</div></div>
+              <div class="noar">No ar: <b>Sequência de recados</b> · slide <b class="cnt">2/3</b></div>
+              <div class="tgrid">
+                <button class="tp big" data-t="prev"><span class="ms">skip_previous</span>Anterior</button>
+                <button class="tp big red" data-t="stop"><span class="ms f">stop</span>Parar</button>
+                <button class="tp big pri" data-t="next"><span class="ms">skip_next</span>Próximo</button>
+                <button class="tp" data-toggle="vazia"><span class="ms">crop_square</span>Vazia</button>
+                <button class="tp" data-toggle="preta"><span class="ms f">square</span>Preta</button>
+                <button class="tp"><span class="ms">timer</span>Contagem</button>
+              </div>
+              <h5 style="margin-top:4px">Mensagem para o palco</h5>
+              <div class="frases">
+                <button class="chip"><span class="ms">send</span>Mais 5 minutos</button>
+                <button class="chip"><span class="ms">send</span>Encerrar o louvor</button>
+                <button class="chip"><span class="ms">send</span>Chamar para a oração</button>
+              </div>
+            </aside>
+            <div class="toast"></div>
+          </div>
+        </div>
+      </div>
+      <aside class="notes">
+        <div><h3>A ideia</h3><p>As seis abas saem do topo e viram um trilho vertical, o padrão do Android para tablets. A barra de projeção sai do rodapé e vira uma coluna “Palco” fixa à direita, visível em qualquer seção.</p></div>
+        <div><h3>Ganha</h3><ul><li>Cerca de 150 dp a mais de altura para a lista.</li><li>Anterior, Parar e Próximo com 104 dp, fáceis de acertar no meio do culto.</li><li>Prévia do que está no ar sempre à vista.</li><li>Frases do palco a um toque, sem abrir janela.</li></ul></div>
+        <div><h3>Atenção</h3><ul><li>A lista fica mais estreita (cerca de 790 dp). Cabe bem, mas o texto do recado mostra só 1 linha.</li></ul></div>
+        <div><h3>No código</h3><p class="muted">Trocar o <code>SegmentedButton</code> por <code>NavigationRail</code> em <code>home_page.dart</code> e mover a <code>ControlBar</code> para uma coluna. É a mudança mais segura.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================= OPÇÃO 2 ================= -->
+  <section class="panel" id="p2" hidden>
+    <div class="show">
+      <div>
+        <div class="stagebar"><h2>2 · Roteiro do culto</h2><button class="btn pri real-btn" type="button"><span class="ms">open_in_full</span> Ver em tela cheia</button></div>
+        <div class="viewport">
+          <div class="app o2">
+            <div class="top">
+              <div class="logo" role="img" aria-label="Igreja Diakonia Tulipas"></div>
+              <div class="tt"><b>Culto da família · domingo, 2/11</b><span class="mu">Ministração: Pr. Marcos · Louvor: Ministério Tulipas</span></div>
+              <div style="text-align:right"><div class="clock">19:41</div><span class="mu2" style="font-size:12px">41 min de culto</span></div>
+              <div class="seg"><button class="on" data-g="m2"><span class="ms">church</span>Culto</button><button data-g="m2"><span class="ms">edit_note</span>Organizar</button></div>
+              <button class="obtn" style="width:44px;padding:0" aria-label="Configurações"><span class="ms">settings</span></button>
+            </div>
+            <div class="body">
+              <div class="tl">
+                <div class="st feito"><span class="hr">18:55</span><span class="dot"><span class="ms">check</span></span><div><b>Contagem regressiva</b><div class="d">“O culto começa em” · 5 min no telão e no palco</div></div><span></span></div>
+                <div class="st feito"><span class="hr">19:00</span><span class="dot"><span class="ms">check</span></span><div><b>Boas-vindas aos visitantes</b><div class="d">2 citados: Família Oliveira, Renata Campos</div></div><span></span></div>
+                <div class="st feito"><span class="hr">19:05</span><span class="dot"><span class="ms">check</span></span><div><b>Louvor · 4 músicas</b><div class="mini"><span>Bondade de Deus · G</span><span>Grande é o Senhor · D</span><span>Ousado Amor · A</span><span>Tu és Santo · E</span></div></div><span></span></div>
+                <div class="st agora"><span class="hr">19:35</span><span class="dot"><span class="ms">campaign</span></span><div><b>Recados <span class="agtag">AGORA</span></b><div class="mini"><span>Aniversariantes</span><span class="on">Retiro de Jovens</span><span>Campanha do Quilo</span><span>Ensaio do louvor</span></div></div><div class="acts"><button class="obtn">Editar</button></div></div>
+                <div class="st"><span class="hr">19:45</span><span class="dot"><span class="ms">volunteer_activism</span></span><div><b>Motivos de oração</b><div class="d">5 aprovados · 1 aguardando · 2 respondidos no mês</div></div><div class="acts"><button class="tbtn"><span class="ms">slideshow</span>Projetar</button></div></div>
+                <div class="st"><span class="hr">19:55</span><span class="dot"><span class="ms">menu_book</span></span><div><b>Ministração da Palavra</b><div class="d">Pr. Marcos · tela vazia durante a pregação</div></div><div class="acts"><button class="obtn"><span class="ms">crop_square</span>Tela vazia</button></div></div>
+                <div class="st"><span class="hr">20:40</span><span class="dot"><span class="ms">qr_code_2</span></span><div><b>Encerramento</b><div class="d">QR de pedidos de oração e caixa de mensagens</div></div><div class="acts"><button class="obtn"><span class="ms">slideshow</span>Projetar</button></div></div>
+              </div>
+              <aside>
+                <div style="display:flex;justify-content:space-between;align-items:center"><h5>No ar · Recados</h5><span class="ok-chip"><i></i>Conectado</span></div>
+                <div class="slide"><span class="tag">NO AR</span><div class="t">Retiro de Jovens 2026</div><div class="x">De 14 a 16/11 no Sítio Boa Esperança.</div></div>
+                <div class="tr">
+                  <button class="tp big" data-t="prev"><span class="ms">skip_previous</span>Anterior</button>
+                  <button class="tp big pri" data-t="next"><span class="ms">skip_next</span><span>Próximo · <span class="cnt">2/4</span></span></button>
+                </div>
+                <div class="tr3">
+                  <button class="tp red" data-t="stop"><span class="ms f">stop</span>Parar</button>
+                  <button class="tp" data-toggle="vazia"><span class="ms">crop_square</span>Vazia</button>
+                  <button class="tp" data-toggle="preta"><span class="ms f">square</span>Preta</button>
+                </div>
+                <h5 style="margin-top:6px">Chegou agora</h5>
+                <div class="inb">
+                  <div class="it"><span class="ic"><span class="ms">volunteer_activism</span></span><div><b>Pela cirurgia do Sr. Antônio</b><small>Pedido de oração · há 3 min</small></div><button class="obtn">Aprovar</button></div>
+                  <div class="it"><span class="ic v"><span class="ms">waving_hand</span></span><div><b>Caio e Bianca Torres</b><small>Visitantes · podem ser citados</small></div><button class="obtn">Citar</button></div>
+                </div>
+              </aside>
+            </div>
+            <div class="toast"></div>
+          </div>
+        </div>
+      </div>
+      <aside class="notes">
+        <div><h3>A ideia</h3><p>No domingo, a tela abre no roteiro do culto em ordem de horário. Cada momento já sabe o que projetar: a contagem, os visitantes, as músicas da escala, a sequência de recados, os motivos. O pastor acompanha o “Agora” e toca Próximo. As abas de hoje ficam no modo Organizar.</p></div>
+        <div><h3>Ganha</h3><ul><li>Junta escala, recados, oração e visitantes na ordem em que o culto acontece.</li><li>O que chega durante o culto (pedido, visitante) aparece num canto, sem trocar de tela.</li><li>Relógio grande e tempo de culto.</li></ul></div>
+        <div><h3>Atenção</h3><ul><li>Precisa de um modelo novo de roteiro no servidor e no painel web (momentos, horários, o que cada um projeta).</li><li>É a proposta que mais muda o jeito de usar.</li></ul></div>
+        <div><h3>No código</h3><p class="muted">Novo tipo <code>Roteiro</code> no <code>diako_core</code>, edição no painel e sincronização. Dá para começar com um roteiro padrão gerado da escala do dia.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================= OPÇÃO 3 ================= -->
+  <section class="panel" id="p3" hidden>
+    <div class="show">
+      <div>
+        <div class="stagebar"><h2>3 · Mesa de projeção</h2><button class="btn pri real-btn" type="button"><span class="ms">open_in_full</span> Ver em tela cheia</button></div>
+        <div class="viewport">
+          <div class="app o3">
+            <div class="top">
+              <div class="logo" role="img" aria-label="Igreja Diakonia Tulipas" style="width:40px;height:40px"></div>
+              <b style="font-size:18px;font-weight:500">Mesa de projeção</b>
+              <span class="sp"></span>
+              <span class="ok-chip"><i></i>Holyrics conectado</span>
+              <button class="obtn"><span class="ms">timer</span>Contagem</button>
+              <button class="obtn"><span class="ms">chat</span>Palco</button>
+              <button class="obtn"><span class="ms">edit_note</span>Organizar</button>
+            </div>
+            <div class="body">
+              <div class="lib">
+                <div class="tabs">
+                  <button class="chip on" data-g="l3">Recados</button>
+                  <button class="chip" data-g="l3">Oração<span class="badge">3</span></button>
+                  <button class="chip" data-g="l3">Visitantes</button>
+                  <button class="chip" data-g="l3">Agenda</button>
+                  <button class="chip" data-g="l3">Cartazes</button>
+                  <button class="chip" data-g="l3">QR codes</button>
+                </div>
+                <span class="search" style="width:auto;height:44px"><span class="ms">search</span> Buscar</span>
+                <div class="li na"><span class="bar" style="background:var(--c-aniv)"></span><div><b>Aniversariantes da semana</b><small>Na fila · 3 slides</small></div><span class="ms mu2" style="text-align:center">check</span></div>
+                <div class="li na"><span class="bar" style="background:var(--c-evento)"></span><div><b>Retiro de Jovens 2026</b><small>Na fila · até 16/11</small></div><span class="ms mu2" style="text-align:center">check</span></div>
+                <div class="li"><span class="bar" style="background:var(--c-aviso)"></span><div><b>Campanha do Quilo</b><small>Aviso · até 30/11</small></div><button class="add" aria-label="Pôr na fila"><span class="ms">playlist_add</span></button></div>
+                <div class="li"><span class="bar" style="background:var(--c-evento)"></span><div><b>Ensaio geral do louvor</b><small>Evento · até 1/11</small></div><button class="add" aria-label="Pôr na fila"><span class="ms">playlist_add</span></button></div>
+                <div class="li"><span class="bar" style="background:var(--c-aviso)"></span><div><b>Escola Bíblica Dominical</b><small>Aviso · sem validade</small></div><button class="add" aria-label="Pôr na fila"><span class="ms">playlist_add</span></button></div>
+                <div class="li"><span class="bar" style="background:var(--c-evento)"></span><div><b>Bazar beneficente</b><small>Evento · até 8/11</small></div><button class="add" aria-label="Pôr na fila"><span class="ms">playlist_add</span></button></div>
+              </div>
+              <div class="mesa">
+                <div class="mon">
+                  <div><div class="lb"><span class="r"></span>No ar · 3 de 6</div><div class="slide"><div class="t">Motivos de oração</div><div class="x">Pela cirurgia do Sr. Antônio · Pela família Duarte · Pelo emprego do Rafael</div></div></div>
+                  <div><div class="lb">A seguir</div><div class="slide"><span class="tag prev">4</span><div class="t">Família Oliveira</div><div class="x">Seja bem-vinda!</div></div><div class="lb" style="margin-top:12px">Depois</div><div class="slide"><span class="tag prev">5</span><div class="t">Retiro de Jovens</div></div></div>
+                </div>
+                <div class="trans">
+                  <button class="tp big" data-t="prev"><span class="ms">skip_previous</span>Anterior</button>
+                  <button class="tp big pri" data-t="next"><span class="ms">skip_next</span>Próximo da fila</button>
+                  <button class="tp big red" data-t="stop"><span class="ms f">stop</span>Parar</button>
+                </div>
+                <div class="trans2">
+                  <button class="tp" data-toggle="vazia"><span class="ms">crop_square</span>Vazia</button>
+                  <button class="tp" data-toggle="preta"><span class="ms f">square</span>Preta</button>
+                  <button class="tp"><span class="ms">first_page</span>Slide anterior</button>
+                  <button class="tp"><span class="ms">last_page</span>Slide seguinte</button>
+                </div>
+              </div>
+              <div class="fila">
+                <div class="hd"><h5>Fila do culto</h5><span class="mu2" style="font-size:12px">arraste para ordenar</span></div>
+                <div class="fi feito"><span class="n">1</span><div><b>Contagem regressiva</b><small>5 min</small></div><span class="ms">check</span></div>
+                <div class="fi feito"><span class="n">2</span><div><b>Aniversariantes da semana</b><small>Recado · 3 slides</small></div><span class="ms">check</span></div>
+                <div class="fi ar"><span class="n">3</span><div><b>Motivos de oração</b><small>5 aprovados · 2 slides</small></div><span class="ms" style="color:#ff8a80">play_arrow</span></div>
+                <div class="fi prox"><span class="n">4</span><div><b>Boas-vindas: Família Oliveira</b><small>Visitante</small></div><span class="ms">drag_indicator</span></div>
+                <div class="fi"><span class="n">5</span><div><b>Retiro de Jovens 2026</b><small>Recado</small></div><span class="ms">drag_indicator</span></div>
+                <div class="fi"><span class="n">6</span><div><b>QR de pedidos de oração</b><small>QR code</small></div><span class="ms">drag_indicator</span></div>
+                <button class="obtn" style="margin-top:auto"><span class="ms">bookmark</span>Salvar fila como modelo</button>
+              </div>
+            </div>
+            <div class="toast"></div>
+          </div>
+        </div>
+      </div>
+      <aside class="notes">
+        <div><h3>A ideia</h3><p>Tela de operador, como as mesas de som e os programas de projeção. À esquerda, tudo que pode ir ao telão. No meio, No ar e A seguir lado a lado. À direita, a fila do culto, que aceita recados, motivos, visitantes, eventos, cartazes e QR codes misturados.</p></div>
+        <div><h3>Ganha</h3><ul><li>A Sequência de hoje só aceita recados; a fila aceita qualquer coisa.</li><li>Sempre se vê o próximo slide antes de tocar.</li><li>Uma fila salva vira modelo para o próximo domingo.</li></ul></div>
+        <div><h3>Atenção</h3><ul><li>Aprovar pedidos e editar recados continua em telas separadas (botão Organizar).</li><li>Mais informação por tela; pede um pouco de costume.</li></ul></div>
+        <div><h3>No código</h3><p class="muted">Uma fila de itens de tipos diferentes e um “projetar item” genérico sobre o <code>HolyricsClient</code>. A biblioteca reaproveita os repositórios que já existem.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================= OPÇÃO 4 ================= -->
+  <section class="panel" id="p4" hidden>
+    <div class="show">
+      <div>
+        <div class="stagebar"><h2>4 · Início com entrada unificada</h2><button class="btn pri real-btn" type="button"><span class="ms">open_in_full</span> Ver em tela cheia</button></div>
+        <div class="viewport">
+          <div class="app o4">
+            <div class="top">
+              <div class="logo" role="img" aria-label="Igreja Diakonia Tulipas"></div>
+              <div class="tt"><b>Boa noite, pastor</b><span class="mu">Domingo, 2 de novembro · culto às 19h00</span></div>
+              <span class="ok-chip"><i></i>Holyrics conectado</span>
+              <button class="obtn"><span class="ms">timer</span>Ferramentas</button>
+              <button class="obtn" style="width:44px;padding:0" aria-label="Configurações"><span class="ms">settings</span></button>
+            </div>
+            <div class="body">
+              <div class="ent">
+                <div class="filt">
+                  <button class="chip on" data-g="f4">Tudo · 6</button>
+                  <button class="chip" data-g="f4"><span class="ms">volunteer_activism</span>Pedidos · 3</button>
+                  <button class="chip" data-g="f4"><span class="ms">waving_hand</span>Visitantes · 2</button>
+                  <button class="chip" data-g="f4"><span class="ms">mail</span>Mensagens · 1</button>
+                </div>
+                <div class="ec"><span class="ic p"><span class="ms">volunteer_activism</span></span><div><span class="k">PEDIDO DE ORAÇÃO · há 3 min · por Cláudia</span><b>Pela cirurgia do Sr. Antônio na terça</b><p>Meu pai opera o joelho dia 4. Peço oração pela equipe médica e pela recuperação.</p><div class="acts"><button class="tbtn"><span class="ms">check</span>Aprovar</button><button class="obtn"><span class="ms">lock</span>Só particular</button><button class="obtn" style="color:var(--a-red)">Recusar</button></div></div></div>
+                <div class="ec"><span class="ic v"><span class="ms">waving_hand</span></span><div><span class="k">VISITANTE · chegou 18:52 · recepção: Paulo</span><b>Caio e Bianca Torres</b><p>Primeira vez. Convidados pela Larissa. Autorizaram ser citados.</p><div class="acts"><button class="tbtn"><span class="ms">slideshow</span>Boas-vindas no telão</button><button class="obtn">Marcar como citado</button></div></div></div>
+                <div class="ec"><span class="ic m"><span class="ms">mail</span></span><div><span class="k">MENSAGEM · ontem · anônima</span><b>Sugestão sobre o som do culto</b><p>O volume do retorno estava alto nas primeiras fileiras durante o louvor.</p></div></div>
+              </div>
+              <div class="hoje">
+                <div class="card"><h5>Recados</h5><div class="stats"><div><b>9</b><small>ativos</small></div><div><b>4</b><small>na sequência</small></div><div><b>2</b><small>vencem na semana</small></div></div></div>
+                <div class="card"><h5>Escala de hoje</h5><div class="ln"><span>Ministração</span><span>Pr. Marcos</span></div><div class="ln"><span>Dirigente</span><span>Pra. Elaine</span></div><div class="ln"><span>Louvor</span><span>Lucas, Júlia, Pedro, Thaís</span></div><div class="ln"><span>Músicas</span><span>4 · primeira em G</span></div></div>
+                <div class="card"><h5>Próximos eventos</h5><div class="ln"><span>Sáb 1/11 16h</span><span>Ensaio geral do louvor</span></div><div class="ln"><span>Qua 5/11 20h</span><span>Culto de oração</span></div><div class="ln"><span>14 a 16/11</span><span>Retiro de Jovens</span></div></div>
+              </div>
+            </div>
+            <nav class="bnav">
+              <button class="bn on" data-g="b4"><span class="pill"><span class="ms">home</span></span>Início<span class="badge">6</span></button>
+              <button class="bn" data-g="b4"><span class="pill"><span class="ms">campaign</span></span>Recados</button>
+              <button class="bn" data-g="b4"><span class="pill"><span class="ms">volunteer_activism</span></span>Oração</button>
+              <button class="bn" data-g="b4"><span class="pill"><span class="ms">groups</span></span>Pessoas</button>
+              <button class="bn" data-g="b4"><span class="pill"><span class="ms">calendar_month</span></span>Agenda e escala</button>
+            </nav>
+            <div class="dock">
+              <div class="th"><div class="slide"><div class="t">Retiro de Jovens</div></div></div>
+              <div class="tx"><small><i></i>NO AR · <span class="cnt">2/4</span></small><b>Sequência de recados</b></div>
+              <button class="db" data-t="prev" aria-label="Anterior"><span class="ms">skip_previous</span></button>
+              <button class="db red" data-t="stop" aria-label="Parar"><span class="ms f">stop</span></button>
+              <button class="db pri" data-t="next" aria-label="Próximo"><span class="ms">skip_next</span></button>
+              <button class="db" aria-label="Mais controles"><span class="ms">expand_less</span></button>
+            </div>
+            <div class="toast"></div>
+          </div>
+        </div>
+      </div>
+      <aside class="notes">
+        <div><h3>A ideia</h3><p>O app abre numa tela Início com o que pede decisão: pedidos de oração, visitantes e mensagens numa lista só, com os botões de ação no próprio cartão. Ao lado, o resumo do dia. A navegação desce para a base da tela, perto dos polegares, e a projeção vira um controle flutuante que abre os botões completos na seta.</p></div>
+        <div><h3>Ganha</h3><ul><li>Aprovar um pedido ou citar um visitante sem trocar de aba.</li><li>Cinco destinos em vez de seis (visitantes e membros viram Pessoas; Agenda e Escala ficam juntas).</li><li>Os polegares alcançam a navegação segurando o tablet pelas laterais.</li></ul></div>
+        <div><h3>Atenção</h3><ul><li>O controle flutuante é menor que a barra atual. Para o culto inteiro, as opções 1 e 5 dão botões maiores.</li></ul></div>
+        <div><h3>No código</h3><p class="muted">Tela nova que junta <code>motivos.aguardando</code>, <code>visitas.pendentes</code> e as mensagens novas, mais uma <code>NavigationBar</code> no rodapé. Os painéis atuais continuam como destinos.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================= OPÇÃO 5 ================= -->
+  <section class="panel" id="p5" hidden>
+    <div class="show">
+      <div>
+        <div class="stagebar"><h2>5 · Controle remoto em retrato</h2><button class="btn pri real-btn" type="button"><span class="ms">open_in_full</span> Ver em tela cheia</button></div>
+        <div class="viewport" style="max-width:560px">
+          <div class="app retrato o5">
+            <div class="top">
+              <div class="logo" role="img" aria-label="Igreja Diakonia Tulipas"></div>
+              <div class="tt"><b>Controle do culto</b><span class="mu">Domingo, 2/11 · 19:41</span></div>
+              <span class="ok-chip"><i></i>Conectado</span>
+            </div>
+            <div class="live">
+              <div class="slide"><span class="tag">NO AR</span><div class="t">Retiro de Jovens 2026</div><div class="x">De 14 a 16/11 no Sítio Boa Esperança. Inscrições com a Larissa até 7/11.</div></div>
+              <div class="cap"><b>Sequência de recados</b><div class="dots"><i class="on"></i><i class="on"></i><i></i><i></i></div></div>
+            </div>
+            <div class="nav2">
+              <button class="tp big" data-t="prev"><span class="ms">skip_previous</span>Anterior</button>
+              <button class="tp big pri" data-t="next"><span class="ms">skip_next</span><span>Próximo · <span class="cnt">2/4</span></span></button>
+            </div>
+            <div class="nav3">
+              <button class="tp red" data-t="stop"><span class="ms f">stop</span>Parar</button>
+              <button class="tp" data-toggle="vazia"><span class="ms">crop_square</span>Vazia</button>
+              <button class="tp" data-toggle="preta"><span class="ms f">square</span>Preta</button>
+              <button class="tp"><span class="ms">timer</span>Contagem</button>
+            </div>
+            <div class="proxs">
+              <div class="hd"><h5>A seguir</h5><span class="mu2" style="font-size:12px">toque para projetar já</span></div>
+              <div class="carr">
+                <div class="c"><div class="slide"><div class="t">Campanha do Quilo</div></div><b>Campanha do Quilo</b><small>Recado 3/4</small></div>
+                <div class="c"><div class="slide"><div class="t">Ensaio do louvor</div></div><b>Ensaio geral do louvor</b><small>Recado 4/4</small></div>
+                <div class="c"><div class="slide"><div class="t">Motivos de oração</div></div><b>Motivos de oração</b><small>5 aprovados</small></div>
+              </div>
+              <div class="rot"><span class="ms">screen_rotation</span>Deite o tablet para voltar à tela de organizar (recados, oração, agenda).</div>
+            </div>
+            <div class="sheet">
+              <span class="handle"></span>
+              <h5>Mensagem para o palco</h5>
+              <div class="row">
+                <button class="chip"><span class="ms">send</span>Mais 5 minutos</button>
+                <button class="chip"><span class="ms">send</span>Encerrar o louvor</button>
+                <button class="chip"><span class="ms">send</span>Chamar para a oração</button>
+                <button class="chip"><span class="ms">edit</span>Escrever</button>
+              </div>
+            </div>
+            <nav class="bnav">
+              <button class="bn on" data-g="b5"><span class="pill"><span class="ms">slideshow</span></span>Controle</button>
+              <button class="bn" data-g="b5"><span class="pill"><span class="ms">campaign</span></span>Recados</button>
+              <button class="bn" data-g="b5"><span class="pill"><span class="ms">volunteer_activism</span></span>Oração<span class="badge">3</span></button>
+              <button class="bn" data-g="b5"><span class="pill"><span class="ms">waving_hand</span></span>Visitantes<span class="badge">2</span></button>
+            </nav>
+            <div class="toast"></div>
+          </div>
+        </div>
+      </div>
+      <aside class="notes">
+        <div><h3>A ideia</h3><p>Com o tablet em pé, o app vira um controle remoto: o que está no ar em cima, Anterior e Próximo enormes (170 dp de altura) no meio e os próximos slides embaixo. Deitado, volta para a tela de organizar. Combina com qualquer uma das outras quatro.</p></div>
+        <div><h3>Ganha</h3><ul><li>Dá para usar com uma mão, andando ou no púlpito, sem olhar muito para a tela.</li><li>O Próximo fica do lado do polegar direito.</li><li>Nada de edição nesta tela: menos chance de tocar no lugar errado durante o culto.</li></ul></div>
+        <div><h3>Atenção</h3><ul><li>Se o app estiver travado em paisagem, é preciso liberar a rotação.</li></ul></div>
+        <div><h3>No código</h3><p class="muted">Um <code>OrientationBuilder</code> na <code>HomePage</code> escolhe entre esta tela e a de organizar. Reaproveita o <code>StatusController</code> e os comandos da <code>ControlBar</code>.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <p class="hint">Para escolher, responda no chat com o número da opção. Também dá para misturar, por exemplo a 1 com o tablet deitado e a 5 em pé.</p>
+</div>
+
+<script>
+(() => {
+  const choices = [...document.querySelectorAll('.choice')];
+  const panels = [...document.querySelectorAll('.panel')];
+
+  function fit() {
+    document.querySelectorAll('.viewport').forEach(vp => {
+      const app = vp.querySelector('.app');
+      const w = app.offsetWidth, h = app.offsetHeight;
+      let s;
+      if (document.body.classList.contains('real') && vp.classList.contains('on')) {
+        s = Math.min(innerWidth / w, innerHeight / h);
+        app.style.left = (innerWidth - w * s) / 2 + 'px';
+        app.style.top = (innerHeight - h * s) / 2 + 'px';
+      } else {
+        s = vp.clientWidth / w;
+        app.style.left = app.style.top = '0';
+        vp.style.height = h * s + 'px';
+      }
+      app.style.transform = `scale(${s})`;
+    });
+  }
+
+  function show(n) {
+    choices.forEach(c => c.setAttribute('aria-pressed', String(c.dataset.op === n)));
+    panels.forEach(p => { p.hidden = p.id !== 'p' + n; });
+    if (location.hash !== '#opcao-' + n) history.replaceState(null, '', '#opcao-' + n);
+    fit();
+  }
+  choices.forEach(c => c.addEventListener('click', () => show(c.dataset.op)));
+  const fromHash = () => { const m = location.hash.match(/^#opcao-([1-5])$/); show(m ? m[1] : '1'); };
+  addEventListener('hashchange', fromHash);
+
+  // Tela cheia: a maquete ocupa a tela; no próprio A9+ deitado fica quase 1:1.
+  document.querySelectorAll('.real-btn').forEach(b => b.addEventListener('click', () => {
+    b.closest('.panel').querySelector('.viewport').classList.add('on');
+    document.body.classList.add('real');
+    try { document.documentElement.requestFullscreen?.().catch(() => {}); } catch (e) {}
+    fit();
+  }));
+  function sair() {
+    document.body.classList.remove('real');
+    document.querySelectorAll('.viewport.on').forEach(v => v.classList.remove('on'));
+    try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+    fit();
+  }
+  document.getElementById('sair').addEventListener('click', sair);
+  addEventListener('keydown', e => { if (e.key === 'Escape') sair(); });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('real')) sair(); });
+
+  // Toques simulados dentro das maquetes
+  document.querySelectorAll('.app').forEach(app => {
+    const toast = app.querySelector('.toast');
+    let slide = 2, timer;
+    const avisar = t => { toast.textContent = t; toast.classList.add('on'); clearTimeout(timer); timer = setTimeout(() => toast.classList.remove('on'), 1400); };
+    app.addEventListener('click', e => {
+      const g = e.target.closest('[data-g]');
+      if (g) app.querySelectorAll(`[data-g="${g.dataset.g}"]`).forEach(x => x.classList.toggle('on', x === g));
+      const tg = e.target.closest('[data-toggle]');
+      if (tg) { tg.classList.toggle('ativo'); avisar((tg.classList.contains('ativo') ? 'Tela ' : 'Saiu da tela ') + tg.dataset.toggle); }
+      const t = e.target.closest('[data-t]');
+      if (t) {
+        const tot = +(app.querySelector('.cnt')?.textContent.split('/')[1] || 4);
+        if (t.dataset.t === 'next') slide = Math.min(tot, slide + 1);
+        if (t.dataset.t === 'prev') slide = Math.max(1, slide - 1);
+        app.querySelectorAll('.cnt').forEach(c => c.textContent = slide + '/' + tot);
+        app.querySelectorAll('.dots i').forEach((d, i) => d.classList.toggle('on', i < slide));
+        avisar({ next: 'Próximo slide', prev: 'Slide anterior', stop: 'Projeção encerrada' }[t.dataset.t]);
+      }
+    });
+  });
+
+  addEventListener('resize', fit);
+  document.fonts?.ready.then(fit);
+  fromHash();
+})();
+</script>
+</body>
+</html>

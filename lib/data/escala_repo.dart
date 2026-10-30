@@ -9,7 +9,9 @@ import '../sync/server_api.dart';
 /// Um culto como o tablet mostra: quem serve em cada função (nomes já resolvidos pelo servidor) e as músicas.
 class CultoDoDia {
   CultoDoDia({
+    required this.id,
     required this.data,
+    required this.hora,
     required this.rotulo,
     required this.horaTexto,
     required this.nome,
@@ -20,7 +22,11 @@ class CultoDoDia {
     required this.musicas,
   });
 
+  final String id;
   final String data;
+
+  /// hh:mm (vazio em cópias salvas antes desta versão).
+  final String hora;
 
   /// "Dom 01/11"
   final String rotulo;
@@ -45,7 +51,9 @@ class CultoDoDia {
   }
 
   factory CultoDoDia.fromJson(Map<String, dynamic> j) => CultoDoDia(
+        id: j['id'] as String? ?? '',
         data: j['data'] as String,
+        hora: j['hora'] as String? ?? '',
         rotulo: j['rotulo'] as String? ?? '',
         horaTexto: j['horaTexto'] as String? ?? '',
         nome: j['nome'] as String? ?? 'Culto',

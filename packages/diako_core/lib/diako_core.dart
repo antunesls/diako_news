@@ -10,4 +10,5 @@ export 'src/motivo.dart';
 export 'src/mural.dart';
 export 'src/recado.dart';
 export 'src/resumo.dart';
+export 'src/roteiro.dart';
 export 'src/visita.dart';

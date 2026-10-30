@@ -51,6 +51,19 @@ class AppSettings extends ChangeNotifier {
 
   bool get agenteLocalPareado => agenteLocal.isNotEmpty && agenteLocalToken.isNotEmpty;
 
+  /// Onde o Modo Culto parou (JSON do ModoCultoController); vazio = nenhum culto em andamento.
+  String get modoCulto => _prefs.getString('modoCulto') ?? '';
+
+  Future<void> salvarModoCulto(String estado) => _prefs.setString('modoCulto', estado);
+
+  /// Tempo previsto da pregação no Modo Culto.
+  int get minutosPregacao => _prefs.getInt('minutosPregacao') ?? 40;
+
+  Future<void> atualizarMinutosPregacao(int minutos) async {
+    await _prefs.setInt('minutosPregacao', minutos);
+    notifyListeners();
+  }
+
   Future<void> atualizar({
     String? servidor,
     String? sessao,

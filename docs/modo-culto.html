@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modo Culto do tablet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" rel="stylesheet">
+<style>
+/* Proposta do Modo Culto: texto em cima, roteiro, a Palavra do pastor (painel web
+   + tablet + telão + TV do palco), quatro telas em abas, features e decisões. */
+:root {
+  color-scheme: dark;
+  --bg: #0e0f14;
+  --paper: #171821;
+  --ink: #e6e3ec;
+  --muted: #a4a3b3;
+  --line: #2c2d3a;
+  --accent: #aeb9ff;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: Roboto, "Segoe UI", system-ui, sans-serif;
+  --serif: "Source Serif 4", Georgia, serif;
+  --a-bg: #121318; --a-s1: #1a1b21; --a-s2: #1f2027; --a-s3: #292a31; --a-s4: #34343c;
+  --a-line: #45464f; --a-tx: #e4e1e9; --a-mu: #c6c5d0; --a-mu2: #90909a;
+  --a-pri: #bac3ff; --a-onpri: #202c6a; --a-pric: #384381; --a-onpric: #dee0ff;
+  --a-red: #ff7b72; --a-ok: #8bd6a0; --a-warn: #f3c26b; --a-verso: #ffd27a;
+  /* Painel web (tema claro do servidor) */
+  --w-fundo: #f7f5f0; --w-papel: #ffffff; --w-tx: #2e2d2a; --w-mu: #5f5c55; --w-linha: #e4e0d6;
+  --w-pri: #1f5f5b; --w-pri-s: #dceae7; --w-warn: #7a4310; --w-warn-s: #fbe7cf;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.ms { font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal; font-size: 24px; line-height: 1; display: inline-block; white-space: nowrap; -webkit-font-smoothing: antialiased; font-variation-settings: "FILL" 0; user-select: none; }
+.ms.f { font-variation-settings: "FILL" 1; }
+
+.page { max-width: 1400px; margin: 0 auto; padding: 36px 24px 72px; display: grid; gap: 38px; }
+.eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 6px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -.02em; }
+h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1.08; font-weight: 800; }
+h2 { font-size: 26px; margin-bottom: 6px; }
+.sub { color: var(--muted); max-width: 72ch; margin: 0 0 14px; }
+.lede { color: var(--muted); max-width: 72ch; margin: 10px 0 0; }
+p { margin: 0; }
+.novo-tag { display: inline-block; font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: #33291a; color: #f3c26b; vertical-align: middle; margin-left: 8px; }
+
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.box { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 8px; align-content: start; }
+.box h3 { font-size: 18px; display: flex; gap: 10px; align-items: center; }
+.box h3 .ms { color: var(--accent); }
+.box p, .box li { color: var(--muted); font-size: 14px; }
+.box ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+
+.fluxo { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: stretch; }
+.fluxo .seta { display: grid; place-items: center; color: var(--accent); }
+.fluxo .box { border-top: 3px solid var(--accent); }
+.saidas { display: grid; gap: 8px; }
+.saida { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; background: #1d1f2e; border-radius: 10px; padding: 10px; }
+.saida .ms { color: var(--a-verso); }
+.saida b { display: block; font-size: 14px; }
+.saida span { color: var(--muted); font-size: 13px; }
+
+.roteiro { display: grid; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.roteiro .r { display: grid; grid-template-columns: 44px 210px 1fr 1fr; gap: 16px; padding: 13px 18px; border-top: 1px solid var(--line); align-items: start; font-size: 14px; }
+.roteiro .r:first-child { border-top: 0; }
+.roteiro .r.h { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: #13141c; }
+.roteiro .r .ms { color: var(--accent); }
+.roteiro .r b { font-weight: 500; }
+.roteiro .r span.m { color: var(--muted); }
+.roteiro .r.add { background: #1b1a14; }
+.src { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; margin: 2px 4px 0 0; background: #232536; color: var(--muted); }
+.src.novo { background: #33291a; color: #f3c26b; }
+
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.tab { border: 1px solid var(--line); background: var(--paper); border-radius: 12px; padding: 10px 16px; display: grid; text-align: left; }
+.tab small { color: var(--muted); font-size: 12px; }
+.tab[aria-pressed="true"] { border: 2px solid var(--accent); padding: 9px 15px; background: #1d1f2e; }
+.show { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; align-items: start; }
+.viewport { position: relative; overflow: hidden; border-radius: 22px; background: #000; box-shadow: 0 0 0 10px #23242b, 0 0 0 11px #33343d, 0 30px 60px #0008; margin: 11px; width: calc(100% - 22px); }
+.viewport.pc { border-radius: 10px; box-shadow: 0 0 0 1px #33343d, 0 30px 60px #0008; margin: 0 0 0 0; width: 100%; }
+.viewport .app { transform-origin: 0 0; position: absolute; top: 0; left: 0; }
+.notes { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 14px; position: sticky; top: 16px; }
+.notes h3 { font-size: 13px; font-family: var(--body); text-transform: uppercase; letter-spacing: .1em; color: var(--accent); margin-bottom: 4px; }
+.notes p, .notes li { font-size: 14px; }
+.notes ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.screen[hidden] { display: none; }
+.btn { border: 1px solid #44465a; background: transparent; border-radius: 12px; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; }
+.btn.pri { background: var(--accent); color: #1a2260; border-color: var(--accent); font-weight: 700; }
+.bar-real { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+body.real { overflow: hidden; }
+body.real .viewport.on { position: fixed; inset: 0; margin: 0; width: 100% !important; height: 100% !important; border-radius: 0; box-shadow: none; z-index: 50; }
+.sair { display: none; position: fixed; right: 14px; top: 14px; z-index: 60; background: #000c; color: #fff; border: 1px solid #fff4; border-radius: 99px; padding: 8px 14px; align-items: center; gap: 6px; }
+body.real .sair { display: inline-flex; }
+
+.feat { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ft { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 6px; align-content: start; }
+.ft .k { display: flex; align-items: center; gap: 8px; }
+.ft .k .ms { color: var(--accent); }
+.ft strong { font-size: 15px; }
+.ft p { color: var(--muted); font-size: 13.5px; }
+.ft .when { justify-self: start; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; }
+.when.e1 { background: #1c2e24; color: #8bd6a0; }
+.when.e2 { background: #262838; color: var(--accent); }
+.when.e3 { background: #2c2140; color: #d2b6ff; }
+
+.dec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.dec .d { display: grid; grid-template-columns: 30px 1fr; gap: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.dec .d .ms { color: #8bd6a0; }
+.dec .d strong { display: block; font-size: 14px; }
+.dec .d p { color: var(--muted); font-size: 13.5px; }
+.q { display: grid; gap: 10px; }
+.q .item { display: grid; grid-template-columns: 34px 1fr; gap: 12px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.q .item b { font: 800 20px/1 var(--display); color: #f3c26b; }
+.q .item strong { display: block; margin-bottom: 2px; }
+.q .item p { color: var(--muted); font-size: 14px; }
+.fases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+
+@media (max-width: 1000px) {
+  .grid3, .grid2, .fases, .feat, .dec { grid-template-columns: 1fr; }
+  .fluxo { grid-template-columns: 1fr; }
+  .fluxo .seta { transform: rotate(90deg); }
+  .show { grid-template-columns: 1fr; }
+  .notes { position: static; }
+  .roteiro .r { grid-template-columns: 32px 1fr; }
+  .roteiro .r > :nth-child(n+3) { grid-column: 2; }
+  .roteiro .r.h { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- Componentes do app ---------- */
+.app { width: 1280px; height: 800px; background: var(--a-bg); color: var(--a-tx); font: 14px/1.35 Roboto, sans-serif; overflow: hidden; display: grid; grid-template-rows: 76px 1fr; position: relative; }
+.app button { border: 0; background: none; }
+.app .mu { color: var(--a-mu); }
+.app .mu2 { color: var(--a-mu2); }
+.app h5 { margin: 0; font: 500 13px/1.2 Roboto, sans-serif; color: var(--a-mu); text-transform: uppercase; letter-spacing: .08em; }
+.logo { width: 52px; height: 40px; border-radius: 10px; background: var(--a-pric) url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAjUAAAErCAYAAAAmIXLuAABNjUlEQVR42u2dBZhc1fmH/5uNu4cQARIICYTgluDBihNIKMEJxVugSNEiLe4upUCBAsGhFClOcU9w58CB5CQQd/3vR99pL5fZ3ZmdmZ07M7/3ee5DC7uzd75j3/n0//5PCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCFE1ngXBngXrvIuHO9daC+JCCGEEKIUFZrm3oVzvQtLvQu3exc6SipCCCGEKDWFpol3YR/vwjSUGrPWtJNkhBBCCFFqSs1G3oV3UWgWeRf+7F1oI8kIIYQQopQUmpW8Cw+h0Ngzp0axOdW70FrSEUIIIUSpKDRdvQvXeRcWRJSaGTWKzQnehVaSkBBCCCFKQaFpiptpVkShWUpczXFSaoQQQghRKkrNMd6FmTGFZilKzslyPwkhhBCiFBSaQ70LIY1CY8+8mn+eLqVGCCGEEElWZpp5F46oQ6GxZ4l34RxlPwkhhBAiqQpNZ+/CSd6FKXUoNKnnWlUUFkIIIUQSFZo+WF+mRRSXxd6FD7wLz3oXfEypucOUIElOCCGEEElRZqxS8Orehbu8C3MjSstkatOsZ7Ez3oWzY0rNP7wLPSRBIYQQQiRBoWnpXdjBu/B2RFmxasGfexcOibqXvAu/iaV2P+9d6CspCiGEEKKYyozVn+nvXbgyFj9jRfVu9S4M8i60iP3Ozt6FLyI/+453YV1JUwghhBDFUmg6eRf29y685V1YGImd+dC7cJB3YZlafs/cUC9GlJpvvAt7mYIkqQohhBCiMZWZJvRwup54mWjNmQe8CxtnoAzdGvm9ucTZKK1bCCGEEI2q0GzvXXgqFuw7ybtwrrmiMvycU2O//7B3oYskLIQQQojGUGiaexcOw70UVUjexw3VPIvPGh1rmzDeu9BPUhZCCCFEoRWalvRo+jGm0DxT82zSgM/bwLvwcuRzrHbNrmYJkrSFEEIIUSiFpoN34cw0DSnv8y4MbuBntqOScOqz5vP/1a1bCCGEEAVRaDpTHXh2TKG5xbuwYo6fbfVqFkQ+873aMqaEEEIIIXJROtpioZkeUTysaN41+VA+vAtreRdei9W22VWp3UIIIYTIp0LTggyl6bF2B+fmq/kkXbz/FLHWWAXiB9UHSgghhBD5Umgsy+nEWCuDSbih2ub5b21H8b3U3zE310behSqNhBBCCCFyUTKqvQuHehd+iCga0ymO17YAf687AcLzI9aaGxVbI4QQQohcFIwq78Ju3oVPIgqNuYYu8C50LeDftV5Q38eUqE1lrRFCCCFEQ5WLDb0LL8UUGgsK7lngv9vDu/AXrDT2d5fQRqGXRkUIIYQQ2SoWyxGkuzTSmNIUi96N9Pc39i58Hfn7U6lSLGuNEEIIITJWKKwQ3lURS4k9j3oXVmjEd0hlW82PvIOle6+lERJCCCFEJsqExdEcTYftlDLxundh9SK8iwUNP4/7KfUuNyjFWwghhBCZKDTm9vkuokR87l3YoYjvtI13YUKsNs6RGi0hhBBC1KVAWIDuUxHLiPV2OjabbtsFeq9TYq4w6wK+mUZMCCGEEOkUB4thOSPWz+nmQqZuZ/Fu7egtFXVDveJdWE0jJ0T5b05W/bObBfVZx1zvwnrehS29C1uk26AoTT7Mu7Cvd2G0d2Gkd2EXMznze0PpyWKftaKlc9Klt5mkLURZ7BlN6LEULbBnqdxDEvSOtp89FFO6nvQurKIRFKJ8lJeuLPbVvAuboJAc5124omax302Q3Yf4yL/0Luye5nN28i6MJ2VyChublUCfyO9ZWuXbfNaD1I84h2DCvb0L23oX1o8oPb29C128C61ts9RICZH4vcT2j+ciysK3xYyjqeM918E9tjSWlbWqRlGI0tp0LICvjUX9YykxJeJg0i6fRvGYiFIyk8yFRbHFb4WzDoh9rhXXeif2c3U9i/mcOXTQnUrg3gQ2Qku5vM+7cBm++D28CxtQ86I7yk57FJ7mqjkhRNH3lma4nVLZTvbP022NJvR9rQ/UC7E96VFZbIRI/mZjPVea4uoxF9BJNTeVR2j2NoXmcguyUEhsI1gn8vn9a24492Tx+9koPvMjis8UFJ+P2XyupjneaFxj3VBwmvN9q2XhEaLR9plduJCkKve+UuiKwXm44Nml7tnYnmP725oaUSGStWCbcHPqwaF/C+6jQP+TBTkoGnb7ahO5nf2Bfx//uWl0xp2HcmJ/cyGWn8WxYL1sn4UoO9Nxc03AyvSGd+EOmuQdZJuTKTiaEaKM13oVT5PIU13L07Sep7bfi3526u9VRd7BrL5/i1h1A12yq0pAfqvjDo/uYeNwpyveT4gib24tiY/ZD/fN+8SzzM2T9WRBykfO39sxVvsh1Q33DlxSQ3AbbW8uqxpF5IQahehC78JNWIteRxmZhrtrNu86j7+1qAHKzzw+70fvwoveheGaHaIELiHVXBKas45b4V5tS9ZOO9yufbwLA70La9Oc0dbWKEr/H2i1V7wLv6uZ/7/lwnEaqcx/Yu1dkOZJ/fsz+NlTI793LJ/1G/7GKKwyvyJpwGLgzsKSupQ1fCPv3Ybv0Irv1ILv1yyiLFUlQP4m00vYg1L7yNd8//aaoUI07oKsZsMbzsb0NK6lhigtS1AkFmBdicfTWJDw2v/3vyyCu9NYaP6RLuCODawtbqK+3oWVa25Ia+AS24qOuhYwfATWIIvzubNGOXqiRpF6k7/9I66olPKTsgAtruX7fC2lRiTgspFSWFpyyLcjrs1ct+sSJL8Xc/8U1vF13oXbvQsPcAF4AleJKeqv1lwo3vIuvIc79ouaS4Nj3X9PXNwErJg/onBMx9Vc1zM18vNT+N+T+CzP37C/9al34SMuTW/gFo5aUT/C+nFvzXe8je9yEUrT8TWfeThrfScSE4awJ3QmVq5NRBFKuZMLqgDxd49kn0nteya/u7iYyWojRCNsmB24OZnl490srRpLIgG709gcn8XCczWZSY/Hypw/wOZTxQY8J/aZtsENzcP3imZkDUHx2dqyrrwLY7iJnhzZ/B/F5B23Ktn36KKZIhrZ4tISq8rqKOy/5sA8i4zCm1hn/6qZ1y+jnHyFcjC7APFpSXnmo1xNQkH6iAvL86zh+3BjWQfvi2v2mTNrfv4YrLxmHdoMy1AvFMOW+VR4+KxfoYxF9zYbo8O0lwhRWGXGDvjr2Ryy2VgmUjviHrKLTsG0vB23xv4pkys3qah76UY2khVjqZupz92zCFaqTqSS3hB7n3HF6DMjKs5KuiwBpzuTSXgq7pxbqX/yLhaUmWWsrBTymcuF5VPc1WaxGktJiJTLzBSffXDFWVbTqoxLywaOq12m/kgJitR7zOBvbiOrjRD53Uitp8qVMZNvXc9UUqRvx6++D5vwshn8rW0xZ6c+613qytwc63pr1pxLzWdeRLn8IbYRnpdL9hPm721Q9pbVzKv4ddeUw25jrKNHMcf+ziXh69ia0NO4j1mbP0PxeZxxuRSLrimbuxEDtAY1sFpmMOabstd+E3PB/9kKjWpVCJHbptoXf/THGSzwH3ElXY//emi2CgcuoJMyvGGOK2YaJObosZH3sUyvQTnK+kxcAl+RPXYgqeMtNRsrxho6GMX2QC4EY4llmSYlouSeycQAPY2L6zwU072x8Fg19FXI5GoWmwtbY6X+LLbnncTeqtIRQmS5wW5KPMuSemJk3uWGcqh3oV+Of7M3JvSFGZiHzytmFgOuuC8jgYq35vBZ6+FTX5wmq+stYo12w+VVrdlZNmusIyUAdiZ+4goOwAk5HqaLuBgEXMWfo3SPx71hVtR/cwmp73mRn3+DQ/UD78InzH1PYOvsOgLn9dR+CfwAd+EtXGjGsK9sxF64HMHc1zAGqd8dT6aYKT59tZKEqHujbUudmXF1LMhZBLJdjPLTPh+HLWba1zLYEGyDHVhkOZ0dUfjMsjKigZ+zI9+nvrT2lCXsRLLO5J4qvbXVmgy8zehXdglupMko6gszLB8wmTn3HllJdjA+jFXnehT+k1CU7FAcgVt3cw7MtbEQWCxbP/4Zf/rxrEL/tPV5722Zs6Mo4/BbDtgL+Nt3chl6jPn6Bof3VwTrzpJCk1YJTRX9nIrCaAHd19I6Zn8sPYtjAdDf4uLfm/FRKrgQsU23K4dmqONwfY+MigH5XkT4n10GxfguKrKcmpF2mXonC2Bum+VnNEV5/DxNkb8pddx8Z+Jvv41GfjYO7TR7E7umOqAkbEGsxb+Y41PqqeU0F+Xla9bcCygtFxGkOgoFZSVu9T3IfurAxaR1NDU5z9+pKlJYr0UkZbwDKdLdCZrti1K0GW1HfotL7QbKMLzM5ekzrD5T8ljfqlwyt35AefmxFqv5Qv7bp5SlkOVGCDaqbtwcp9cR/Hsj6c5tC/QOO9WhUKUe81FvVWRZrUtJ9pSS9dcsf78dcUeT02xiY/G734byMruO213APXU279RZ1YwTY5HpSarueaQQf0c2S22H1wzmw6ekGttaPARL6ArEcHXFKtqq1NyQkbTztmQP9qAA3QpYaHciIeByrE7jUHTKPeU8n4/t0SdpBQptwv+54V0Uqw8TVySsi3aHAr/HqEiV0Nqevxc7cBazfipDy/55eJY39+PSHHCziZ3pwe23I2mip2O+X1JHfNMc4jD+iQw7JKVyaoWtoxYolxdSD2VyLZaHxZFxG8dl4RB+tzfKS9tKSuPF+tMiUsW4J0rPhsSbLYgo8wsirU9ybX9STo9Zbc7SShS6Vf6nLPnUWhbKXWRkVDfCu4yuJ8vDNrM/JkBm10biH8xSsnGGv9eKbLJ4XEEg0Lp1LVadfgQK352m+GDcejOJdzIz/2qa4Y0yH/pRK+ZFlNxZdbhOP8X9sh9Wz15Y2JThll62puA9FVFcXqEo3nqsmauI3QkVrtAswcK3qmaNqOQNowqz75e13P4tG2OZRnyf+pSaTxsakJtnmT0ceSeLkeiVwe9V41aamKatwj71uY2IX+iDO+JPxOLU1a5hCha2u1CI2ipzKm9zoJrLwC64CT8griF+yCzE+vk08TTbRhQZKTGZyXrj2P7055QFktYGPYkrW5tKyoeh6LxAPMp8xqHcs7Ps+26uGSMqfcNYg2C9dNlN5o7q3MjvU5dSk+rxtGKRZTYgEk9jz9gMD8GD0/TH+gJ3UbMs36EDZvmDicGZXEcX9MUcCg9RLHAQsQ2qc5H92FuA+PK0zHgAJXtxLZlq/0TeO2HpVGZK9vJuRWzR3EgF8R0yUP570i5iOHvKSaRNv87+Mg9Fp1zcVu8Qv6U1LSp6w2iD4jI/zaZs7pXuRXinupQa24QuT4DcduUwSykMV2fwO7ulsYZ9mQ+rE66PkaTUvsWGvaSOzKlnOShG4PaQ9aZ+GVsW0TpYWx7CAhBXHGeSnm1xUXvKDZAXufeJrLUlKPB9GvA5TfisjUhxP5H2A0+TiTavhC05n7CWpdCIit8wdqF2RHyRWHfe5Yv0TqPSmPGj9TlOSoDcTiBuJaVonV3Pz2+AGyjuchqZ5/dqQh2S0xjDifVshl8ToHpwLpWQK2CdrIky81wtcQyfUEPk9xbnIYnlTe5NuUDMi1iPD8/j53eg/s4exEPdyBh/W0IWnK8au/edEEndMFrTTTq+QX+badBrgd5rxzoC/izV/DcJkN3VEeuWbbQn1PGzvSiMFm/COabA77g8DUNvocZJfQGGd3OLVbbU/2Q4iK7wL9Qit7fo0bOz4mMKIv9uWFNSbtXPCh0zgjt+b0ok3Eng94SEKjTfJWE/FCIpG8YWpJzGTejnFLlB5MZpitFF3TU7JUB2D8Wzluq4aV4US+k1F8WfGvl9h3P4vlJHT60FuTbjLKO1sQwVXJ+spZ7MG9RS2UQ7ScEV808jWX1WyqF3I7/D6lgyryMD65OEVESeWddlSohK3DBOjJlYl2DKXKHI72W9jZ6vZSHbrWnDIr9fE94jels6sJaf3TWN1emuTDKlCvTu/UndfyTiPot+j4MqWakhxmwbys4vSKPMvEQl7cHaQRplnW0e2aOmU6yyuojv1IVeSydh2XwRy3ZjKzSzsSS11kwR4j+LsxOm1fhCubjY1Wgpr359mkNlMRaSQUV+vy5Uh40qA2PS/Fy/NDEYVmRt0wQcFl1jLR6W0oV9UJpDflBjZ8AVSS6DSZP3aeaduZnOtV5jlVQMLwF71JmRcfim2Gsn8m5NWRsr0r/rBoLvP6qjGns+2yaY9bejZokQ/1uUm7BRL41tGusn5IZ2cJpCgIuoB9KnyO83gA65P7NwpFEGzohVZ55HobDqhMyBv8Tk+1LUSkPq8iE0S7ycgMqmZbgWOpFy/e80pfi/wG23ZqHagog619krESuyuQL7J/A9mzKHlsN1fgqp/B+RIbckz8X1LJ6vi2aIED9fiAekSUl9LikbNwGrX6dJ57662FYD0nqjsUhWPfbg2M9YpdMPY+9/k7U/SIh8V4lZkcwacUvsZzaOZGzN439b0GzXMloHFrNxWRoXwlTK8pv7o5N2jKKMzdBI5WxTNv9oNWtK4L3bkBywKoH6Y4kFnF5HHalMFZqby2n9CZHPhXdS7AZhm8elSTGt09n3wVjdCNsQzk9Az6cNcdWk3svSz4+K/PfOuPEWxLKdhido/PePHeQW93N05L/3QP5L0hz2/8TSV1Xia2BLCrHNix0c9u92L0aNJvGz8dkrsv4t/utXJfgdmuFOX4k6MtfXUkIjE4Xm77LQCFH7YrsoTZDogQlyjVj13TExF1RKqWlR5HeLKzWW2XRy5L+vSeppVL4XJskHToZbVGG0lO8t+W8tabZZX6uK00rh5pzmu1vDxCPTjNECiheuqAywoo9Rx9gc/abU6yjhVu+CgrMjl8iPMlRqHmrsrC8hSm2BXZmmIuXmCXvHgTHlYQEbXbEDmYcir6hb7IL/+1/V2WNiDScnJSXAMbK53h0b/6dSbj1iZz7OYKP9AWvO8BKa9xa8fU2ajLTnKPrYTbtDIsZpZVpQpKwUj3kXli2j79cEC85g4rnOI05vUZog9cdUmVqI+hfVDWn6hgxM2Ds2J+18TsKUmvViN6zFmJWrSJl+MSbbvyTpsLSU/TTveBcWDLsh3x/7b+8R4LwvRegWxMzi4+hv1CnB870KZe2hWM2g2Vgt11XRwUSN18aRi8Nc0ujbl/H37UzV8b1xXb+My9ricTbQjBCi/kUUryT8WmN24s7iPZel0FnKIpIE99OgWMuDJSgJFqNxfCxGY2Z9zfeK8P5bpzF7v4OF6dKYW8oUymMjv7sm9TG+iMXbzKQ42WpJUw5wZW5DFld0zMbTzbmddoTErftdI0Uip9HOpUmFfHe7WAyjV9wAzQYhMls458UOtVeSGoRGY8DJHESXF7vgFDVe3kpT4+ezNDVOTFlcOWEH/Jg0PaGW1GL6fjJuwcN0PhKrR7wR6r+8C9uZlS0h37c57/p+zI35aI2Ss612gsTuTwdHLgfmKlxRUhFC1LVpHIvlI6rU9Ejw+15KwbvfJsBSU0WhrfpiTuaiPLZLkBybY8qfn8H7TzGXUx2f1Yfv91GaBnuHFrs8APVD9saqFLU8mTtwJe0CiV3rpnifHnFzvl/OrichRH42jpGxOjBvFrs9Qj3va43tNvUu9EzI+9wRc9PUFkg7MmFytLiZv2aYQvpqJhknBDo+FXNHzSWTqEcRv+vomOVsChWDdUAme2/qgnt8Ic+9chEKIerbOAZyEC2N3IbWk2Qylt/pHJJ1KQZfJ6FCc+y923BIZNIs79hMawJhtbkhTRXoO4phFbE4Ju+Ci7yHJ36mWrM38WurHwGydmmYQXuKVpKMEOW54KtwIbTIJSATE++lsXLwO6s+R8by2zxNxeD480bSamtQzv0fGSg1Fh+0dpaf3RFFKN5h3dK+V2/E77hlzOVk6el7ataWzNpa27vwTKQcwhj12xKifBd8NRkoHfLwWZZhMCFSFfd4bR4Zy641QbF1KQZWZ6Nvwt57mQzeexEp3t0b8PlWuG/7NCnjT2erJDXw+63vXfgg8nctw2kXzdiSuzC8w/h9i5Kqy5YQZbrgOxH82CkPn9Xe+v1EMl3+Vuwg3BIbiz/Hap7E+1TdkLTga6tKGrkF1/ZM43bcNIe/szoF/qIZVaborFXA7zYw0gAx5VLdVvVnSm5d7UCvpFTQ+cqSihDludg70pNmk3wpH1RRTaX3WppyG0k6Y9mtFat9Es98uixpafIZKjXWMmNwHv6WWYUuiWVavYl7oUkBvtddMZfTVpqlJbmuRuJ2SlU6V3d0Icp0sdtN9PZ8uJ4in9k60jJhAp1ldbPNTHZNKES3uBal5tISVWryVrMIa+BZsfIBr+Wz7Dtz+ESCSlNBwdtrHpfsutqLjtY2li9LIkKU50K3lObDOUSb5fmz1yPb4Db1vsladtZy4JE0isE8CgV2Tdj7LhvLekunjF2Xz9uxpePSFX5OLMZmxTx9/naR4ORAN2RlOZXumto/Uk34XklEiPJc6L8iJiHvlhQyqVbGEqSAvOzlNzxNheGF1INZJmHvaj1m/llPwb2j8h1bZdbFGqXmBCovp2K47so1kJq2DM9F6gIdUOzeYCJvSo0V37tKEhGi/Ba5xSZca24DSSOR41NNb5p3YgqCddftl7B3bVujCNxXh1IzgT5JTQrwt9vQ+HJKxCp0RUOtg7idUmUJzPV0nOqZlJVSM8uKJUoiQpTfIv8NpegPkjQSO0ZNUAaejpR3fzefsSN5ek9Lub6xnoKBKxZYTidFFJuZWHCaNeCz9uFzFtBpW1Vny2MtHcC8sEKOx0kiQpTXAu9JnyGrvdFbEkn8eC2PVe0DYlN6J+z9mqJUzK5Fqfk8n4HotbxDFVVi50b+5i5ZfsYA78K/+f2xSasHJHKaHwdipbEMqIMlESHKa4EfR/zB9Qp+LJkxa0J8UrcEvlsVZQG+rkWpea8xYlLMMkMdnwWRwOH+WfzuGfyeKY+baNaV1frZC0vN996FPSQRIcpncfejDorVkdlRKaoiT/Oqfx31df7dWMoz6eUPRxphXphJnSTvwgYU1rOD70CNaNnNz5HESH1jxRMlESHKZ3GfxmZvvXo6SiIiT/OqinpH6ZSapxrTIkjn9XciQcq71/PzrUiVX0qQsSpgl9/83IG2LdaQdFNJRIjyWNjrRHrYnKQ0VZHn+bV3pJJ09HmyMecamWP7k469lHTzvnUoY5tzg39LcTRlOzc3pz2CuUiHSiJClP6ibk68Qap1wQZyPYk8z7GONNxcmqbxZHUjv4ulZl/M35+DEt8szc9ZSvhNVJsdpVEs27m5LtY7J6XmvzKxnn/DvAtDJA1RihN4F4LklrLZqx+TKMQ82z/SpT31vFqMgHSyxp5MlcZP13uKXluf0YS1pUawbOflSnSSN4vcBpLHT9ZMywj7tEYejzdGt3sh8jmB29PdeCl1GvaXlUYUaK61w/IRVWo+yHcbjizeZxTNNK3FxJ+i8TJUvT6d6sHDNXplPS+7ehfuwFKzpuTxUxmG4yJr9JpirVEhGqKRH0CQnE3eJ5JWvE2U3ZxbiwaW0To1XYr0Li3ZsO09no/GzNBm4d8EzzfXyJX1nGxCh3tTcNeXPH6KJduajuVLsdhsrZkiSmHyLkdp/dQBc7oChEUjbJjbRXpXmUK9chHfZws2b4utOZRbahNcstZLaz2NWkXMyxMIZB8mafy3Z9vVkb5pNxfr8iFEppPWUlVPjFR69d6F7SUZ0Ug3Y1Ma7vEu/KWYRQOxVp7NGvgXLrLmKDQ7y+xeMXNyPywSW0oa/5XJPjTKXYoVa081IBZJnrDr0SsoZaWxTbyHJCMaaf6ZxaZXzbzrk4B32QhrTfAurGHrgN5O/TVSFTMff0VQ7M6Sxn9lsiqKfuqMeMa7sIIkI5I4WdtRUCzVC8e08f0lGVGh68FSty/BBXUOB5wp/W0lnYqZA2tTXHG0pPFfmTSly/3SSGf638l6KZJ4Q14/ksKdSqtdQ9IRFbwutqah4et0qdfGXVnjv6x34UjvwjGSxs/ksgXrIpqtOEiSEUmapO0pWb8gMlHPUW0aUeHrom+NYv9gzU10Cn3PpNRU1vg34wA/VtL4hbIXbXEyh+auWh8iERPUrDTbRoKDl7KJ7yrpiApfGxa8fJh3YRaHW3WePlOBlaUzBzqkK8IoufxUiG9+5MywLLHVJBmRhMnZi2Cv1ORcQvPKfpKO0Pr4qVz+t96Fgyw7MMfb7TD6XVkGySbWIVwSLo2Ln6SQdl2MjxXNtKzFzpKOKObEbMZmHZ2Ys6jNoYUstEb+0zrB+lOd35Au9aSCmyX0Ye/Cx6TBfkerhUfl1hIlui7aehcuiFlr5qgEiCj2xFwj0oU79dhmu6GkI8RPa6QLtZtuyrZ2Dq5dq3XyUZqmndHqyWNU4FKU4NrYMU3ftodk5RfFmpCWsnpybELOZ/NWbRoh/tfvyYoC3udd6Jnl7w7yLrxWh0ITVWxWk3VUlNjaGOhdeCo2l61n2r6SjijGhNwk0scj9Uz2LvxagYxC/GLztpLwy2TxO2alOYU6HvUpNYtpR9Je0hYltC6a0+Ryemw+P6t+gaKxJ2NHCostjk3GNxXpL8Qv1ktLCu+1zOJ3qqm8uiQDpWYJB0EvSVuU2NrY0LvwdRprzfGSjmjMibi7d+GL2ES0IK9zrbKwJCTEL9ZMVZY/b0rNOxkoNKnnQwtKlqRFia2L7rhml6S5IKsRqGiUSWidVsemmYRek1CIvK0zU2qey1ChMYvpK0noeSVEtso+IQuTY3PaCrleZS4qSUkUehIelWYCLiHgq5MkJERe1lkTqnLPykCpsQPgQq0/UaJzvU+sEXI0k3Y3SUgUcvItHyu0F21KZrVpWkhKQuTtBruWd+HtDJSar4nZUYC+KMW53tq7cFmkGXL0uTubWDQhst1kzyJ2Jt2mKn++EPldc+aCOibWKDb+TCSDRGZ6Ucpny2bM5fj8trl/sKQkCjHx1qrFRDiP5mSqaipE/tddK+/CaOrVWCXhqTwTCKa0HjqtJSlR4vPc6jm9nCajNpXivYykJPI54Swl9fpaboqmSe8oKQlRsPVnFpsVqcBqlpvfW8NY78JKqiQsymien0Az5PgZM5eaTSouKfI22XakKV86pebVXBr1CSGyvtEqdk2U49y2mM33ajlnxnkX1pSURD4mWjfvwj21TLRplqEhKQkhhMjDeWOhDItqyfC72hphSkoilwnWHJ/95FqUGmsdv44kJYQQIg9nzt7eBVfLeWMFX7eUG0rkMsF6eheerCPz4gGZwoUQQuTpzOleR9HJhd6FW1WPSTR0cpmV5kjvwsxaJpgFdB0nSQkhhMjj2XO5d2F+LeeOZQCOUE0m0ZCJNaie3jMv2M9IUkIIIfJ49mzrXfigjuatjyvFW2Q7qdp4F86rpWZA6rlcrichhBB5Pn86ehduq+PssRTvMVbqQNISmU6qDesIDl5KINdImQCFEELk+fxpSo/BhXWcQZaksoqkJTKZUMt6F26pp9fMneoILIQQogBnUBW9zOrrUn+ad6GdJCbqmkzWGXgHagLUNpHMJfUH9ZoRQghRoLOoJZ3nl9bT92wDpXiLuiZSP+/Cw/VMpA+9C8M1kYQQQhTwgr2Xd2FGPeeRxXZ2k8REuklUTfDVgnom0ZUWyCWJCSGEKOCZNMC78FA955GVHNlJ0hLpJtAa3oVX6plA1pF7H0lLCCFEgc8kCxg+up4zyZ6x1jdKEhPxyXMmNQDqmjzWAn6wJCaEEKIRzqZNvQvf1HMuTfcuHCZpiejE2cK78EkGGvEJqk0jhBCikc6mLt6FqzI4m55WirdITZqWxMnUN2msbs3WkpgQQohGPKP2rKcQrD2zvAunSlrCJsyu3oXPMlBq7vIu9JbEhBBCNOIZtZp34a0MzqjXvQtrSmKVPVnaoqzUN1mssuNBqiAshBCikc8pa658aobn1OWSWGVPlkO9C5MymCzvW4VHSUwIIUQRzqqtKLZX31n1hXdhe0msMidJX+/CyxlMknk0t2wrqQkhhCjSeXVPBrE1lsH7oNonVN4EsRTuc7wLczJQaiZ4F7aT1IQQQhTpzKoiBGJKBmeWeR8OVrhEZU2Q1b0L72YwOZaQKjdQUhNCCFHEc2t978JHGZxb9rxozZkltcqYGG28C9dkUGgvVdTIatO0lOSEEEIU8ezqUfNcm0ErH3umcXY1k+TKf2Js7V34PENt11K9h0lqQgghEnB+7eRd+D7D8+s1VcCvDE13bIYTYhHp3t0lOSGEEAk4w/rhWsrkDJvvXbjYvBOSXHlOBgsO3ofKwEszrCC8hwVoSXpCCCEScI618i780bswO8NzzFkbIEmuPCdDb+/C8xlOBHvGWxqdJCeEECJBZ9ma3oWvMzzHLAX8796FzpJceU2CZqS4zctwIiwgIKu1pCeEECJB51l778JjGdSsST2WBr6jvA7lNQnMDzkuCyuNuZ42U56/EEKIhJ1n1d6Fw7wLMzI8z5agBMlaUyYTwHyQp2Wh0NjziioICyGESOi5ZhWGP8niTLPEl9EWWyrplf7gD82wv1PqmepdOEWSE0IIkeCz7ZYsQirsedu7sIokV9qD3tO7cEOWVpr3vAsDJD0hhBAJPt+2oYFlNufbyYoVLd0BN7/jKHL1l2ZZm0YBVUIIIZJ8xlmZkmeyVGosa2q4zrjSHPABdDXNdsD3lfSEEEKUwDl3RoZNLqOPFeTrKOmV1kA38S4c4l2Ym+VgWx2bLpKgEEKIEjjr1idWZmmW2b27SXqlNdBreBeeynKgrTbNpZKeEEKIEjnrzAV1R4YNmqPP7d6FXpJgaQyyWWn+3AArzQfW7FISFEIIUUJnnnklJmR53v3oXThS0iuNAR5KBtPSLJ9brVKjJCiEEKKEzrw+3oVHG3DmWZBxf0kw2YNrpri/ZlE+OvXM8i4cJQkKIYQowbPv7AYoNTPt9yS9ZA/sdt6FrxowuC94F9aSBIUQQpTYuVflXRjhXfimAWffO96FQZJiMge2TQNSuFPPJSpIJIQQokTPv17ehdsacPZZReKrJMFkDuqBBD9lO6jWFGxvFSMSQghRouefJcj8roGXeqvPtomkmDwt9YUGDuiDaosghBCixM/BjbwL4xtwBi7By9FOUkzGQLawBpTehTkNVGp+p86lQgghSvws7OBdOL+B56AV5NtXHotkDOQaDaiomHqsGdjmkqIQQogyOA93pZBsQ87D57wLK0iKxR3ALt6FK3IYxOusk7ckKYQQogzOxFW9C0808Dy0HlK/9y60kiSLN4DmQ/y4gQNofsTRkqIQQogyORObeReObeCZaM+r3oXVJMniDF4P+lc0dPBe9y4MkSSFEEKU0dm4iXdhYgPPxdm0GWorSTbuoFmxoVEENzVUqTlFZjYhhBBldj529y7cksPZaLGmwyTJxh205ehbsTSHSO/NJEkhhBBleEaOakBT5+hzk3ehkyTZOINlKdyH5jBY1hfqfu9Cb0lTCCFEGZ6TFjD8Vg7npLmhdraifpJm4QdrSI0W+mEOg2VNvMZosIQQQpTpOWltg87yLszP4ax8zLvQV9Is/ECdnMMg2fOpd2E9SVMIIUQZn5fb5BAwnHqsIF9zSbNwg2Qp3C6HAVroXbjBu9BN0hRCCFHG5+WKOcaeprKEV5U0CzNAnWqey3McINNaR0iaQgghyvzMbO5dOMq7MC3Hc/MEZQoXZoB2rxmgqTkOzivehZUkTSGEEBVwbq7lXXgvx3PzfbUTyv/A9PUujM1xYGbU/PN0aZxCCCEq5Ozs6l242buwKIez06rvX+ZdaCmJ5m9gfpdDF+7U85l3YV1JUwghRIWcnalCtd/neH5+7V0YKYnmZ1AGeRcezXFA7HlEAcJCCCEq7Aw1T8c7OZ6fVt/tVrVPyI+WeaZ3YXqOA2KxOIdbsy9JVQghRAWdo61wH83L8RwN3oWDJdHcBsOCnN7Mg5XGivUtJ4kKIYSowLN0wxzLoaSeJ70LPSXRhg1CNQFOuWqXC7wLN5rVR1IVQghRgeeppXc/QdBvLuepeU3OkEQbNgjb5iG4yZ4vvQtbSaJCCCEq+Ey1hJtJeThTP1JBvuyF357g4CV5GICnlMYthBCiws9VCxh+Iw9n6ly8H4pRzUL4++ShCmKqeeXZkqgQQgidrT9lMC3Mw9lqXpRhkmhmQu/lXXg+D0K3Z5wFG0uqQgghdL6GPbwLX+XhbLVifrebV0VSrVvgFsx0rHdhVh6Ebq6ruyRVIYQQ4qcztqN34fE8GQ2sl+LukmrdAl/bu/B2ngQ+QTn1QgghxM/O2XO8C/PzdM5azOrykmrtGuRFpGDnQ9iWvtZPkhVCCCH+e9ZunkfjgfVUPFJBw+kFPTRPvr7Uc4Fq0wghhBA/O2stzOMveTxrrQXDEEn250LujpCX5EnIX6j5lhBCCJH2zD2C7OCleUrxPtW70EaS/Z+At/Mu/JhHzfE2a7kuyQohhBC/OHMtfvW5PJ65ZkhYW5L9j3B7exf+mUfhLqFyYrWkK4QQQvzi3G3tXTgrj+euPVd5FzpXumDNt3dongX7rndhI8XTCCGEEGnP3qqas3KXPHtIpvOZVZUs2HUJMsqnUnOud6GTpq0QQghR6/m7vHfh73k+fx/0LqxQqQK1/k5n5lmgc1UMSAghhMjoHD44z2ewPYdVZIq3d2FL78IneRamFQJaTVNVCCGEqPcctlANl+dz+IWKO4cptHdFATTE49WRWwghhMjoLO5OgG++z+KTvAstKkmQI70L3+RZiFO9C5tomgohhBAZn8e70KAyn+fxm2YFqhQBdvYu3FMAzfBv3oUemqJCCCFExmfySt6FV/J8Hi/2LlxdEdYaashMy7MATcvcXWncQgghRFZnspVWOa4A1prPzQpU7sLrm+cqhqlnnHdhFU1PIYQQIuuz2XovhgJYa+43pamcBWcp3LPyLDhroX6+d6GdpqYQQgiR9dncy7twXwGsNd95F/YvV6Gt5l14qwBWGtMut9O0FEIIIRp0PjfxLuxLVeCleW5b9LR3oUs5Cu1678KCAig1T1qgk6alEEII0eAzek3vwvsFOKNneBdOLDdhDfcu+AIIayqBx001JYUQQogGn9Ndap4rC2R8+MC7sGq5CKoHwUJLC/CYVrmWpqMQQohGOM+qyvz7betd+LIAZ/V8Cu62LXUBVXsX9vIuTCqAkCyg6dZcfXV0K21OK3brR9UJRWxZsrX6excGehcGexdWNyWKRpwbUGJ6Y+/C5jzW+mEbJsYO3oWdKGy0W+TZHZnsZwFUDXjM7znKuzAi8pm7ehd2jDw78A5bYSXblHe1d17Hu7B2jaI5xDRnvtuKNDfrzXe3is9tkIvS5IUQSTpTWrJXm2VhGe9CH/av1F69Gq4U2+s29C4Mi+zTwyN79Pbsl7vE9lP733uwRx8Q238PTPPvanvs534d2/93iuzT2/Me23B2bMF7DmOvXpvzZgjnT2qvXoG9ehlk0J7zq5nFxuQoX/vcfxXICPEN8q8q5Qlok+zZAgpoBH+nGYdwB+9C15hCsjITwib5ekwYO+x3RjmwiXeEd+HYGkXp1JrPOrvmUL+s5nC/1rtws3dhbM3ieIRgpxcJdh5P36qveY/JtHCfieluYYG+czaPvcNsXHTf09/jY9Lf36iZXP/mOz1K1PvtNXK7oWaBXFKzMM7yLvwBuRyAnH5lFZtJ/VuXhTYIGfdlgZlC2NYKLkkZEkJkoJy0i+zZy1EIblX263XZbzbnojbau/Ab78Ix3oXTavaZc2v2nMtrlJq/sn/dw35mZUNeq1FW3q25QH5Wo5x8RRbOD9RIm5+QPTq1Ty8g7mQK72nnykc1Z9Q73oXXa77/8+zVj+H1sM7aN/Ldz0UWVmfmcJSpkchrCy6z6yPPqGK0HDLvFrnENkE5LJRnZQGGiO6lOmmbcShOKZCAvuLzTaP+fc2/O71mYC5EGbmjRsv9B5PblJBPOdhnEI29VE9OE3MqStJ4ZPwQFZ1NGTwDBXEMFqTN2Jjs1rEKSlAvbhhtFQ8lRFkpKy2wHHTnsrMSh+naXCg355J0qHfhBO/COTU/ew17tikkL3P5+h4FZKH23Jyzj+yyPQEF7x0aTtpF/U4SeC7m/DycM3RiAd9nAudCVSlO7jURYKGEs4j0MxuwOd6FeRENfLEmc6MvnEUoPDYOc7ESzWBjmoQS+jad1O/Ev/rHiGK6BSbX1blJ9OYWYYpPtY4LIYq+pzfHGt6Dm/7K7PMb4D7ZCyvK2Vh978fK8D7rfzL7wUz2h7nas4v6LI5YiuYxJvMa4e+aQtW71CZ/Gyb2Ak0cPbUspnlsblOoNfQtZbXf4yZxD71DTsWPvS3+5QERhad9RXWCFaKw+7a5H1rhjuhOrMrKxKbsyE3+z7h7/kG/IMtq+YLs1klYcWdp79dTxzMbN2KTUlocmxQohVtPZT3zscZNICL/A+KBTOm517twESn9u2De7oWPvhW3yiY6qoT4xf5cHUmO6EgcxVAspidwmfgHMYTWbflD4jwmcRFZpL1JT46PWe0Hl8qC6YHpUQOnp9DPPIL/HBvv6yg8d3KjPICYnr4KXBaKdfkpvmUr4lkuJEEglfzwCRfRqVJa9DTSYwHObUph8excgP5OevRk+8zCwvMpsV3PkjVg/cf2IXVyWR13ogwVmL4o8wd7Fy4gtuUlMh8/x+IyV3uEniI/ljk8NOmLaXm0fw2YnqQ+0wlafBdF536ytg4n2HEFWXVEiSgvTSmrsDMpvZZF9CDBueOIU5ujNa8nwY+VEOmWZD/tbxQgpqcEn0VYdd6h8JRZdC71LhxlzVLJxlIGlijm/tqconIpBeYK3KzPEGv2ozKI9JToJXPXpC66NTFxaqD0lHp6eipFfQa1eB6k0JUVJNybQPi+ZIvIqiPyuY9WUeOrP2UO9if24FqKr32Ea3VRZK5q3eop5ceU8+WTthCtlsifNDh6KkDhmUpAshUbPJGMkU0JwmyjY1k0YP/sSIG6LVGaT2OjfwcFRoqLnnJP8f5togqxElE/XoOjp0Ifq4B6N5acnWjH0c/Sy3Vki1qUmJVIox7JhfARAie1nvRU4mNu1IFJstJcr0HRo+e/z7cUD/wDt++BFDNTXE7lxsP0xBqzAyXpH8Hqp/WiR89/3Kl/ToS1ho6mn2hQKsb9IjlkL7NPqMK6H7FnlmHVXsd9WSsynQkwN6vdkSi532o9ZBzTpnihynussOo6xV64bQrY0VNP5hrufPyS0yhGN5GGcN9RmO5L6lN8TKbEeFI+32YipZ4XSXM2U+DjNKq05wEazt2Kr//BDJ5/0ln2BWJQ3uDvvU069Xh6wnzEof8F7/od7z+ZFgozSEudX+JFwRYRHzGRDuln0/l8EC0fFHBc2kpMU6wxlqG0G4HlrzOP55R4ZtLiyB4znUyrwB7zDSUSPmcdf8y6Hsc6T+0xr7GvPM0eY1mGD7O3PMg+czd7TPS5n/8W3VtSv/MYn/lCZA9Lt8d8HOnWHd1jJvFdprE25yuDrOgK7bVFtWjTiXmSBiNvz0Kq5M6KKSjfoph8zEJ9hU3hfgJWraz5eTWL8iRuhZYxMZrNdRuydcx/vy4NIwfTMXsAsR8r8CxHVk8f+isty9MT90k3Kkb3zODpxef0pX7RCsQRDOAgX7Xm/YfQ3mBdiuFtzTubReMwun2nuq9fzXe9j6aYqfLtXyCflCI0lVLucxPe4Xc2FVxtA76JANHVkLP6WZWGItOa9bEW5SzG0rtsYiM1BmzoswBFawYXh0mUNHAc/u+RyfoYe8ytrL/za9bUKZQ6GEOQ/PZ03h6KVWod9phVcLuuxB6zPPtBn8ges2xsz1iGPSb1dOffL1vPHrNcZA8bkGaPWYemm5vSQ872mH0Zs6PYN8/lO6YUqSdRxN5DWfuK9RrSKEKqwJy/x5TjrYu1oLsx6BqIzDTQhSyAuZEbz/dYKl7kNmKH9pXehTNYbPvigx/Oob9eZMNYkcXci8XfCctZs3K49fM9WtLLqTPfsReb40ooZrZZbYR8tkeRO4KN9+Ia+dzMje5lNutJEcvPvIR1B/4ORe0eMgFWYTybSn1InEWmHYrMqVgk30WRScI+swilJbXPzGCf+YCifHZg/wUF5USqDo/CargZysmaKAX9Y3tMR+ZkWfRVi/TAahNp4tmL77wSazDVhXxj9pkduTRaN/KzvAtX1cjpNnplvUQF84ns76lO5AvYa+ROy8yibfFmzYsxIc5Qqe06N5fAZvc0NzgzR5/MJjICq8QmWCpW4TZjC6qrDrOc5mWq03BnbnMrcGNbjxulWa72qtnsf8/t7CYOpje5ic1PwPz5gX4899Gwc7BGNhFzawjz5iHcKzMS0v/sK1ya91FV+EwstiMjltq1UVSWxyJih3hLjWpOym1bLve9UABXxeq8Kfv7SPpsnUaxxLG43j7E2qOzMv1j1sM9G3tAV1Zw8E+uDtvYnsBkeSHukj3ZSIZhVRmAibSz3AqJ25Tas8H3x/WzAbexURxel7ARvUrsQDGsOj+iHI9lg1xOo9eo88QOqqOxcLxbpIyl2ZjlU/3LLsCSO5L5uh4KS18O2TaK0UrUHLJLVhfOgZWx/myEdczczsfXKEgXYfF5Euv9jAo+WxcTYtG5sQaoOS6SRRWiuNhG9qh34UbqSViPoF/jm90QN0hfJq2sK+Wl9HTFzbcOh8cIYglOwv/+EBaVxoor+56D7WrmoOrgFM61vh8Zay+zDzTG+E6KWOguRnHZi9pHdvtfA8tj53Jw/4j/zrdmnB/LYw3ciLCDvXBFn4Mr/TFiKqdXwNk7h/lf3RgDsCnmznIR3lziLaK3oOMIIhvB912NYDWZa0VK4enO7dg2oF29CwfVLMQTMDM/gDtrYgHdm19y+J2BqVsKdW5j2hLl4WzisAqZfv0tmVEP4JY+gfmzK/NpADFysrZoXlYRkN4bhWczLMmHUgfLrMl34X78MuEB6g1J8R5QaAFb5svtJRrwNA2z3rNMgivIrLEsm13whfZmc2ua6uujjUVkuPE0iQSRDiB+Z2+CMS8lFf4FFOiZeVRu5mNNvILA8gEakazGbnUUimvYHxbkcX+bTeDoc+ybKRf1rzmcBjBfmqqPmMhyr6nGwtMKC8+GXMKPJKbK5vO9KDuflqg7ay5ZvW0KKczRpP4lWRAzsSS9Qa0VO0wuI0ZiV0y4HZgQTZkcMuWKQm8+HQnWHIWicz039ZdQdKbnIWtgFhvZYWRrdNFI1Ho52wIF44k8pOUuIrjxUzIZbVyvw005ikyp9syDaikwokDzOrXfNCVMpBvxViOJ27mS2Lyn6Cv2LW6eJJ/nZn3aslACG0RtlCQFE01FgRmHRnovGS37EfTZVZuHSPAm1JxA1D24Xd3Dofg+Kd5zc7DgfEQMmB3ey0rWP234fehTd1GO7qU5/P54rDB/J8Nld/bJZprdIsGXrWWxFB6K+yp1uXqfeT0rYTWVLJ51mXwLoim3v5lF/HKzSZP+CnP7g/SKGMXBIOVFlMOm04rA5IOx5ryIJWcia6AhKb834w7rXmnrBOtIL+oY3dtAi8xMgrQ/YzzMCnMgMQ7q5yXKYZ20YN8ZQ5zX06SeO0pMzC1yiYvd87p3kYL2RiNX1p2K1vgJ5rILiQZfTQG7ooI2m6ZkYO1BEPvzDVRyFuBq2Y1sveoyl1tzMoX24xa6uAFKTGrvOZdNtb8CskUF7T1dKU1yKDE6qSKm3xGj2lglLhZRUqFvPjeH0wqcwj2XtMkvyRq5iVS2TQje7cANVrciUakbTDVroCOH685k6jzN4TshQ//4XDan/QkwbFZmcmpFAO6RtKCYl6EVeAJtSCxt9o/UmupDLIz2HlHJe08zMrA6clHYmhjVO3DBfoU1ZX6BdYQD8mKtIeAw3+mNs6jJ8DkNyS7nhTfkVtpNheqEqHdttkfpX4NgwIvIsPqawNUF9Zh0X8Dc3KcoZcnzK4uWVOU+lnTpqfW45H5ETi9gARuBO8lcVW01u4So9/LQgwuElSE4hGaUL6HkTC5AELIVQR2U64t3pk9IPoJ9ZmGJ+Qc9M3ZHGFZhsaumiRD/l4/1OoggwDHE5Iwjs6q25p4TcEsdXKrrkMDHYwjanVLHHjSFjfFKLFWbIa9Omj1C5LQGqyK1uzahbMF57C2pLKt8NBg+IyeDBy82LYcXmIASczoBvRvTKEw3ISEKv9H0IKVzF5ovPoaFpra1+iBureoS+X7tqDHzRB29dL7DH38cVVrX1CVKiEZZn+3p1L4Z7YPOxV0+JcfClVs09IX6sxlk8wen8tKXcBPalM9priEWoqgbTFMuFFvQ6uMW3L/xNWym4xusGGXCv093LkvpqjaPxxpzABep5TUDhCj6mm2NZ2Y4luGrSHzINoX88gb1haJNQCbZFeNwUR1NmfHVZc6tmEnagttyV2I7+qHEDmQeDOGfZi0YyrMRk3prnuH8u6G1PMMoWjeEZyB/ox+xID0IYGurzJSsxq43sj8MX/jbaRSD0/JeHyK/7/9oxLX0b4psjmE+yRqTuSybsY670OA1tZZXolzGEOK2out4Q/45nKDqrSPPNpQQGBZbyxvwOal9YRX+xnK4ELvyHq1UoqMi5l1XLKe70vLhDgpYZtKTcUS2f2zVOgrtmTn3EYLrDmXy9tAQlZwy0oOg7NXYrDaja+xulNs/hDiFU6gHdC5p9ZeiYd9A/ZPbqFL5IK7Gf+IOeAar3TPU9niF51UO0Hd53ubfvVLL8yrBnKnPeoK/8Qh/8x6qRt9GkaZraBlgQbPn0wzuDBbNbzn0RuOS2RZr4rqRLscV102dzWVjLDiXIfPUen8dmVUl7J2bU0jvZN7P5nCHCrz5xrs/D0MuOxI+YNaqI+gvdQbr4XwaZl5JzZ2/0sZhLLV8HmR9PUbX6GeIV3oxslZfjqzlcZH1/C7//600a/llPie1lv/F33gIr8BY1vHf2F+uYz5eyP5zBtW4j0YZ34/YzF+xf63L2bU8clGySenM5SrGzcbyd5wz/6qjmawpQP0z/fDOBPgsitSMGUe/pLNZKAOV5pi4CdGJdLsh3Iq2Ij5iNMpnSkE5h0P/VipJPo4J8A0qSn6BSX86wV3zuAkvZE6knsWxZ0nsWVqgHmFLanlS7xF9x4W8+3xSAmfjIv2OegvvcWg/yyY+lg3+CuR0Ctk0dtjvg8K3NQfHEG6z5gZpVSbzqJqb8gYcHFZa4QNSxm9gTjVJ2LxvVi77kPW44bLRL7aOd6FG16Gk0p6GYnI1Y2R788PU1HmZEviWnv4NMVSzmP/zWRMLa1nHta2tpQVszJpuDS9Os54XxtbxTDJov2TfegOF6VEuOjexjs9lHR+D/EbjUdgSa9NgLjMdZB1KzJquxvI+hAv2BZxVH0Vq45gleWimH3oEm/yHaO1nspF344YvRaZxB7kVB+fy3ELWxTq2AwXZfkOPmUu5bT3GregjDu+ZKCepTS2qoEQ3s6UV/CyJbKAL0yhDcyJlCD5Bvo9RHv9q2hH8njiyEZjfN8ZtlrIAdSql2DJicFrjJvgjh+bFHAQdtDKztox2Zh4MpBfURsyTEVhTjucAvpZbaHQdT6hnHS+KKSVax+kvNXNo7OhR1l/Cunwz1qA/sJ/uwf66ecSK26fU1nAZXbRs/fREuT8Xy55Z7Xpl+iFnchNYHxNvU2mwBT88OuDLXgE/89pseiO4YVyIZeVxzLuTWKjplJRKV1CSsIHO4Ab5GjfHm3DhHYb1bGNKkg8mPmiZVJPVBM/RlszJA4mD0J7wv5tlSw68ZRnPwYzvprhHjmT8b0Q5fIX5MUMXjcRdaBZE9tZJ7LePMnZ/wmq7C2thbfbrFVjD7dQcueBrran0kuQMSHNS3LpR4Ks/t4DduaVdgYntTUzG2tTKeyOdivvrEcb+WMoerM/c6IOFriNuCTVJLO76bcY4dOYAW44DbTNckycTA/Io4zpd87zs1/APxA49QEbO0cQyrY5lfVn2+/ay8IhSt7y04ebWg8PJbm17E5M0FsVlCjeDxWluZ1JoKmdjjMcDLaY21HjMrJfh2tqdzJHekY2ypW6GBbsRtkV56UMA7iguH9cRwPg18WaL01hYtH4rdw0vZl//nkDqu7Dw7IXbsXckY7O1wjlEEn3lHdn8lsfysh+m5jtxP3xDBPe0PFZV1FM5z0LmzfRIaf/nCWg+Cf//EOZfyo2lrI/c1vVAlJc3iUubgqtoboF74Okpz/U7m/1/Muv3ZbK8TidweQ0sf91Zv7LqiEZTYNpHgnY3w796BUF97+Ann0hQn25rjfssjmRIzIsE985gQ5nK4fQjZmPbYALPBA6v76hY+Q3Plw18rICd4zO+jXz2hMjfnMx7/MB7TeU9pzN/ZkcyzxbVMp+W8B0nENj/LEX1TqYXVMoMnroZqrt9Zmt9r1pknS4DJzW/aptbE7m1p+bAN5HnqxzmV+ozfC3za1JsfkXn1qxIZuP8SDyP9qzG3a9mMGZfoEA/TOHaQ2g1sFzEKquLishpU2sSiYGxWi7bkTt/JfUUXiB6fqIsL3k35UYD9uZFDpAZHBrfUQl3PJawZ1Eq7+P2cwP+7XPJ2jke5XMMVrQ9OfB3J+BvFzIdtuXZkqq70eJhwxrwbMbnbBn57O0jf3M33mMP0hYPpMrmUWRhnEGA+FUEKd7Od3yMrI3xbIbfcojNiBxKc/h3n1Jb5BasOiPJoOuEi7QlsSJyYf18/a9HWvCzZMeMRYbXMrcuiNQ+Opr5FZ1buzHGOxNjsR3jvw3F6oYzvzbKck6lithtzNzagszU+PzamYJmI3Gb7Us6c3Runc93uY4khLsjaeGvkXX1DXtcylKVyr6SMlS4Zz6KzgdYZO9jnI5kzvRKxdhp3YpMNrM2uJBS8S93srF9XEdvGT0NN8v+yMH7GpvpAxwelyP/E1nM+3BgpNKlNyO1OFVpeFAkuHYZCm+1w7rWpATnYTUKRwduaj1JB+7Pd12dOK0NudENRzFLFVv7HQfXVSh6t1CU8DIOsz9yG/xVRMlRJsHP5d8L2axMdktvrLRdGJeWpRgPEZlb7Ql6TsX99aPjcipzayMU8u25AIxGcTucQn5nUkbiFmK/nkfRdliFFmuPy+szGfk+xgXnDPZE2wPbaNWK1ALvTtrloSzQ+yni9J0WUU7PVKwIr1MB+C5uuedgOTmIA3h7DuW1OUD6c4B3lLk1b3O8JQfXAOS8JdaDLVGOeqPMS6kR2cyrVGuFnlizh6BkD6e43WjW+XEEyl6NxetJXPWpzs3aLxv2LMKS9jrn1mWcY8PUpqiyFmJvzLTHEAtzP77MyVokWT3TcAG9RkryLZjk/4ALZQ/kPJQ2DCpbLkTl7rtNsQqtgCK9CYr13lh+TmL/uBl332vEDc3UXpu1Nec1iuZeyF68UYOaP4rELqblcVccQeuHe/FVztMCqPeZQHuMp3DDXYbJ+RjcQTtwKxiIi0TNJIUQuSg+XXH3bYS1Z38sPWdh6bmHnlHjaunOrueXl8/XqXx+NtWSN1OvxtJaGF0pXjaafh9j6QsySwFtaZ8fiRd6GYvL33DDncKGsg3phj1o19CUIGq5KoQQhd7Pq9hvUoUPe1PrZWvie04l/i7VHub1SKVm7e+/TMCYTrHAm1EWd2N/b6/ZlpxJ35aqnttQgv5qCh5NVU2JXygvqbTBZ7nxXEY2xC4ER/cieLA1AbZNFV0vhEjgvt+E/akF+1UH0p+H4vo+nkzV+9jv3sGdNU1nwc9qX/1AjNOFXGI3J/ZOYQKNOJlbkN0ykIC0U5i0PzJICyp8ss7GLJtKef436ZqpuiVrEtuidF4hRDmeEdWU42jJpbcbl7bRuM/vovfW+1h1QoUHLC8hjXw2svgHl92hJG500xmR/0naCrfSAFLYzHT2WaROQqVOxDlYpAJR8C+RtnsIsS7LoAQ2Y6HLZSSEqGTrTjX7YQtcWXYx/i11oN6gkOEkLDpzKzRcIVVkch4Wrksp/bAcwd6y4uRgkemIIjOGLKWJ9VRXLff0vbkstoCL7ZpIQaa4AiPNWgghsld0tqKg4k3ehbdRcqZH+nxVYizOfNo73Eopjr6EKig5JAOLTDcCl07CrfQtB3mluZXms5ACgbx3IZNtSIvsyqRqJQVGCCHydg5Vs692ZJ9dibjDsygO+iWKzowKPJfm4R0wGTxIyvhKsuD8fAK1pgDe+kSyW9DSJxUY0DWXUuTfkYl0HRNmUyrIWgv7tpoxQgjR6OdUFcHIvam4vCVW8r/gtvqeM6vSSoVMInbzXsqmDCJms2WlTZBmTJAN6VL6EIKZWWHR57NRYp6ihs4+9HKxYnXLaCsRQojEnmNNuGyujgV9DBmlL0aCjxdWmILzOj3ETuAca1uKrUSymQRNcS0dTT+a13GzVJJma5P9XwRfHUwBuyHq3SGEECV/xnWkjs4ILBdXEEZRaZ6HmWTe3kgvuv7lNtAr8MWu44vOrLDYmLcY3KPxzQ6WEiOEEGWv5LTjIj+SmMg7SCWvpPppluDzuHfhEor9dS/VwWxNFLm5l/5ZYb2VvqU67/mYJK3PSRctcSGEqGglpw9p5FZ242KqIIcKOhu/xj11ondh41IZtPWp7HsDWTuVMFCzcKXdSnGn3cvO3CaEECKfZ2UTisiOpi+THfbvVZAV523CMKzdxaCkDU4vYkNOI0hqVgUMiJWXfoFaBsdgjemk9GohhBBZnqFNOUe3pfr7bWTBVkIszo94Nn5PVlmnYg1CGwJc9+Rgn0BacjkXv/uSqr23ks43mCyu5lqWQgghcjxXqyKFZ62lzbE0ZX6DTNlyPV8Xkw38GbE3O2PFalFogTehGNE6+MTeLPPCePOoP/AO9Qh2wyfaXoqMEEKIAp+5Lbg49/MuHOhduBMX1cQyP3d/JGvsSFLDOxZCsJ0pBHcLgU3zyrgI3lQ0xlvIVuqiyr1CCCGKqOA0xUPSEw+JVZl3GBbKtTTKHBJvLsIzZHVvmuUixGa0LbCW5M9hHirH3hdLUNKsmdlfvQu78r1blnXhICGEEKWo4FRzPvWiaOv9FL+bX8bhH1Zx/z7vwnakyjfNRmCpRpJ/xtQ1rQwjspegpKWClGxirIhFSq4lIYQQpaDgtCQsZBXvwqHehWfwNswpQ+VmAWf2a96F41DqqjMR0j2kY08vU/fSj7QmsJbzw+g4qm6jQgghSlnBaUH8zeYU+3sNC0c5WnBMcfu7GWAyEcyDZZbJlIqsNqvTucTJWGR1lZaBEEKIMrXgWBzKKO/C5d6Fz7HeLCmjs93O9NUzEcbaFAIqhy9t2Uu3Y5XZpOK6hwohhKh0BacjFf6PIy5lapmc75aV3DlTIRxW4u6n12lTsLs6XgshhBA/ne3Lexf2ptnmhyV8xlvm107ZfHELmn2gxL7kdHppWGXjYZq+QgghRNozvhkVjM+lJkyplWm5LmMrzf/9r9Deb0sktiZVU8aahK2g6SqEEEJkfN4Ppt3PnZQ2SfqZb+nrv27IF12FluFJ/WJvoK1Z36m2mppCCCFEg5WbLhT2+xtBuEk9+82I0bMhX9CsNUcksJGkNc280LuwobUs0FQUQggh8qLYNCGweLh34RrSwmclLMxkt1y+4CDvwtMJMTeZMnOUd2E5WWaEEEKIgio47Sl/cpZ34a2EZE3dklPyD1rbb4pYGnkWLdgPpHWBqv0KIYQQjafcWO/D3qSEjy9iyyTTB3bJxxeyLpkvFEGhMQvRSJQZ9WASQgghiqfcNKM1wcFYbhpbsbFYn175+CJV3oXDvQsLG6Efk1U8fMK7sLN3YVlZZoQQQohEKTctqXezPwk7jZEOPtOqI+fzS6xBwFChlJlZKDMjEZZ6MQkhhBDJttwMJETl7QI30bzXdIN8vrxZa47Gl5bPF51B2vgYE46miRBCCFFSyk017ZWOxy2V7/p2kxtUlyaDF7fmWK/msYX4cxT4W0XTQgghhCh5BWdozRl/OgHFS/LUkPqhvFppIi9rEdDH4tvK5SU/8C6cY5qdpoAQQghRdsqNNdC80rvwVR6sNFYQsKpQL7qqd+HdHGrN3OFd2F5DLoQQQpS1YmNhK6OwtMxooJXmyYJYaSIv2YZCPNlEO8+n0eRB9vsaaiGEEKJilBtrv/D7BpSGmUaNuuaFfkGLrfkkw5eyiOg/ehf6aGiFEEKIilVuLFPqUu/CpxnqDy83iu7gXWhB76X59biabvMubGA57RpOIYQQouIVm3Y1ysrWuKRm1lM92Ir8NWmsFxvgXfiiFlfT6xTl6aYhFEIIIURMh+hJCvgHtVQmftO70LWxX+qqWN0ai1K+mIaTKp4nhBBCiNp0CKtMPNi7cGsskPgH78LvivFCq6Fl2Uu8410YoUBgIYQQQmShS7SnKvHX6BNWD69DMV7E0rWurXmhS6gm2EzDI4QQQogs9QmrgzeMbKdhkogQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEIIIYQQQgghhBBCCCGEEEKIfPH/ZpWbBPYJe+kAAAAASUVORK5CYII=) center/80% no-repeat; flex: none; }
+.top { display: flex; align-items: center; gap: 18px; padding: 0 22px; background: var(--a-s1); }
+.top .tt { flex: 1; min-width: 0; }
+.top .tt b { font-size: 19px; font-weight: 500; display: block; }
+.clock { font: 500 34px/1 "Roboto Mono", monospace; font-variant-numeric: tabular-nums; text-align: right; }
+.clock small { display: block; font: 400 12px Roboto, sans-serif; color: var(--a-mu2); margin-top: 3px; }
+.culto-tag { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 99px; background: #3a1f22; color: #ffb4ab; font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+.culto-tag i { width: 9px; height: 9px; border-radius: 50%; background: #ff5449; }
+.sairbtn { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px; border-radius: 99px; border: 1px solid var(--a-line) !important; color: var(--a-mu); font-weight: 500; }
+.slide { container-type: inline-size; aspect-ratio: 16/9; background: radial-gradient(ellipse at 50% 40%, #1d2340, #000 72%); border-radius: 10px; display: grid; place-content: center; text-align: center; padding: 6% 8%; color: #fff; border: 1px solid #ffffff1a; position: relative; }
+.slide .t { font-weight: 700; font-size: 6.4cqw; line-height: 1.1; }
+.slide .x { font-size: 3.8cqw; margin-top: 3cqw; opacity: .92; line-height: 1.3; }
+.slide .v { font-family: var(--serif); font-size: 4.6cqw; line-height: 1.35; }
+.slide .ref { font-size: 3.4cqw; margin-top: 3cqw; color: #ffd27a; font-weight: 700; letter-spacing: .02em; }
+.slide .tag { position: absolute; left: 8px; top: 8px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: #e53935; color: #fff; letter-spacing: .06em; }
+.slide.preta { background: #000; }
+.slide.palco { background: #050505; place-content: start; text-align: left; padding: 7% 7%; }
+.slide.palco .p { font-size: 4.3cqw; line-height: 1.45; }
+.slide.palco .p em { color: #ffd27a; font-style: normal; font-weight: 700; }
+.slide.palco .next { font-size: 3.3cqw; line-height: 1.4; color: #ffffff59; margin-top: 3cqw; }
+.slide.palco .tag { left: auto; right: 8px; background: #2e7d4f; }
+.ok-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 99px; background: #1f3328; color: var(--a-ok); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.ok-chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--a-ok); }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--a-line) !important; color: var(--a-mu); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.chip .ms { font-size: 18px; }
+.fbtn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 22px; background: var(--a-pri) !important; color: var(--a-onpri); font-weight: 700; font-size: 18px; }
+.tbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 99px; background: var(--a-pric) !important; color: var(--a-onpric); font-weight: 500; }
+.obtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 99px; border: 1px solid var(--a-line) !important; color: var(--a-pri); font-weight: 500; }
+.tp { display: grid; place-items: center; align-content: center; gap: 4px; border-radius: 18px; background: var(--a-s3) !important; color: var(--a-tx); font-size: 13px; font-weight: 500; }
+.tp .ms { font-size: 30px; }
+.tp.ativo { background: var(--a-pric) !important; color: var(--a-onpric); outline: 2px solid var(--a-pri); }
+.toast { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); background: #e4e1e9; color: #1b1b21; padding: 12px 18px; border-radius: 10px; font-weight: 500; box-shadow: 0 8px 24px #0008; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 9; }
+.toast.on { opacity: 1; }
+
+.body { display: grid; grid-template-columns: 290px 1fr 330px; min-height: 0; }
+.trilha { background: var(--a-s1); padding: 12px; display: grid; gap: 2px; align-content: start; border-right: 1px solid #ffffff0d; }
+.mo { display: grid; grid-template-columns: 46px 26px 1fr; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 12px; text-align: left; }
+.mo .h { font: 500 13px "Roboto Mono", monospace; color: var(--a-mu2); font-variant-numeric: tabular-nums; }
+.mo .d { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--a-line); display: grid; place-items: center; color: var(--a-mu2); }
+.mo .d .ms { font-size: 16px; }
+.mo b { font-weight: 500; font-size: 15px; display: block; }
+.mo small { color: var(--a-mu2); font-size: 12px; }
+.mo.feito { opacity: .5; }
+.mo.feito .d { background: var(--a-s4); border-color: var(--a-s4); color: var(--a-ok); }
+.mo.agora { background: #252a48; outline: 2px solid var(--a-pri); }
+.mo.agora .d { background: var(--a-pri); border-color: var(--a-pri); color: var(--a-onpri); }
+.centro { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.mhd { display: flex; align-items: center; gap: 14px; }
+.mhd .ic { width: 52px; height: 52px; border-radius: 16px; background: var(--a-pric); color: var(--a-onpric); display: grid; place-items: center; }
+.mhd .ic .ms { font-size: 30px; }
+.mhd .tt { flex: 1; }
+.mhd .tt b { font-size: 24px; font-weight: 500; display: block; }
+.tempo { text-align: right; }
+.tempo b { font: 500 22px "Roboto Mono", monospace; font-variant-numeric: tabular-nums; }
+.tempo .bar { width: 160px; height: 6px; border-radius: 3px; background: var(--a-s4); margin-top: 6px; overflow: hidden; }
+.tempo .bar i { display: block; height: 100%; background: var(--a-ok); }
+.duo { display: grid; grid-template-columns: 1fr 250px; gap: 14px; align-items: end; }
+.lb { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--a-mu2); margin-bottom: 6px; display: flex; gap: 8px; align-items: center; }
+.lb .r { width: 9px; height: 9px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 4px #e5393533; }
+.lb .g { width: 9px; height: 9px; border-radius: 50%; background: #4caf50; box-shadow: 0 0 0 4px #4caf5033; }
+.fita { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.fita .c { background: var(--a-s1); border-radius: 12px; padding: 6px; display: grid; gap: 4px; border: 2px solid transparent; text-align: left; }
+.fita .c.ar { border-color: #e53935; }
+.fita .c.feito { opacity: .5; }
+.fita .c small { color: var(--a-mu2); font-size: 12px; padding: 0 4px 2px; }
+.cmd { background: var(--a-s2); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.avancar { height: 150px; flex-direction: column; gap: 4px; }
+.avancar .ms { font-size: 56px; }
+.avancar small { font-size: 13px; font-weight: 500; opacity: .8; }
+.row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.row3 .tp { height: 74px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row2 .tp { height: 64px; grid-auto-flow: column; gap: 8px; font-size: 14px; }
+.row2 .tp .ms { font-size: 22px; }
+.inb { display: grid; gap: 8px; }
+.inb .it { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; background: var(--a-s3); border-radius: 14px; padding: 9px 10px; }
+.inb .it .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #3a2f1a; color: var(--a-warn); }
+.inb .it .ic.v { background: #1c2e3a; color: #8ccaf7; }
+.inb .it b { font-weight: 500; display: block; font-size: 14px; }
+.inb .it small { color: var(--a-mu); font-size: 12px; }
+.inb .it .obtn { height: 38px; padding: 0 12px; }
+.pre { display: grid; grid-template-columns: 1fr 420px; gap: 22px; padding: 18px 24px; min-height: 0; }
+.check { display: grid; gap: 7px; align-content: start; }
+.ck { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; background: var(--a-s1); border-radius: 14px; padding: 9px 14px; }
+.ck .s { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: #1f3328; color: var(--a-ok); }
+.ck .s.w { background: #3a2f1a; color: var(--a-warn); }
+.ck b { font-weight: 500; font-size: 16px; display: block; }
+.ck small { color: var(--a-mu); font-size: 13px; }
+.startcol { display: flex; flex-direction: column; gap: 14px; }
+.big { font: 500 72px/1 "Roboto Mono", monospace; font-variant-numeric: tabular-nums; text-align: center; }
+.cardp { background: var(--a-s1); border-radius: 20px; padding: 18px; display: grid; gap: 12px; }
+
+/* Tela da Palavra com texto */
+.pal { display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
+.leitura { display: flex; flex-direction: column; min-height: 0; }
+.lhd { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #ffffff0d; }
+.lhd .tt { flex: 1; }
+.lhd .tt b { font-size: 20px; font-weight: 500; display: block; }
+.topicos { display: flex; gap: 6px; padding: 10px 20px 0; }
+.topicos button { height: 34px; padding: 0 12px; border-radius: 99px; background: var(--a-s3) !important; color: var(--a-mu); font-size: 13px; font-weight: 500; }
+.topicos button.on { background: var(--a-pric) !important; color: var(--a-onpric); }
+.trechos { padding: 10px 20px 20px; display: grid; gap: 8px; align-content: start; overflow: hidden; }
+.tr { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--a-s1); text-align: left; font: 17px/1.5 var(--serif); color: var(--a-tx); border: 2px solid transparent; }
+.tr .n { font: 500 13px "Roboto Mono", monospace; color: var(--a-mu2); padding-top: 4px; }
+.tr.lido { opacity: .45; }
+.tr.agora { border-color: #4caf50; background: #18261d; }
+.tr.agora .n { color: #8bd6a0; }
+.tr.prox { border-color: #ffffff1f; border-style: dashed; }
+.vs { display: inline-flex; align-items: center; gap: 4px; font: 700 14px Roboto, sans-serif; color: #1b1400; background: var(--a-verso); border-radius: 8px; padding: 2px 8px; margin: 0 2px; vertical-align: 1px; cursor: pointer; }
+.vs .ms { font-size: 16px; }
+.vs.ar { background: #e53935; color: #fff; }
+.vs.ar::after { content: "NO TELÃO"; font-size: 10px; letter-spacing: .06em; margin-left: 4px; }
+.tr h6 { margin: 0 0 4px; font: 700 12px Roboto, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--a-pri); }
+
+/* Painel web (claro) */
+.web { width: 1280px; height: 800px; background: var(--w-fundo); color: var(--w-tx); font: 14px/1.45 Roboto, sans-serif; display: grid; grid-template-rows: 40px 60px 1fr; overflow: hidden; position: relative; }
+.web button { border: 0; background: none; color: inherit; }
+.chrome { background: #dedad1; display: flex; align-items: center; gap: 10px; padding: 0 14px; }
+.chrome i { width: 12px; height: 12px; border-radius: 50%; background: #c8c3b8; }
+.chrome .url { margin-left: 10px; flex: 1; max-width: 520px; background: #f4f2ed; border-radius: 8px; height: 26px; display: flex; align-items: center; padding: 0 12px; color: #5f5c55; font-size: 13px; }
+.whd { background: var(--w-papel); border-bottom: 1px solid var(--w-linha); display: flex; align-items: center; gap: 22px; padding: 0 22px; }
+.whd .marca { font: 700 17px var(--display); color: var(--w-pri); display: flex; gap: 8px; align-items: center; }
+.whd nav { display: flex; gap: 4px; flex: 1; }
+.whd nav span { padding: 8px 12px; border-radius: 8px; color: var(--w-mu); font-weight: 500; }
+.whd nav span.on { background: var(--w-pri-s); color: var(--w-pri); }
+.wbody { display: grid; grid-template-columns: 250px 1fr 330px; min-height: 0; }
+.wlist { border-right: 1px solid var(--w-linha); padding: 14px; display: grid; gap: 6px; align-content: start; background: #fbfaf7; }
+.wlist .wb { display: flex; align-items: center; justify-content: center; gap: 6px; height: 40px; border-radius: 10px; background: var(--w-pri) !important; color: #fff !important; font-weight: 700; margin-bottom: 6px; }
+.wlist .wi { padding: 10px; border-radius: 10px; text-align: left; display: grid; gap: 2px; }
+.wlist .wi.on { background: var(--w-pri-s); }
+.wlist .wi b { font-weight: 500; }
+.wlist .wi small { color: var(--w-mu); font-size: 12px; }
+.st { justify-self: start; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; }
+.st.ok { background: #dcf0dd; color: #22592b; }
+.st.ra { background: #ebe8e1; color: #4f4c46; }
+.st.ar { background: #dbeafb; color: #1c4f86; }
+.weditor { padding: 18px 26px; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow: hidden; }
+.wtool { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.wtool button { height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--w-linha) !important; background: var(--w-papel) !important; display: inline-flex; align-items: center; gap: 6px; color: var(--w-mu); font-weight: 500; font-size: 13px; }
+.wtool .sep { width: 1px; height: 22px; background: var(--w-linha); margin: 0 4px; }
+.wdoc { background: var(--w-papel); border: 1px solid var(--w-linha); border-radius: 12px; padding: 22px 30px; font: 16px/1.65 var(--serif); display: grid; gap: 12px; }
+.wdoc h2 { font: 600 24px var(--serif); letter-spacing: 0; margin: 0; }
+.wdoc h3 { font: 700 13px Roboto, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--w-pri); margin: 4px 0 0; }
+.wdoc p { margin: 0; position: relative; }
+.wdoc p .cut { position: absolute; left: -24px; top: 4px; font: 500 11px "Roboto Mono", monospace; color: #b5afa3; }
+.rf { background: #dcf0dd; color: #22592b; border-radius: 5px; padding: 0 5px; font: 700 14px Roboto, sans-serif; }
+.rf.q { background: var(--w-warn-s); color: var(--w-warn); outline: 2px dashed #d98a2b; }
+.wside { border-left: 1px solid var(--w-linha); background: var(--w-papel); padding: 16px; display: grid; gap: 14px; align-content: start; }
+.wside h4 { margin: 0; font: 700 12px Roboto, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--w-mu); }
+.wf { display: grid; gap: 3px; }
+.wf label { font-size: 12px; color: var(--w-mu); }
+.wf .in { border: 1px solid #cfcabd; border-radius: 8px; height: 36px; display: flex; align-items: center; padding: 0 10px; background: #fdfcf9; }
+.wf2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.vl { display: grid; gap: 6px; }
+.vl .vi { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; border: 1px solid var(--w-linha); border-radius: 10px; padding: 7px 10px; }
+.vl .vi b { font-weight: 700; font-size: 13px; }
+.vl .vi small { color: var(--w-mu); font-size: 12px; display: block; }
+.vl .vi.q { background: #fffaf2; border-color: #f1d2a8; }
+.vl .vi .acts { display: flex; gap: 4px; }
+.vl .vi .acts button { height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid var(--w-linha) !important; }
+.vl .vi .acts .y { background: var(--w-pri) !important; color: #fff; border-color: var(--w-pri) !important; }
+.wsave { display: flex; gap: 8px; }
+.wsave button { flex: 1; height: 40px; border-radius: 10px; font-weight: 700; border: 1px solid #cfcabd !important; }
+.wsave .p { background: var(--w-pri) !important; color: #fff; border-color: var(--w-pri) !important; }
+</style>
+</head>
+<body>
+<button class="sair" id="sair" type="button"><span class="ms">close_fullscreen</span> Sair da tela cheia</button>
+<div class="page">
+  <header>
+    <p class="eyebrow">DiakoNews · proposta · segunda interface do tablet</p>
+    <h1>Modo Culto: o tablet segue a ordem do culto</h1>
+    <p class="lede">A tela de hoje (trilho e palco fixo) continua sendo a de organizar a semana. O Modo Culto é uma segunda interface, só para o horário do culto: o app monta o roteiro sozinho e o pastor acompanha o momento atual tocando <b>Avançar</b>. Na hora da Palavra, o tablet passa o texto do sermão trecho a trecho na TV do palco e projeta no telão cada versículo citado.</p>
+  </header>
+
+  <section class="grid3" aria-label="Como funciona">
+    <div class="box"><h3><span class="ms">login</span>Como entrar</h3><p>Botão <b>Modo Culto</b> no topo do trilho. Quando há culto na escala de hoje e faltam menos de 60 min, o app mostra um aviso para entrar. Para sair, toque longo em <b>Sair</b> (ou o PIN, se houver).</p></div>
+    <div class="box"><h3><span class="ms">auto_awesome</span>Roteiro automático</h3><p>Montado do que já existe: hora, tema, Santa Ceia e músicas da escala; visitantes a citar; recados selecionados; motivos aprovados; e a Palavra que o pastor preparou no painel. Momentos sem conteúdo somem.</p></div>
+    <div class="box"><h3><span class="ms">touch_app</span>Um botão principal</h3><p><b>Avançar</b> passa para o próximo slide, recado ou trecho e, no fim, para o próximo momento. O que chega durante o culto (pedido, visitante) aparece num canto, sem trocar de tela.</p></div>
+  </section>
+
+  <section>
+    <h2>O roteiro padrão</h2>
+    <p class="sub">Com os recados antes da Palavra, um por vez, e os dois momentos que faltavam: dízimos e ofertas, e oração final. A ordem pode mudar depois, com os modelos de culto no painel.</p>
+    <div class="roteiro">
+      <div class="r h"><span></span><span>Momento</span><span>O que o tablet faz</span><span>De onde vem</span></div>
+      <div class="r"><span class="ms">timer</span><b>Antes do culto</b><span class="m">Contagem no telão até a hora do culto. Ao zerar, passa para o primeiro momento.</span><span><span class="src">hora da escala</span></span></div>
+      <div class="r"><span class="ms">waving_hand</span><b>Boas-vindas</b><span class="m">“Sejam bem-vindos!” com quem autorizou ser citado. Marca como citado ao avançar.</span><span><span class="src">visitantes de hoje</span></span></div>
+      <div class="r"><span class="ms">music_note</span><b>Louvor</b><span class="m">Lista as músicas com tom e quem está escalado. Tela vazia no telão (a letra é do operador do Holyrics) e “Encerrar louvor” para o palco.</span><span><span class="src">músicas e louvor da escala</span></span></div>
+      <div class="r"><span class="ms">campaign</span><b>Recados</b><span class="m">Um recado por toque em Avançar. Aniversariantes primeiro.</span><span><span class="src">recados selecionados</span></span></div>
+      <div class="r add"><span class="ms">volunteer_activism</span><b>Dízimos e ofertas</b><span class="m">Slide com o QR do PIX e a chave da igreja, e um versículo opcional. O QR é gerado pelo servidor a partir da chave cadastrada no painel.</span><span><span class="src novo">PIX no painel: novo</span></span></div>
+      <div class="r"><span class="ms">wine_bar</span><b>Santa Ceia</b><span class="m">Só quando a escala marca Ceia. Slide simples e tela vazia.</span><span><span class="src">escala: ceia</span></span></div>
+      <div class="r"><span class="ms">favorite</span><b>Motivos de oração</b><span class="m">Projeta os aprovados (vários por slide) e as respostas do mês.</span><span><span class="src">motivos aprovados</span></span></div>
+      <div class="r"><span class="ms">menu_book</span><b>Palavra</b><span class="m">Texto do sermão trecho a trecho na TV do palco; versículos no telão com um toque; cronômetro da pregação.</span><span><span class="src novo">Palavras do painel: novo</span><span class="src">Bíblia do Holyrics</span></span></div>
+      <div class="r add"><span class="ms">front_hand</span><b>Oração final e bênção</b><span class="m">Tela vazia no telão; texto da bênção na TV do palco, se o pastor tiver escrito.</span><span><span class="src novo">novo</span></span></div>
+      <div class="r"><span class="ms">qr_code_2</span><b>Encerramento</b><span class="m">QR de pedidos de oração e da caixa de mensagens, e o próximo evento da agenda.</span><span><span class="src">QR codes</span><span class="src">agenda</span></span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>A Palavra do pastor <span class="novo-tag">novo</span></h2>
+    <p class="sub">O sermão é preparado e guardado no painel web. No culto, o tablet comanda duas telas ao mesmo tempo: a TV do palco, só para o pastor ler, e o telão, para a igreja ver os versículos.</p>
+    <div class="fluxo">
+      <div class="box"><h3><span class="ms">edit_document</span>1 · No painel web</h3><ul><li>Colar o texto, ou enviar Word, PDF ou Google Docs.</li><li>O painel acha as referências (“Jo 3.16”, “1 Coríntios 13:4-7”) e o pastor confere cada uma.</li><li>O texto fica dividido em trechos (parágrafos), que o pastor pode juntar ou separar.</li><li>Vinculada ao culto da escala. Fica guardada, com as versões anteriores.</li></ul></div>
+      <div class="seta"><span class="ms" style="font-size:34px">arrow_forward</span></div>
+      <div class="box"><h3><span class="ms">tablet</span>2 · No tablet</h3><ul><li>Baixada antes do culto: funciona mesmo se a internet cair.</li><li>Lista de trechos com os versículos como botões amarelos.</li><li><b>Próximo trecho</b> grande; tocar num trecho pula para ele.</li><li>Atalhos pelos títulos dos tópicos do sermão.</li></ul></div>
+      <div class="seta"><span class="ms" style="font-size:34px">arrow_forward</span></div>
+      <div class="box"><h3><span class="ms">cast</span>3 · Nas telas</h3>
+        <div class="saidas">
+          <div class="saida"><span class="ms">co_present</span><div><b>TV do palco (painel de comunicação)</b><span>O trecho atual em letra grande e o começo do próximo em cinza. Os versículos aparecem destacados.</span></div></div>
+          <div class="saida"><span class="ms">tv</span><div><b>Telão</b><span>O versículo tocado, na versão padrão do Holyrics. Sem versículo, fica preto.</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>As telas</h2>
+    <div class="tabs" role="group" aria-label="Telas">
+      <button class="tab" type="button" data-s="1" aria-pressed="true"><b>1 · Antes do culto</b><small>conferência e contagem</small></button>
+      <button class="tab" type="button" data-s="2" aria-pressed="false"><b>2 · Durante</b><small>momento atual e Avançar</small></button>
+      <button class="tab" type="button" data-s="3" aria-pressed="false"><b>3 · Palavra</b><small>texto no palco, versículos no telão</small></button>
+      <button class="tab" type="button" data-s="4" aria-pressed="false"><b>4 · Painel web</b><small>preparar e guardar a Palavra</small></button>
+    </div>
+
+    <!-- ===== TELA 1 ===== -->
+    <div class="screen" id="s1">
+      <div class="show">
+        <div>
+          <div class="bar-real"><button class="btn pri real-btn" type="button"><span class="ms">open_in_full</span> Ver em tela cheia</button></div>
+          <div class="viewport">
+            <div class="app">
+              <div class="top">
+                <div class="logo" role="img" aria-label="Igreja Diakonia Tulipas"></div>
+                <div class="tt"><b>Culto da família · Santa Ceia</b><span class="mu">Hoje, domingo 2/11 · 19h00 · Ministração: Pr. Marcos</span></div>
+                <span class="ok-chip"><i></i>Holyrics conectado</span>
+                <div class="clock">18:41<small>começa em 19 min</small></div>
+                <button class="sairbtn"><span class="ms">logout</span>Sair</button>
+              </div>
+              <div class="pre">
+                <div class="check">
+                  <h5 style="margin-bottom:4px">Pronto para começar?</h5>
+                  <div class="ck"><span class="s"><span class="ms">link</span></span><div><b>Holyrics conectado</b><small>Telão e TV do palco respondendo</small></div><span></span></div>
+                  <div class="ck"><span class="s"><span class="ms">menu_book</span></span><div><b>Palavra pronta: “Em memória de mim”</b><small>24 trechos · 6 versículos conferidos · já baixada no tablet</small></div><button class="obtn">Ver</button></div>
+                  <div class="ck"><span class="s"><span class="ms">campaign</span></span><div><b>4 recados escolhidos</b><small>Aniversariantes, Retiro de Jovens, Campanha do Quilo, Ensaio do louvor</small></div><button class="obtn">Trocar</button></div>
+                  <div class="ck"><span class="s"><span class="ms">music_note</span></span><div><b>Louvor com 4 músicas</b><small>Bondade de Deus (G), Grande é o Senhor (D), Ousado Amor (A), Tu és Santo (E)</small></div><span></span></div>
+                  <div class="ck"><span class="s w"><span class="ms">volunteer_activism</span></span><div><b>1 pedido aguardando aprovação</b><small>5 motivos já aprovados vão ao telão</small></div><button class="tbtn">Revisar</button></div>
+                  <div class="ck"><span class="s"><span class="ms">waving_hand</span></span><div><b>2 visitantes para citar</b><small>Família Oliveira, Renata Campos · a lista atualiza sozinha</small></div><span></span></div>
+                </div>
+                <div class="startcol">
+                  <div class="cardp">
+                    <h5>Contagem no telão</h5>
+                    <div class="big">19:00</div>
+                    <p class="mu" style="text-align:center">“O culto começa em” até a hora da escala</p>
+                    <button class="fbtn" style="height:84px" data-t="cont"><span class="ms" style="font-size:34px">timer</span>Iniciar contagem</button>
+                  </div>
+                  <div class="cardp">
+                    <h5>Roteiro de hoje · 10 momentos</h5>
+                    <p class="mu">Boas-vindas · Louvor · Recados · Ofertas · Santa Ceia · Motivos · Palavra · Oração final · Encerramento</p>
+                    <button class="tbtn" style="height:60px;font-size:16px" data-t="ini"><span class="ms">play_arrow</span>Começar o culto agora</button>
+                  </div>
+                </div>
+              </div>
+              <div class="toast"></div>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          <div><h3>O que mostra</h3><p>Uma conferência rápida do que vai ao telão, com o que falta em amarelo e um botão para resolver. A Palavra aparece aqui só se já estiver baixada no tablet.</p></div>
+          <div><h3>Por que</h3><ul><li>Evita descobrir no meio do culto que o Holyrics caiu, que faltou aprovar um pedido ou que a Palavra não desceu.</li><li>Ao zerar a contagem, o roteiro começa sozinho.</li></ul></div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ===== TELA 2 ===== -->
+    <div class="screen" id="s2" hidden>
+      <div class="show">
+        <div>
+          <div class="bar-real"><button class="btn pri real-btn" type="button"><span class="ms">open_in_full</span> Ver em tela cheia</button></div>
+          <div class="viewport">
+            <div class="app">
+              <div class="top">
+                <div class="logo" role="img" aria-label="Igreja Diakonia Tulipas"></div>
+                <div class="tt"><b>Culto da família · Santa Ceia</b><span class="mu">Domingo 2/11 · Ministração: Pr. Marcos</span></div>
+                <span class="culto-tag"><i></i>MODO CULTO</span>
+                <span class="ok-chip"><i></i>Conectado</span>
+                <div class="clock">19:38<small>38 min de culto</small></div>
+                <button class="sairbtn"><span class="ms">logout</span>Sair</button>
+              </div>
+              <div class="body">
+                <nav class="trilha">
+                  <button class="mo feito"><span class="h">18:41</span><span class="d"><span class="ms">check</span></span><div><b>Contagem</b></div></button>
+                  <button class="mo feito"><span class="h">19:00</span><span class="d"><span class="ms">check</span></span><div><b>Boas-vindas</b><small>2 citados</small></div></button>
+                  <button class="mo feito"><span class="h">19:04</span><span class="d"><span class="ms">check</span></span><div><b>Louvor</b><small>4 músicas · 31 min</small></div></button>
+                  <button class="mo agora"><span class="h">19:35</span><span class="d"><span class="ms">campaign</span></span><div><b>Recados</b><small>2 de 4</small></div></button>
+                  <button class="mo"><span class="h"></span><span class="d"><span class="ms">volunteer_activism</span></span><div><b>Dízimos e ofertas</b></div></button>
+                  <button class="mo"><span class="h"></span><span class="d"><span class="ms">wine_bar</span></span><div><b>Santa Ceia</b></div></button>
+                  <button class="mo"><span class="h"></span><span class="d"><span class="ms">favorite</span></span><div><b>Motivos de oração</b><small>5 aprovados</small></div></button>
+                  <button class="mo"><span class="h"></span><span class="d"><span class="ms">menu_book</span></span><div><b>Palavra</b><small>24 trechos · 6 versículos</small></div></button>
+                  <button class="mo"><span class="h"></span><span class="d"><span class="ms">front_hand</span></span><div><b>Oração final</b></div></button>
+                  <button class="mo"><span class="h"></span><span class="d"><span class="ms">qr_code_2</span></span><div><b>Encerramento</b></div></button>
+                </nav>
+                <div class="centro">
+                  <div class="mhd">
+                    <span class="ic"><span class="ms">campaign</span></span>
+                    <div class="tt"><b>Recados</b><span class="mu">Um por vez. Toque num recado para pular direto para ele</span></div>
+                    <div class="tempo"><b>3:12</b> <span class="mu2">/ 10 min</span><div class="bar"><i style="width:32%"></i></div></div>
+                  </div>
+                  <div class="duo">
+                    <div><div class="lb"><span class="r"></span>No telão</div><div class="slide"><div class="t">Retiro de Jovens 2026</div><div class="x">De 14 a 16/11 no Sítio Boa Esperança. Inscrições com a Larissa até 7/11.</div></div></div>
+                    <div><div class="lb">A seguir</div><div class="slide"><div class="t">Campanha do Quilo</div><div class="x">Traga 1 kg de alimento não perecível.</div></div></div>
+                  </div>
+                  <div class="fita">
+                    <button class="c feito"><div class="slide"><div class="t">Aniversariantes</div></div><small>1 · Aniversariantes</small></button>
+                    <button class="c ar"><div class="slide"><div class="t">Retiro de Jovens</div></div><small>2 · Retiro de Jovens</small></button>
+                    <button class="c"><div class="slide"><div class="t">Campanha do Quilo</div></div><small>3 · Campanha do Quilo</small></button>
+                    <button class="c"><div class="slide"><div class="t">Ensaio do louvor</div></div><small>4 · Ensaio do louvor</small></button>
+                  </div>
+                </div>
+                <aside class="cmd">
+                  <button class="fbtn avancar" data-t="next"><span class="ms">skip_next</span>Avançar<small>Campanha do Quilo</small></button>
+                  <div class="row3">
+                    <button class="tp" data-t="prev"><span class="ms">skip_previous</span>Voltar</button>
+                    <button class="tp" data-toggle="vazia"><span class="ms">crop_square</span>Vazia</button>
+                    <button class="tp" data-toggle="preta"><span class="ms f">square</span>Preta</button>
+                  </div>
+                  <button class="obtn" style="height:48px" data-t="stop"><span class="ms f" style="color:var(--a-red)">stop</span>Parar projeção</button>
+                  <h5 style="margin-top:4px">Chegou agora</h5>
+                  <div class="inb">
+                    <div class="it"><span class="ic"><span class="ms">volunteer_activism</span></span><div><b>Pela cirurgia do Sr. Antônio</b><small>Pedido · há 3 min</small></div><button class="obtn">Aprovar</button></div>
+                    <div class="it"><span class="ic v"><span class="ms">waving_hand</span></span><div><b>Caio e Bianca Torres</b><small>Visitantes · podem ser citados</small></div><button class="obtn">Citar</button></div>
+                  </div>
+                </aside>
+              </div>
+              <div class="toast"></div>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          <div><h3>O que mostra</h3><p>À esquerda, o roteiro com a hora real em que cada momento começou. No meio, o momento atual. À direita, Avançar grande, que já diz o que vai entrar.</p></div>
+          <div><h3>Detalhes</h3><ul><li>Tocar num momento da esquerda pula para ele.</li><li>Cada momento tem um tempo sugerido; a barra fica amarela quando passa.</li><li>“Citar” um visitante que chegou depois projeta as boas-vindas dele na hora.</li></ul></div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ===== TELA 3: PALAVRA COM TEXTO ===== -->
+    <div class="screen" id="s3" hidden>
+      <div class="show">
+        <div>
+          <div class="bar-real"><button class="btn pri real-btn" type="button"><span class="ms">open_in_full</span> Ver em tela cheia</button></div>
+          <div class="viewport">
+            <div class="app">
+              <div class="top">
+                <div class="logo" role="img" aria-label="Igreja Diakonia Tulipas"></div>
+                <div class="tt"><b>Palavra · “Em memória de mim”</b><span class="mu">Pr. Marcos · momento 8 de 10 · Lucas 22 e 1 Coríntios 11</span></div>
+                <span class="culto-tag"><i></i>MODO CULTO</span>
+                <div class="clock">17:04<small>de 40 min · trecho 9 de 24</small></div>
+                <button class="sairbtn"><span class="ms">format_list_numbered</span>Roteiro</button>
+              </div>
+              <div class="pal">
+                <div class="leitura">
+                  <div class="topicos">
+                    <button>Introdução</button>
+                    <button class="on">1 · A mesa preparada</button>
+                    <button>2 · O pão partido</button>
+                    <button>3 · Até que Ele venha</button>
+                    <button>Apelo</button>
+                  </div>
+                  <div class="trechos">
+                    <button class="tr lido"><span class="n">7</span><div>Jesus não improvisou aquela noite. Ele mandou preparar o lugar, escolheu a hora e esperou pelos discípulos.</div></button>
+                    <button class="tr lido"><span class="n">8</span><div>O texto diz que Ele desejou muito aquele momento: <span class="vs"><span class="ms">menu_book</span>Lc 22.15</span></div></button>
+                    <button class="tr agora"><span class="n">9</span><div><h6>No palco agora</h6>Repare que a mesa foi posta antes da traição, antes da negação, antes da cruz. A graça chegou primeiro. Paulo repete as mesmas palavras aos coríntios: <span class="vs ar"><span class="ms">menu_book</span>1Co 11.23-24</span></div></button>
+                    <button class="tr prox"><span class="n">10</span><div>Quem de nós já se sentou à mesa sentindo que não merecia o lugar? É exatamente para essa pessoa que o convite foi feito. <span class="vs"><span class="ms">menu_book</span>Rm 5.8</span></div></button>
+                    <button class="tr"><span class="n">11</span><div>A Ceia não é prêmio para quem acertou a semana. É alimento para quem precisa continuar a caminhada.</div></button>
+                  </div>
+                </div>
+                <aside class="cmd">
+                  <div><div class="lb"><span class="g"></span>TV do palco · você lê</div>
+                    <div class="slide palco"><span class="tag">TRECHO 9</span><div class="p">Repare que a mesa foi posta antes da traição, antes da negação, antes da cruz. A graça chegou primeiro. Paulo repete as mesmas palavras aos coríntios: <em>1Co 11.23-24</em></div><div class="next">Quem de nós já se sentou à mesa sentindo que…</div></div></div>
+                  <div><div class="lb"><span class="r"></span>Telão · a igreja vê</div>
+                    <div class="slide"><div class="v">“O Senhor Jesus, na noite em que foi traído, tomou o pão; e, tendo dado graças, o partiu e disse: Isto é o meu corpo…”</div><div class="ref">1 CORÍNTIOS 11.23-24</div></div></div>
+                  <button class="fbtn avancar" style="height:112px" data-t="trecho"><span class="ms">skip_next</span>Próximo trecho<small>10 · com Rm 5.8</small></button>
+                  <div class="row2">
+                    <button class="tp" data-t="tprev"><span class="ms">skip_previous</span>Trecho anterior</button>
+                    <button class="tp" data-t="limpa"><span class="ms f">square</span>Tirar versículo</button>
+                  </div>
+                </aside>
+              </div>
+              <div class="toast"></div>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          <div><h3>O que mostra</h3><p>À esquerda, o sermão em trechos. O trecho verde é o que está na TV do palco. Os botões amarelos são os versículos: um toque projeta no telão (fica vermelho, “no telão”).</p></div>
+          <div><h3>Detalhes</h3><ul><li><b>Próximo trecho</b> já avisa se o próximo tem versículo.</li><li>Os tópicos no alto pulam para o começo de cada parte.</li><li>“Tirar versículo” deixa o telão preto de novo.</li><li>O cronômetro da pregação fica no topo, no lugar do relógio.</li><li>Opção (desligada por padrão): projetar o versículo sozinho quando o trecho que o cita chega ao palco.</li></ul></div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ===== TELA 4: PAINEL WEB ===== -->
+    <div class="screen" id="s4" hidden>
+      <div class="show">
+        <div>
+          <div class="bar-real"><button class="btn pri real-btn" type="button"><span class="ms">open_in_full</span> Ver em tela cheia</button></div>
+          <div class="viewport pc">
+            <div class="web app-web app" style="display:grid">
+              <div class="chrome"><i></i><i></i><i></i><span class="url">diako.igrejatulipas.com.br/painel/palavras</span></div>
+              <div class="whd">
+                <span class="marca"><span class="ms">church</span>DiakoNews</span>
+                <nav><span>Recados</span><span>Oração</span><span>Membros</span><span>Escalas</span><span class="on">Palavras</span><span>Histórico</span></nav>
+                <span style="color:var(--w-mu)">Pr. Marcos</span>
+              </div>
+              <div class="wbody">
+                <div class="wlist">
+                  <button class="wb"><span class="ms">add</span>Nova Palavra</button>
+                  <button class="wi on"><b>Em memória de mim</b><small>Dom 2/11 · Santa Ceia</small><span class="st ar">Pronta</span></button>
+                  <button class="wi"><b>O semeador saiu a semear</b><small>Qua 5/11 · culto de oração</small><span class="st ra">Rascunho</span></button>
+                  <button class="wi"><b>Quando a fé espera</b><small>Dom 26/10 · série Hebreus 11</small><span class="st ok">Pregada</span></button>
+                  <button class="wi"><b>Pela fé, Abraão</b><small>Dom 19/10 · série Hebreus 11</small><span class="st ok">Pregada</span></button>
+                  <button class="wi"><b>A nuvem de testemunhas</b><small>Dom 12/10 · série Hebreus 11</small><span class="st ok">Pregada</span></button>
+                </div>
+                <div class="weditor">
+                  <div class="wtool">
+                    <button><span class="ms">content_paste</span>Colar texto</button>
+                    <button><span class="ms">description</span>Word</button>
+                    <button><span class="ms">picture_as_pdf</span>PDF</button>
+                    <button><span class="ms">add_to_drive</span>Google Docs</button>
+                    <span class="sep"></span>
+                    <button><span class="ms">title</span>Tópico</button>
+                    <button><span class="ms">content_cut</span>Dividir trecho</button>
+                    <button><span class="ms">merge</span>Juntar</button>
+                    <button><span class="ms">menu_book</span>Marcar versículo</button>
+                    <span class="sep"></span>
+                    <button><span class="ms">history</span>Versões</button>
+                  </div>
+                  <div class="wdoc">
+                    <h2>Em memória de mim</h2>
+                    <h3>1 · A mesa preparada</h3>
+                    <p><span class="cut">7</span>Jesus não improvisou aquela noite. Ele mandou preparar o lugar, escolheu a hora e esperou pelos discípulos.</p>
+                    <p><span class="cut">8</span>O texto diz que Ele desejou muito aquele momento: <span class="rf">Lc 22.15</span></p>
+                    <p><span class="cut">9</span>Repare que a mesa foi posta antes da traição, antes da negação, antes da cruz. A graça chegou primeiro. Paulo repete as mesmas palavras aos coríntios: <span class="rf">1Co 11.23-24</span></p>
+                    <p><span class="cut">10</span>Quem de nós já se sentou à mesa sentindo que não merecia o lugar? É exatamente para essa pessoa que o convite foi feito, como diz <span class="rf q">Romanos 5.8</span>, e como lemos no capítulo <span class="rf q">5 de João</span>.</p>
+                  </div>
+                </div>
+                <div class="wside">
+                  <h4>Dados</h4>
+                  <div class="wf"><label>Pregador</label><div class="in">Pr. Marcos</div></div>
+                  <div class="wf2"><div class="wf"><label>Culto da escala</label><div class="in">Dom 2/11 · 19h</div></div><div class="wf"><label>Tempo previsto</label><div class="in">40 min</div></div></div>
+                  <div class="wf"><label>Série</label><div class="in">Ceia do Senhor</div></div>
+                  <h4>Versículos encontrados · 6</h4>
+                  <div class="vl">
+                    <div class="vi"><div><b>Lc 22.15</b><small>trecho 8 · conferido</small></div><span class="ms" style="color:#2e7d4f">check_circle</span></div>
+                    <div class="vi"><div><b>1Co 11.23-24</b><small>trecho 9 · conferido</small></div><span class="ms" style="color:#2e7d4f">check_circle</span></div>
+                    <div class="vi q"><div><b>Rm 5.8</b><small>trecho 10 · “Romanos 5.8”</small></div><div class="acts"><button class="y">Confirmar</button><button>Ignorar</button></div></div>
+                    <div class="vi q"><div><b>Jo 5?</b><small>trecho 10 · capítulo inteiro</small></div><div class="acts"><button>Ajustar</button><button>Ignorar</button></div></div>
+                  </div>
+                  <div class="wsave"><button>Ensaiar</button><button class="p">Marcar como pronta</button></div>
+                </div>
+              </div>
+              <div class="toast"></div>
+            </div>
+          </div>
+        </div>
+        <aside class="notes">
+          <div><h3>O que mostra</h3><p>A nova página <b>Palavras</b> do painel. À esquerda, o arquivo do pastor: rascunhos, prontas e pregadas. No meio, o editor com os números dos trechos na margem. À direita, os dados e a conferência dos versículos.</p></div>
+          <div><h3>Detalhes</h3><ul><li>Verde: versículo conferido. Amarelo tracejado: achado, falta conferir.</li><li>Referência incompleta (“capítulo 5 de João”) pede ajuste em vez de adivinhar.</li><li>Só uma Palavra “Pronta” por culto; ela desce para o tablet sozinha.</li><li>Cada salvamento guarda uma versão.</li></ul></div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Features propostas para a Palavra</h2>
+    <p class="sub">Agrupadas pela entrega em que fariam sentido. As da primeira entrega são o mínimo para o pastor pregar com o tablet.</p>
+    <div class="feat">
+      <div class="ft"><span class="k"><span class="ms">auto_fix_high</span><strong>Achar versículos sozinho</strong></span><p>Reconhece os 66 livros por nome e abreviação (“Jo”, “João”, “1Co”, “1 Coríntios”), com ponto ou dois-pontos, intervalos e listas (“Rm 8.28,31”).</p><span class="when e1">Entrega 2</span></div>
+      <div class="ft"><span class="k"><span class="ms">splitscreen</span><strong>Trechos ajustáveis</strong></span><p>Divide por parágrafo; parágrafo longo demais para a TV é cortado em frases. O pastor junta ou separa com um clique.</p><span class="when e1">Entrega 2</span></div>
+      <div class="ft"><span class="k"><span class="ms">co_present</span><strong>Leitura na TV do palco</strong></span><p>Trecho atual em letra grande, começo do próximo em cinza e versículo destacado. Tamanho da letra ajustável no tablet.</p><span class="when e1">Entrega 2</span></div>
+      <div class="ft"><span class="k"><span class="ms">cloud_off</span><strong>Funciona sem internet</strong></span><p>A Palavra pronta desce para o tablet antes do culto. Se a conexão com o servidor cair, a leitura continua.</p><span class="when e1">Entrega 2</span></div>
+      <div class="ft"><span class="k"><span class="ms">history</span><strong>Arquivo com versões</strong></span><p>Tudo fica guardado: rascunho, pronta, pregada. Cada salvamento vira uma versão que dá para comparar e restaurar.</p><span class="when e1">Entrega 2</span></div>
+      <div class="ft"><span class="k"><span class="ms">timer</span><strong>Tempo por tópico</strong></span><p>Tempo previsto por tópico; o cronômetro mostra se o pastor está adiantado ou atrasado, só para ele.</p><span class="when e2">Entrega 3</span></div>
+      <div class="ft"><span class="k"><span class="ms">format_quote</span><strong>Frases de destaque no telão</strong></span><p>O pastor marca uma frase no editor e ela vira um slide de texto para o telão, além dos versículos.</p><span class="when e2">Entrega 3</span></div>
+      <div class="ft"><span class="k"><span class="ms">record_voice_over</span><strong>Ensaio</strong></span><p>Botão “Ensaiar” no painel ou no tablet: percorre os trechos sem projetar e mede o tempo de cada tópico.</p><span class="when e2">Entrega 3</span></div>
+      <div class="ft"><span class="k"><span class="ms">collections_bookmark</span><strong>Séries e busca</strong></span><p>Agrupar por série (“Hebreus 11”) e buscar no arquivo por palavra ou por versículo já pregado.</p><span class="when e2">Entrega 3</span></div>
+      <div class="ft"><span class="k"><span class="ms">share</span><strong>Resumo para o WhatsApp</strong></span><p>Depois do culto, um resumo com título, tópicos e versículos citados, no mesmo lugar do resumo da semana.</p><span class="when e3">Depois</span></div>
+      <div class="ft"><span class="k"><span class="ms">add_to_drive</span><strong>Google Docs</strong></span><p>Importar direto do Drive, aproveitando a conta Google que já está ligada à agenda.</p><span class="when e3">Depois</span></div>
+      <div class="ft"><span class="k"><span class="ms">group</span><strong>Outros pregadores</strong></span><p>Cada pregador escalado envia a própria Palavra pelo painel, com conta própria e permissão “Palavras”; o pastor titular pode revisar. Cada um vê e edita só as suas.</p><span class="when e1">Entrega 2</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Em três entregas</h2>
+    <div class="fases">
+      <div class="box"><h3><span class="ms">looks_one</span>Modo Culto no tablet</h3><ul><li>Roteiro padrão com os 10 momentos.</li><li>Telas 1 e 2, entrar e sair do modo, aviso perto da hora.</li><li>Palavra sem texto: telão preto e cronômetro.</li><li>Ofertas com texto e versículo (o PIX chega na entrega 2).</li><li>Só no app; o servidor não muda.</li></ul></div>
+      <div class="box"><h3><span class="ms">looks_two</span>Palavras no painel e no culto</h3><ul><li>Página Palavras: colar, Word e PDF; editor, trechos, tópicos, versões.</li><li>Versículos achados sozinhos e conferidos.</li><li>Tela 3 no tablet: texto na TV do palco e versículos no telão.</li><li>Download para uso sem internet.</li><li>Permissão “Palavras”: cada pregador envia a sua.</li><li>Chave PIX no painel e QR no slide de ofertas.</li></ul></div>
+      <div class="box"><h3><span class="ms">looks_3</span>Refinos</h3><ul><li>Tempo por tópico, ensaio, frases de destaque.</li><li>Séries, busca, resumo para o WhatsApp.</li><li>Google Docs e modelos de culto no painel.</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Decidido</h2>
+    <div class="dec">
+      <div class="d"><span class="ms">check_circle</span><div><strong>TV de leitura</strong><p>É o painel de comunicação do Holyrics, a mesma TV do palco das frases prontas.</p></div></div>
+      <div class="d"><span class="ms">check_circle</span><div><strong>Envio da Palavra</strong><p>Colar o texto, Word, PDF e Google Docs.</p></div></div>
+      <div class="d"><span class="ms">check_circle</span><div><strong>Versículos</strong><p>Achados sozinhos e conferidos pelo pastor antes do culto.</p></div></div>
+      <div class="d"><span class="ms">check_circle</span><div><strong>Ritmo da leitura</strong><p>Trecho por trecho, com Próximo trecho.</p></div></div>
+      <div class="d"><span class="ms">check_circle</span><div><strong>Roteiro</strong><p>Recados antes da Palavra, um por vez. Entram dízimos e ofertas, e oração final.</p></div></div>
+      <div class="d"><span class="ms">check_circle</span><div><strong>Bíblia</strong><p>A versão padrão configurada no Holyrics da igreja.</p></div></div>
+      <div class="d"><span class="ms">check_circle</span><div><strong>Permissões</strong><p>Modo Culto para quem já pode projetar. Permissão nova “Palavras” para o pastor e quem ele indicar.</p></div></div>
+      <div class="d"><span class="ms">check_circle</span><div><strong>Ofertas</strong><p>O slide mostra o QR do PIX e a chave, cadastrados uma vez no painel.</p></div></div>
+      <div class="d"><span class="ms">check_circle</span><div><strong>Outros pregadores</strong><p>Cada pregador escalado envia a própria Palavra com a conta dele; o pastor titular pode revisar.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ainda em aberto</h2>
+    <div class="q">
+      <div class="item"><b>1</b><div><strong>O Holyrics da igreja abre versículos pela API e a TV do palco aceita textos longos?</strong><p>Você vai testar no PC da igreja com o roteiro abaixo. Se o versículo não abrir, a entrega 2 depende de atualizar o Holyrics; se a TV do palco cortar o texto, os trechos ficam mais curtos.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Roteiro de teste no Holyrics</h2>
+    <p class="sub">Rode no PC da igreja, fora do horário de culto: os testes aparecem no telão e na TV do palco. Abra o PowerShell, troque <code>COLE_O_TOKEN</code> pelo token da API Server do Holyrics (o mesmo do <code>config.json</code> do servidor) e cole os comandos um por vez.</p>
+    <div class="box" style="gap:12px">
+      <pre id="teste" style="margin:0;white-space:pre-wrap;font:13px/1.55 'Roboto Mono',monospace;color:var(--ink);background:#101119;border-radius:10px;padding:14px;overflow-x:auto">$h = "http://localhost:8091/api"; $t = "COLE_O_TOKEN"
+function hr($acao, $corpo) { Invoke-RestMethod -Method Post "$h/$acao`?token=$t" -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes(($corpo | ConvertTo-Json -Depth 5))) }
+
+# 1. Versículo no telão (deve abrir 1 Coríntios 11.23-24 na versão padrão)
+hr "ShowVerse" @{ references = "1Co 11:23-24" }
+
+# 2. Vários versículos de uma vez
+hr "ShowVerse" @{ references = "Rm 5:8 Jo 3:16" }
+
+# 3. Texto longo na TV do palco (deve aparecer inteiro, sem cortar)
+hr "SetTextCP" @{ text = "Repare que a mesa foi posta antes da traição, antes da negação, antes da cruz. A graça chegou primeiro. Paulo repete as mesmas palavras aos coríntios: 1Co 11.23-24. Quem de nós já se sentou à mesa sentindo que não merecia o lugar?"; show = $true; display_ahead = $true }
+
+# 4. Limpar
+hr "SetTextCP" @{ text = ""; show = $false }
+hr "CloseCurrentPresentation" @{}</pre>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn pri" type="button" id="copiar"><span class="ms">content_copy</span> Copiar comandos</button><span style="color:var(--muted);font-size:13px" id="copiado">Depois me conte: o versículo abriu? Em qual versão? O texto da TV do palco apareceu inteiro e legível?</span></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const tabs = [...document.querySelectorAll('.tab')];
+  const screens = [...document.querySelectorAll('.screen')];
+
+  function fit() {
+    document.querySelectorAll('.viewport').forEach(vp => {
+      const app = vp.querySelector('.app');
+      const w = app.offsetWidth, h = app.offsetHeight;
+      let s;
+      if (document.body.classList.contains('real') && vp.classList.contains('on')) {
+        s = Math.min(innerWidth / w, innerHeight / h);
+        app.style.left = (innerWidth - w * s) / 2 + 'px';
+        app.style.top = (innerHeight - h * s) / 2 + 'px';
+      } else {
+        s = vp.clientWidth / w;
+        app.style.left = app.style.top = '0';
+        vp.style.height = h * s + 'px';
+      }
+      app.style.transform = `scale(${s})`;
+    });
+  }
+
+  function show(n) {
+    tabs.forEach(t => t.setAttribute('aria-pressed', String(t.dataset.s === n)));
+    screens.forEach(s => { s.hidden = s.id !== 's' + n; });
+    if (location.hash !== '#tela-' + n) history.replaceState(null, '', '#tela-' + n);
+    fit();
+  }
+  tabs.forEach(t => t.addEventListener('click', () => show(t.dataset.s)));
+  const fromHash = () => { const m = location.hash.match(/^#tela-([1-4])$/); show(m ? m[1] : '1'); };
+  addEventListener('hashchange', fromHash);
+
+  document.querySelectorAll('.real-btn').forEach(b => b.addEventListener('click', () => {
+    b.closest('.screen').querySelector('.viewport').classList.add('on');
+    document.body.classList.add('real');
+    try { document.documentElement.requestFullscreen?.().catch(() => {}); } catch (e) {}
+    fit();
+  }));
+  function sair() {
+    document.body.classList.remove('real');
+    document.querySelectorAll('.viewport.on').forEach(v => v.classList.remove('on'));
+    try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+    fit();
+  }
+  document.getElementById('sair').addEventListener('click', sair);
+  addEventListener('keydown', e => { if (e.key === 'Escape') sair(); });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('real')) sair(); });
+
+  document.querySelectorAll('.app').forEach(app => {
+    const toast = app.querySelector('.toast');
+    let timer;
+    const avisar = t => { if (!toast) return; toast.textContent = t; toast.classList.add('on'); clearTimeout(timer); timer = setTimeout(() => toast.classList.remove('on'), 1500); };
+    app.addEventListener('click', e => {
+      const vs = e.target.closest('.vs');
+      if (vs) {
+        app.querySelectorAll('.vs.ar').forEach(x => x.classList.remove('ar'));
+        vs.classList.add('ar');
+        avisar('No telão: ' + vs.textContent.replace('menu_book', '').trim());
+        e.stopPropagation();
+        return;
+      }
+      const tr = e.target.closest('.tr');
+      if (tr) {
+        app.querySelectorAll('.tr.agora').forEach(x => x.classList.remove('agora'));
+        tr.classList.remove('lido', 'prox');
+        tr.classList.add('agora');
+        avisar('Trecho ' + tr.querySelector('.n').textContent + ' na TV do palco');
+        return;
+      }
+      const tg = e.target.closest('[data-toggle]');
+      if (tg) { tg.classList.toggle('ativo'); avisar((tg.classList.contains('ativo') ? 'Tela ' : 'Saiu da tela ') + tg.dataset.toggle); }
+      const t = e.target.closest('[data-t]');
+      if (t) avisar({
+        next: 'Avançou e projetou o próximo',
+        prev: 'Voltou um slide',
+        stop: 'Projeção encerrada',
+        cont: 'Contagem até 19:00 no telão',
+        ini: 'Roteiro iniciado: Boas-vindas',
+        trecho: 'Trecho 10 na TV do palco',
+        tprev: 'Trecho 8 na TV do palco',
+        limpa: 'Telão preto',
+      }[t.dataset.t]);
+    });
+  });
+
+  document.getElementById('copiar').addEventListener('click', async () => {
+    const aviso = document.getElementById('copiado');
+    try {
+      await navigator.clipboard.writeText(document.getElementById('teste').textContent);
+      aviso.textContent = 'Comandos copiados. Cole no PowerShell do PC da igreja.';
+    } catch (e) {
+      aviso.textContent = 'Não deu para copiar daqui. Selecione o texto acima e copie com Ctrl+C.';
+    }
+  });
+
+  addEventListener('resize', fit);
+  document.fonts?.ready.then(fit);
+  fromHash();
+})();
+</script>
+</body>
+</html>

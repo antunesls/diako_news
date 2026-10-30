@@ -54,86 +54,83 @@ class PreviewPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = recado;
     final esquema = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('PRÉ-VISUALIZAÇÃO', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: esquema.outline)),
-          const SizedBox(height: 8),
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: r?.categoria.cor ?? esquema.outlineVariant, width: 2),
-              ),
-              padding: const EdgeInsets.all(16),
-              alignment: Alignment.center,
-              child: r == null
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Opacity(
-                          opacity: 0.35,
-                          child: Image.asset('assets/logo/simbolo_claro.png', height: 80, excludeFromSemantics: true),
-                        ),
-                        const SizedBox(height: 12),
-                        Text('Toque em um recado', style: TextStyle(color: esquema.outline)),
-                      ],
-                    )
-                  : r.ehImagem
-                      ? Column(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('PRÉ-VISUALIZAÇÃO', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: esquema.outline)),
+        const SizedBox(height: 8),
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: r?.categoria.cor ?? esquema.outlineVariant, width: 2),
+            ),
+            padding: const EdgeInsets.all(16),
+            alignment: Alignment.center,
+            child: r == null
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Opacity(
+                        opacity: 0.35,
+                        child: Image.asset('assets/logo/simbolo_claro.png', height: 80, excludeFromSemantics: true),
+                      ),
+                      const SizedBox(height: 12),
+                      Text('Toque em um recado', style: TextStyle(color: esquema.outline)),
+                    ],
+                  )
+                : r.ehImagem
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.image_outlined, size: 48, color: Colors.white70),
+                          const SizedBox(height: 8),
+                          Text(r.imagemHolyrics!, style: const TextStyle(color: Colors.white70)),
+                        ],
+                      )
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.image_outlined, size: 48, color: Colors.white70),
-                            const SizedBox(height: 8),
-                            Text(r.imagemHolyrics!, style: const TextStyle(color: Colors.white70)),
-                          ],
-                        )
-                      : FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(r.titulo,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                              if (r.texto.trim().isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 520),
-                                  child: Text(r.texto.trim(),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(color: Colors.white, fontSize: 20)),
-                                ),
-                              ],
+                            Text(r.titulo,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                            if (r.texto.trim().isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 520),
+                                child: Text(r.texto.trim(),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white, fontSize: 20)),
+                              ),
                             ],
-                          ),
+                          ],
                         ),
-            ),
+                      ),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 64,
-            child: FilledButton.icon(
-              onPressed: r == null ? null : () => _projetar(context, r),
-              icon: const Icon(Icons.play_arrow, size: 32),
-              label: const Text('PROJETAR', style: TextStyle(fontSize: 20)),
-            ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 56,
+          child: FilledButton.icon(
+            onPressed: r == null ? null : () => _projetar(context, r),
+            icon: const Icon(Icons.play_arrow, size: 32),
+            label: const Text('PROJETAR', style: TextStyle(fontSize: 20)),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 56,
-            child: FilledButton.tonalIcon(
-              onPressed: selecionados.isEmpty ? null : () => _projetarSequencia(context),
-              icon: const Icon(Icons.slideshow),
-              label: Text('Sequência dos selecionados (${selecionados.length})'),
-            ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 48,
+          child: FilledButton.tonalIcon(
+            onPressed: selecionados.isEmpty ? null : () => _projetarSequencia(context),
+            icon: const Icon(Icons.slideshow),
+            label: Text('Sequência dos selecionados (${selecionados.length})'),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

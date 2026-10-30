@@ -2,18 +2,17 @@ import 'package:diako_core/diako_core.dart';
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
-import '../holyrics/status_controller.dart';
+import '../data/modo_culto.dart';
 import 'agenda_panel.dart';
 import 'escala_panel.dart';
 import 'mensagem_panel.dart';
-import 'control_bar.dart';
+import 'modo_culto_page.dart';
 import 'oracao_panel.dart';
+import 'palco_panel.dart';
 import 'preview_panel.dart';
 import 'recado_form.dart';
 import 'recado_list.dart';
-import 'section_navigation.dart';
 import 'settings_page.dart';
-import 'tools_sheet.dart';
 import 'visitantes_panel.dart';
 
 class HomePage extends StatefulWidget {
@@ -124,6 +123,21 @@ class _HomePageState extends State<HomePage> {
     _scope.status.atualizar();
   }
 
+  /// Abre o Modo Culto com os recados selecionados aqui (sem seleção, ele usa os que estão valendo).
+  Future<void> _abrirModoCulto() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => ModoCultoPage(recadosSelecionados: {..._selecionados})),
+    );
+    // O aviso "Voltar ao Modo Culto" depende do que ficou salvo.
+    if (mounted) setState(() {});
+  }
+
+  /// Item do trilho lateral, com o número de pendências no ícone.
+  NavigationRailDestination _destino(IconData icone, IconData selecionado, String label, [int pendentes = 0]) {
+    Widget comAviso(IconData i) => Badge(isLabelVisible: pendentes > 0, label: Text('$pendentes'), child: Icon(i));
+    return NavigationRailDestination(icon: comAviso(icone), selectedIcon: comAviso(selecionado), label: Text(label));
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = _scope;
@@ -151,120 +165,186 @@ class _HomePageState extends State<HomePage> {
         // Perfis sem acesso aos pedidos não sincronizam os motivos: não conta como "sem conexão".
         final online = scope.repo.online && (!conta.pode('motivosVer') || scope.motivos.online);
 
+        final secoes = _Secao.values.where(permitidas.contains).toList();
+        final esquema = Theme.of(context).colorScheme;
+        // A agenda é editada no Google: sem botão de criar.
+        final podeCriar = online &&
+            (_secao == _Secao.recados && conta.pode('recados') || _secao == _Secao.oracao && conta.pode('motivosEditar'));
+        // Sugere o Modo Culto perto da hora do culto de hoje, ou para voltar a um culto em andamento.
+        final agora = DateTime.now();
+        final emAndamento = ModoCultoController.emAndamento(scope.settings.modoCulto, agora);
+        final cultoPerto = scope.escalas.hoje
+            ? scope.escalas.cultos.where((c) => cultoProximo(c.data, c.hora, agora)).firstOrNull
+            : null;
+        final avisoCulto = !conta.pode('projetar')
+            ? null
+            : emAndamento
+                ? 'Culto em andamento · Voltar ao Modo Culto'
+                : cultoPerto == null
+                    ? null
+                    : '${cultoPerto.nome} às ${cultoPerto.horaTexto} · Entrar no Modo Culto';
+
         return Scaffold(
-          appBar: AppBar(
-            toolbarHeight: 72,
-            title: Image.asset('assets/logo/logo_claro.png', height: 44, semanticLabel: 'Igreja Diakonia Tulipas'),
-            bottom: SectionNavigation(
-              child: SegmentedButton<_Secao>(
-                showSelectedIcon: false,
-                segments: [
-                  const ButtonSegment(value: _Secao.recados, icon: Icon(Icons.campaign_outlined), label: Text('Recados')),
-                  if (permitidas.contains(_Secao.oracao))
-                  ButtonSegment(
-                    value: _Secao.oracao,
-                    icon: Badge(
-                      isLabelVisible: aguardando > 0,
-                      label: Text('$aguardando'),
-                      child: const Icon(Icons.volunteer_activism_outlined),
-                    ),
-                    label: const Text('Motivos de oração'),
-                  ),
-                  if (permitidas.contains(_Secao.visitantes))
-                    ButtonSegment(
-                      value: _Secao.visitantes,
-                      icon: Badge(
-                        isLabelVisible: paraCitar > 0,
-                        label: Text('$paraCitar'),
-                        child: const Icon(Icons.waving_hand_outlined),
-                      ),
-                      label: const Text('Visitantes'),
-                    ),
-                  if (permitidas.contains(_Secao.agenda))
-                    const ButtonSegment(value: _Secao.agenda, icon: Icon(Icons.event_outlined), label: Text('Agenda')),
-                  if (permitidas.contains(_Secao.escala))
-                    const ButtonSegment(value: _Secao.escala, icon: Icon(Icons.groups_outlined), label: Text('Escala')),
-                  if (permitidas.contains(_Secao.mensagens))
-                  ButtonSegment(value: _Secao.mensagens,
-                    icon: Badge(isLabelVisible: scope.mensagens.novas > 0,
-                      label: Text('${scope.mensagens.novas}'), child: const Icon(Icons.mail_outline)),
-                    label: const Text('Mensagens')),
-                ],
-                selected: {_secao},
-                onSelectionChanged: (s) => setState(() => _secao = s.first),
-              ),
-            ),
-            actions: [
-              const _StatusChip(),
-              const SizedBox(width: 8),
-              if (conta.pode('projetar'))
-                IconButton(
-                  tooltip: 'Contagem e mensagem no palco',
-                  icon: const Icon(Icons.timer_outlined),
-                  onPressed: () => mostrarFerramentas(context),
-                ),
-              IconButton(
-                tooltip: 'Configurações',
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: _abrirConfiguracoes,
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          body: Column(
+          body: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (!online) _AvisoOffline(erro: scope.repo.erro ?? scope.motivos.erro ?? scope.mensagens.erro, onConfigurar: _abrirConfiguracoes),
-              if (_secao == _Secao.recados && scope.agenda.proximo != null)
-                _ProximoEvento(evento: scope.agenda.proximo!, onTap: () => setState(() => _secao = _Secao.agenda)),
-              Expanded(
-                child: switch (_secao) {
-                  _Secao.oracao => const OracaoPanel(),
-                  _Secao.visitantes => const VisitantesPanel(),
-                  _Secao.agenda => AgendaPanel(onVirarRecado: _recadoDoEvento),
-                  _Secao.escala => const EscalaPanel(),
-                  _Secao.mensagens => const MensagemPanel(),
-                  _Secao.recados => Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            flex: 5,
-                            child: RecadoList(
-                              selecionados: _selecionados,
-                              focadoId: _focadoId,
-                              onFocar: (r) => setState(() => _focadoId = r.id),
-                              onAlternarSelecao: (r) => setState(() {
-                                if (!_selecionados.remove(r.id)) _selecionados.add(r.id);
-                              }),
-                              onLimparSelecao: () => setState(_selecionados.clear),
-                              onEditar: _editar,
+              Material(
+                color: esquema.surfaceContainerLow,
+                child: SafeArea(
+                  right: false,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: NavigationRail(
+                          backgroundColor: Colors.transparent,
+                          labelType: NavigationRailLabelType.all,
+                          minWidth: 96,
+                          leading: Padding(
+                            padding: const EdgeInsets.only(top: 8, bottom: 12),
+                            child: Column(
+                              children: [
+                                Image.asset('assets/logo/simbolo_claro.png',
+                                    width: 64, semanticLabel: 'Igreja Diakonia Tulipas'),
+                                if (conta.pode('projetar')) ...[
+                                  const SizedBox(height: 14),
+                                  IconButton.filled(
+                                    tooltip: 'Modo Culto',
+                                    iconSize: 28,
+                                    icon: const Icon(Icons.church_outlined),
+                                    onPressed: _abrirModoCulto,
+                                  ),
+                                  const Text('Modo Culto', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                ],
+                              ],
                             ),
                           ),
-                          const VerticalDivider(width: 1),
+                          selectedIndex: secoes.indexOf(_secao),
+                          onDestinationSelected: (i) => setState(() => _secao = secoes[i]),
+                          destinations: [
+                            for (final s in secoes)
+                              switch (s) {
+                                _Secao.recados => _destino(Icons.campaign_outlined, Icons.campaign, 'Recados'),
+                                _Secao.oracao =>
+                                  _destino(Icons.volunteer_activism_outlined, Icons.volunteer_activism, 'Oração', aguardando),
+                                _Secao.visitantes =>
+                                  _destino(Icons.waving_hand_outlined, Icons.waving_hand, 'Visitantes', paraCitar),
+                                _Secao.agenda => _destino(Icons.event_outlined, Icons.event, 'Agenda'),
+                                _Secao.escala => _destino(Icons.groups_outlined, Icons.groups, 'Escala'),
+                                _Secao.mensagens =>
+                                  _destino(Icons.mail_outline, Icons.mail, 'Mensagens', scope.mensagens.novas),
+                              },
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: IconButton(
+                          tooltip: 'Configurações',
+                          iconSize: 28,
+                          icon: const Icon(Icons.settings_outlined),
+                          onPressed: _abrirConfiguracoes,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SafeArea(
+                  left: false,
+                  right: false,
+                  child: Stack(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (!online)
+                            _AvisoOffline(
+                                erro: scope.repo.erro ?? scope.motivos.erro ?? scope.mensagens.erro,
+                                onConfigurar: _abrirConfiguracoes),
+                          if (avisoCulto != null) _AvisoModoCulto(texto: avisoCulto, onTap: _abrirModoCulto),
+                          if (_secao == _Secao.recados && scope.agenda.proximo != null)
+                            _ProximoEvento(
+                                evento: scope.agenda.proximo!, onTap: () => setState(() => _secao = _Secao.agenda)),
                           Expanded(
-                            flex: 4,
-                            child: PreviewPanel(recado: focado, selecionados: selecionados),
+                            child: switch (_secao) {
+                              _Secao.oracao => const OracaoPanel(),
+                              _Secao.visitantes => const VisitantesPanel(),
+                              _Secao.agenda => AgendaPanel(onVirarRecado: _recadoDoEvento),
+                              _Secao.escala => const EscalaPanel(),
+                              _Secao.mensagens => const MensagemPanel(),
+                              _Secao.recados => RecadoList(
+                                  selecionados: _selecionados,
+                                  focadoId: _focadoId,
+                                  onFocar: (r) => setState(() => _focadoId = r.id),
+                                  onAlternarSelecao: (r) => setState(() {
+                                    if (!_selecionados.remove(r.id)) _selecionados.add(r.id);
+                                  }),
+                                  onLimparSelecao: () => setState(_selecionados.clear),
+                                  onEditar: _editar,
+                                ),
+                            },
                           ),
                         ],
                       ),
-                },
+                      if (podeCriar)
+                        Positioned(
+                          left: 16,
+                          bottom: 16,
+                          child: FloatingActionButton.extended(
+                            onPressed: () => _secao == _Secao.oracao ? editarMotivo(context, null) : _editar(null),
+                            icon: const Icon(Icons.add),
+                            label: Text(_secao == _Secao.oracao ? 'Novo motivo' : 'Novo recado'),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              // Coluna do palco: sempre visível; mais estreita em telas menores que o A9+.
+              SizedBox(
+                width: MediaQuery.sizeOf(context).width >= 1100 ? 380 : 320,
+                child: PalcoPanel(
+                  previa: _secao == _Secao.recados ? PreviewPanel(recado: focado, selecionados: selecionados) : null,
+                ),
               ),
             ],
           ),
-          // A agenda é editada no Google: sem botão de criar.
-          floatingActionButton: online &&
-                  (_secao == _Secao.recados && conta.pode('recados') ||
-                      _secao == _Secao.oracao && conta.pode('motivosEditar'))
-              ? FloatingActionButton.extended(
-                  onPressed: () => _secao == _Secao.oracao ? editarMotivo(context, null) : _editar(null),
-                  icon: const Icon(Icons.add),
-                  label: Text(_secao == _Secao.oracao ? 'Novo motivo' : 'Novo recado'),
-                )
-              : null,
-          floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
-          bottomNavigationBar: const ControlBar(),
         );
       },
+    );
+  }
+}
+
+/// Faixa de destaque que leva ao Modo Culto (culto de hoje perto da hora, ou em andamento).
+class _AvisoModoCulto extends StatelessWidget {
+  const _AvisoModoCulto({required this.texto, required this.onTap});
+
+  final String texto;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final esquema = Theme.of(context).colorScheme;
+    return Material(
+      color: esquema.primaryContainer,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Icons.church_outlined, color: esquema.onPrimaryContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(texto,
+                    style: TextStyle(color: esquema.onPrimaryContainer, fontWeight: FontWeight.w500, fontSize: 16)),
+              ),
+              Icon(Icons.chevron_right, color: esquema.onPrimaryContainer),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -345,32 +425,6 @@ class _AvisoOffline extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip();
-
-  @override
-  Widget build(BuildContext context) {
-    final status = AppScope.of(context).status;
-    return ListenableBuilder(
-      listenable: status,
-      builder: (context, _) {
-        final (cor, texto) = switch (status.conexao) {
-          Conexao.conectado => (Colors.greenAccent, 'Holyrics conectado'),
-          Conexao.verificando => (Colors.amberAccent, 'Conectando…'),
-          Conexao.desconectado => (Colors.redAccent, 'Desconectado'),
-        };
-        return Tooltip(
-          message: status.erro ?? '',
-          child: Chip(
-            avatar: Icon(Icons.circle, size: 12, color: cor),
-            label: Text(texto),
-          ),
-        );
-      },
     );
   }
 }
