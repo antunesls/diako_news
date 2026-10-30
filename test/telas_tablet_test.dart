@@ -15,11 +15,11 @@ void main() {
   setUp(() async => pasta = await Directory.systemTemp.createTemp('diako_telas'));
   tearDown(() => pasta.delete(recursive: true));
 
-  Future<ServidorFalso> abrir(WidgetTester tester, Widget home) async {
+  Future<ServidorFalso> abrir(WidgetTester tester, Widget home, {Palavra? palavra}) async {
     tester.view.physicalSize = const Size(1920, 1200);
     tester.view.devicePixelRatio = 1.5;
     addTearDown(tester.view.reset);
-    final servidor = ServidorFalso(DateTime.now());
+    final servidor = ServidorFalso(DateTime.now())..palavra = palavra;
     final app = await tester.runAsync(() => montarApp(servidor, pasta, home));
     await tester.pumpWidget(app!);
     await tester.pump();
@@ -91,6 +91,55 @@ void main() {
     // Louvor: músicas e escalados.
     await tocar(tester, find.text(TipoMomento.louvor.titulo).first);
     expect(find.text('Bondade de Deus'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Palavra com texto: trechos na TV do palco e versículos no telão', (tester) async {
+    final palavra = Palavra(
+      id: 'p1',
+      titulo: 'Em memória de mim',
+      autorId: 'u',
+      pronta: true,
+      data: diaIso(DateTime.now()),
+      texto: '# A mesa preparada\nJesus não improvisou aquela noite.\n\nPaulo repete aos coríntios: 1Co 11.23-24.\n\n'
+          '# O pão partido\nComo diz Romanos 5.8, a graça chegou primeiro.',
+      decisoes: {
+        '1Co 11.23-24': const DecisaoReferencia(StatusReferencia.confirmada),
+        'Romanos 5.8': const DecisaoReferencia(StatusReferencia.confirmada),
+      },
+    );
+    final servidor = await abrir(tester, const ModoCultoPage(), palavra: palavra);
+    await tocar(tester, find.text('Começar o culto agora'));
+    await tocar(tester, find.text(TipoMomento.palavra.titulo).first);
+    expect(tester.takeException(), isNull);
+    expect(find.text('Começar a leitura'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'O pão partido'), findsOneWidget);
+
+    await tocar(tester, find.text('Começar a leitura'));
+    expect(servidor.holyrics.last, 'SetTextCP');
+    expect(servidor.corpos.last['text'], 'Jesus não improvisou aquela noite.');
+    expect(find.text('NA TV DO PALCO'), findsOneWidget);
+
+    await tocar(tester, find.text('Próximo trecho'));
+    expect(servidor.corpos.last['text'], 'Paulo repete aos coríntios: 1Co 11.23-24.');
+
+    // O versículo citado: tira a tela preta da pregação e abre no telão.
+    final antes = servidor.holyrics.length;
+    await tocar(tester, find.text('1Co 11.23-24'));
+    expect(servidor.holyrics.sublist(antes), ['SetF10', 'ShowVerse', 'GetCurrentPresentation']);
+    expect(servidor.corpos[antes]['enable'], false);
+    expect(servidor.corpos[antes + 1]['ids'], ['46011023', '46011024']);
+    expect(find.text('1 Coríntios 11.23-24'), findsOneWidget);
+
+    await tocar(tester, find.text('Tirar versículo'));
+    expect(servidor.holyrics, contains('SetF10'));
+    expect(find.text('Tela preta'), findsOneWidget);
+
+    // Sair da Palavra limpa a TV do palco.
+    await tocar(tester, find.textContaining('Próximo momento'));
+    expect(servidor.corpos.lastWhere((c) => c.containsKey('show'))['show'], false);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox());

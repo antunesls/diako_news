@@ -377,7 +377,12 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
         children: [
           SizedBox(width: 290, child: _trilha(context)),
           Expanded(child: _centro(context)),
-          SizedBox(width: 330, child: _comando(context)),
+          SizedBox(
+            width: 330,
+            child: _c.momentoAtual?.tipo == TipoMomento.palavra && _c.palavra != null
+                ? _comandoLeitura(context)
+                : _comando(context),
+          ),
         ],
       );
 
@@ -511,7 +516,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
           Expanded(
             child: switch (momento.tipo) {
               TipoMomento.louvor => _louvor(context, momento),
-              TipoMomento.palavra => _palavra(context),
+              TipoMomento.palavra => _c.palavra == null ? _palavra(context) : _leitura(context),
               _ => _slides(context, momento),
             },
           ),
@@ -716,6 +721,224 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
     ]);
   }
 
+  // ---------- Palavra com texto: leitura na TV do palco e versículos no telão ----------
+
+  final _chavesTrechos = <int, GlobalKey>{};
+  int? _trechoVisivel;
+
+  Widget _leitura(BuildContext context) {
+    final esquema = Theme.of(context).colorScheme;
+    final palavra = _c.palavra!;
+    final atual = _c.trecho;
+    // O trecho que está na TV do palco fica sempre à vista.
+    if (atual != _trechoVisivel) {
+      _trechoVisivel = atual;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final alvo = _chavesTrechos[atual]?.currentContext;
+        if (alvo != null && alvo.mounted) {
+          Scrollable.ensureVisible(alvo, alignment: .15, duration: const Duration(milliseconds: 250));
+        }
+      });
+    }
+    final topicos = palavra.topicos;
+    final topicoAtual = atual == null ? null : palavra.trechos[atual].topico;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('“${palavra.titulo}” · ${palavra.trechos.length} trechos', style: TextStyle(color: esquema.outline)),
+        if (topicos.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final t in topicos)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(t.$1),
+                      selected: t.$1 == topicoAtual,
+                      onSelected: (_) => _acao(() => _c.irParaTrecho(t.$2)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        Expanded(
+          child: ListView.builder(
+            itemCount: palavra.trechos.length,
+            itemBuilder: (context, i) => _trechoDaLeitura(context, palavra.trechos[i], i, atual),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _trechoDaLeitura(BuildContext context, TrechoAnalisado t, int i, int? atual) {
+    final esquema = Theme.of(context).colorScheme;
+    final noPalco = i == atual;
+    final lido = atual != null && i < atual;
+    final proximo = (atual ?? -1) + 1 == i;
+    final partes = <InlineSpan>[];
+    var pos = 0;
+    for (final r in t.referencias) {
+      if (r.inicio < pos || r.fim > t.texto.length) continue;
+      partes.add(TextSpan(text: t.texto.substring(pos, r.inicio)));
+      partes.add(WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: _BotaoVersiculo(
+          texto: r.original,
+          noTelao: _c.versiculo == r.ref!.abreviada,
+          onTap: () => _acao(() => _c.projetarVersiculo(r.ref!), sucesso: 'No telão: ${r.ref!.nome}'),
+        ),
+      ));
+      pos = r.fim;
+    }
+    partes.add(TextSpan(text: t.texto.substring(pos)));
+    return Padding(
+      key: _chavesTrechos.putIfAbsent(i, GlobalKey.new),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Opacity(
+        opacity: lido ? .45 : 1,
+        child: Material(
+          color: noPalco ? const Color(0xFF18261D) : esquema.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: noPalco
+                ? BorderSide(color: Colors.greenAccent.shade400, width: 2)
+                : proximo
+                    ? BorderSide(color: esquema.outlineVariant)
+                    : BorderSide.none,
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => _acao(() => _c.irParaTrecho(i)),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 34,
+                    child: Text('${t.numero}', style: TextStyle(color: noPalco ? Colors.greenAccent : esquema.outline)),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (noPalco)
+                          const Text('NA TV DO PALCO',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.greenAccent, letterSpacing: .8)),
+                        Text.rich(TextSpan(children: partes), style: const TextStyle(fontSize: 18, height: 1.5)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _comandoLeitura(BuildContext context) {
+    final esquema = Theme.of(context).colorScheme;
+    final palavra = _c.palavra!;
+    final atual = _c.trecho;
+    final seguinte = atual == null ? 0 : atual + 1;
+    final fim = seguinte >= palavra.trechos.length;
+    final versiculo = _c.versiculo == null ? null : lerReferencia(_c.versiculo!);
+    final prox = _c.proxima;
+    final subtitulo = fim
+        ? 'Fim do texto'
+        : [
+            'Trecho ${palavra.trechos[seguinte].numero}',
+            if (palavra.trechos[seguinte].referencias.isNotEmpty)
+              'com ${palavra.trechos[seguinte].referencias.map((r) => r.ref!.abreviada).join(', ')}',
+          ].join(' · ');
+    return Material(
+      color: esquema.surfaceContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _Rotulo('TV do palco · você lê', cor: Colors.greenAccent),
+            Container(
+              height: 150,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white12)),
+              child: atual == null
+                  ? const Center(child: Text('Toque em Começar a leitura', style: TextStyle(color: Colors.white38)))
+                  : Text(palavra.trechos[atual].texto,
+                      maxLines: 7, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4)),
+            ),
+            const SizedBox(height: 12),
+            const _Rotulo('Telão · a igreja vê', cor: Colors.redAccent),
+            Container(
+              height: 60,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white12)),
+              child: Text(
+                versiculo?.nome ?? 'Tela preta',
+                style: versiculo == null
+                    ? const TextStyle(color: Colors.white24)
+                    : const TextStyle(color: Color(0xFFFFD27A), fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 112,
+              child: FilledButton(
+                onPressed: fim ? null : () => _acao(_c.proximoTrecho),
+                style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.skip_next, size: 44),
+                    Text(atual == null ? 'Começar a leitura' : 'Próximo trecho',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+                    Text(subtitulo, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _BotaoQuadrado(icone: Icons.skip_previous, label: 'Trecho anterior', onPressed: () => _acao(_c.trechoAnterior))),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _BotaoQuadrado(
+                    icone: Icons.square,
+                    label: 'Tirar versículo',
+                    onPressed: () => _acao(_c.tirarVersiculo),
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            SizedBox(
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: prox == null ? null : _avancar,
+                icon: const Icon(Icons.skip_next),
+                label: Text(prox == null ? 'Fim do roteiro' : 'Próximo momento: ${prox.tipo.titulo}',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _comando(BuildContext context) {
     final esquema = Theme.of(context).colorScheme;
     final status = _scope.status;
@@ -750,6 +973,8 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
                   children: [
                     const Icon(Icons.skip_next, size: 56),
                     Text(horaDoCulto ? 'Hora do culto · Avançar' : 'Avançar',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     Text(rotuloProx, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
                   ],
@@ -866,6 +1091,44 @@ class SlideDoPasso extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         alignment: Alignment.center,
         child: FittedBox(fit: BoxFit.scaleDown, child: conteudo),
+      ),
+    );
+  }
+}
+
+/// Versículo citado no meio do texto: um toque projeta no telão.
+class _BotaoVersiculo extends StatelessWidget {
+  const _BotaoVersiculo({required this.texto, required this.noTelao, required this.onTap});
+
+  final String texto;
+  final bool noTelao;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final frente = noTelao ? Colors.white : const Color(0xFF1B1400);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Material(
+        color: noTelao ? Colors.red.shade600 : const Color(0xFFFFD27A),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.menu_book, size: 16, color: frente),
+                const SizedBox(width: 4),
+                Text(texto, style: TextStyle(color: frente, fontWeight: FontWeight.bold, fontSize: 15)),
+                if (noTelao)
+                  Text('  NO TELÃO', style: TextStyle(color: frente, fontWeight: FontWeight.bold, fontSize: 10)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1059,7 +1322,7 @@ class _BotaoQuadrado extends StatelessWidget {
     );
     final conteudo = Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(icone, size: 30),
-      Text(label, style: const TextStyle(fontSize: 13)),
+      Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
     ]);
     return SizedBox(
       height: 74,

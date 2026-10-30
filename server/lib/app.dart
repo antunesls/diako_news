@@ -29,6 +29,7 @@ import 'fotos_membros.dart';
 import 'galeria.dart';
 import 'lgpd.dart';
 import 'pagina_inicial.dart';
+import 'palavras.dart';
 import 'permissoes.dart';
 import 'repertorio.dart';
 import 'usuarios.dart';
@@ -252,6 +253,15 @@ class Servidor {
       ..post('/api/visitas/<id>/mencionada', _visitaMencionada)
       ..put('/api/visitas/<id>/contato', _contatoVisita)
       ..post('/api/projetar/boas-vindas', _projetarBoasVindas)
+      // Palavras (sermões) dos pregadores (rotas fixas antes das com <id>)
+      ..get('/api/palavras', _listarPalavras)
+      ..get('/api/palavras/hoje', _palavraDeHoje)
+      ..post('/api/palavras/analisar', _analisarPalavra)
+      ..post('/api/palavras/importar', _importarPalavra)
+      ..post('/api/palavras', _criarPalavra)
+      ..get('/api/palavras/<id>', _buscarPalavra)
+      ..put('/api/palavras/<id>', _editarPalavra)
+      ..delete('/api/palavras/<id>', _excluirPalavra)
       // Escalas dos pastores e do louvor (rotas fixas antes das com <id>)
       ..get('/api/repertorio', _listarRepertorio)
       ..post('/api/repertorio/importar/previa', _previaRepertorio)
@@ -1801,6 +1811,169 @@ class Servidor {
     if (m.ministerios.length > 12) return 'Muitos ministérios (máximo 12).';
     if ((m.comoConheceu ?? '').length > 200) return '"Como conheceu" muito longo.';
     return null;
+  }
+
+  // ---------- Palavras (sermões) ----------
+
+  /// Pastor e administrador revisam as de todos; o pregador vê e edita só as suas.
+  bool _revisaPalavras(Request req) => Auth.contaDa(req)?.pode(Permissao.palavrasTodas) ?? false;
+
+  Palavra? _palavraVisivel(Request req, String id) {
+    final j = store.buscar('palavras', id);
+    if (j == null) return null;
+    final palavra = Palavra.fromJson(j);
+    return _revisaPalavras(req) || palavra.autorId == Auth.contaDa(req)?.id ? palavra : null;
+  }
+
+  /// Para a lista: sem o texto e as versões (que podem ser grandes).
+  Map<String, dynamic> _resumoPalavra(Palavra p) {
+    final trechos = p.trechos;
+    return {
+      for (final e in p.toJson().entries)
+        if (e.key != 'texto' && e.key != 'versoes' && e.key != 'decisoes') e.key: e.value,
+      'situacao': p.situacao(diaIso(_agora())),
+      'trechos': trechos.length,
+      'versiculos': trechos.expand((t) => t.referencias).where((r) => r.projetavel).length,
+      'pendencias': p.pendencias(),
+      'versoes': p.versoes.length,
+    };
+  }
+
+  /// Completa: o texto, as versões, os trechos analisados e o que falta para ficar pronta.
+  Map<String, dynamic> _palavraCompleta(Palavra p) => {
+        ...p.toJson(),
+        'situacao': p.situacao(diaIso(_agora())),
+        'pendencias': p.pendencias(),
+        'trechos': [for (final t in p.trechos) t.toJson()],
+      };
+
+  Response _listarPalavras(Request req) {
+    final conta = Auth.contaDa(req);
+    final todas = _revisaPalavras(req);
+    final lista = [
+      for (final j in store.listar('palavras'))
+        if (todas || j['autorId'] == conta?.id) Palavra.fromJson(j),
+    ]..sort((a, b) {
+        // Sem data primeiro (rascunhos novos), depois da mais recente para a mais antiga.
+        if (a.data.isEmpty != b.data.isEmpty) return a.data.isEmpty ? -1 : 1;
+        final d = b.data.compareTo(a.data);
+        return d != 0 ? d : (b.atualizadoEm ?? DateTime(2000)).compareTo(a.atualizadoEm ?? DateTime(2000));
+      });
+    return _json([for (final p in lista) _resumoPalavra(p)]);
+  }
+
+  Response _buscarPalavra(Request req, String id) {
+    final palavra = _palavraVisivel(req, id);
+    return palavra == null ? _erro(404, 'Palavra não encontrada.') : _json(_palavraCompleta(palavra));
+  }
+
+  /// Valida o que veio do painel e confere se pode ficar pronta.
+  Palavra _palavraDoCorpo(Map<String, dynamic> corpo, {required Palavra base}) {
+    final palavra = Palavra.fromJson({
+      ...base.toJson(),
+      for (final campo in ['titulo', 'data', 'cultoId', 'serie', 'minutos', 'pronta', 'texto', 'decisoes'])
+        if (corpo.containsKey(campo)) campo: corpo[campo],
+    });
+    if (palavra.titulo.length > 120) throw const FormatException('Título muito longo (máximo 120 letras).');
+    if (palavra.serie.length > 80) throw const FormatException('Nome da série muito longo (máximo 80 letras).');
+    if (palavra.texto.length > Palavra.tamanhoMaximo) throw const FormatException('Texto muito longo.');
+    if (palavra.pronta) {
+      final falta = palavra.pendencias();
+      if (falta.isNotEmpty) throw FormatException('Ainda não pode ficar pronta: ${falta.join(' ')}');
+    }
+    return palavra;
+  }
+
+  Future<Response> _criarPalavra(Request req) async {
+    final conta = Auth.contaDa(req)!;
+    try {
+      final agora = _agora();
+      final palavra = _palavraDoCorpo(await _corpo(req),
+          base: Palavra(id: novoId(), titulo: '', autorId: conta.id, autorNome: conta.nome, criadoEm: agora, atualizadoEm: agora));
+      await store.salvar('palavras', palavra.toJson());
+      return _json(_palavraCompleta(palavra), status: 201);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    } on TypeError {
+      return _erro(400, 'Dados inválidos.');
+    }
+  }
+
+  Future<Response> _editarPalavra(Request req, String id) async {
+    final atual = _palavraVisivel(req, id);
+    if (atual == null) return _erro(404, 'Palavra não encontrada.');
+    try {
+      final editada = _palavraDoCorpo(await _corpo(req), base: atual);
+      // Texto ou título mudou: guarda a versão anterior (as mais recentes primeiro).
+      final mudou = editada.texto != atual.texto || editada.titulo != atual.titulo;
+      final palavra = Palavra.fromJson({
+        ...editada.toJson(),
+        'atualizadoEm': _agora().toIso8601String(),
+        'versoes': [
+          if (mudou)
+            VersaoPalavra(
+              em: atual.atualizadoEm ?? atual.criadoEm ?? _agora(),
+              por: Auth.contaDa(req)?.nome ?? '',
+              titulo: atual.titulo,
+              texto: atual.texto,
+            ).toJson(),
+          for (final v in atual.versoes.take(Palavra.maximoVersoes - (mudou ? 1 : 0))) v.toJson(),
+        ],
+      });
+      await store.salvar('palavras', palavra.toJson());
+      return _json(_palavraCompleta(palavra));
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    } on TypeError {
+      return _erro(400, 'Dados inválidos.');
+    }
+  }
+
+  Future<Response> _excluirPalavra(Request req, String id) async {
+    if (_palavraVisivel(req, id) == null) return _erro(404, 'Palavra não encontrada.');
+    await store.excluir('palavras', id);
+    return _json({'ok': true});
+  }
+
+  /// POST /api/palavras/analisar {texto, decisoes} — prévia dos trechos e versículos no editor.
+  Future<Response> _analisarPalavra(Request req) async {
+    try {
+      final corpo = await _corpo(req);
+      final texto = corpo['texto'] as String? ?? '';
+      if (texto.length > Palavra.tamanhoMaximo) return _erro(400, 'Texto muito longo.');
+      final palavra = Palavra.fromJson({'id': '', 'titulo': '', 'texto': texto, 'decisoes': corpo['decisoes'] ?? const {}});
+      return _json({'trechos': [for (final t in palavra.trechos) t.toJson()]});
+    } on TypeError {
+      return _erro(400, 'Dados inválidos.');
+    }
+  }
+
+  /// POST /api/palavras/importar?nome=sermao.docx (corpo: o arquivo) — devolve o texto para o editor.
+  Future<Response> _importarPalavra(Request req) async {
+    final nome = req.url.queryParameters['nome'] ?? '';
+    final bytes = await _lerBytes(req, tamanhoMaximoImportacao);
+    if (bytes == null) return _erro(413, 'Arquivo muito grande (máximo 10 MB).');
+    try {
+      final texto = textoDoArquivo(nome, bytes);
+      if (texto.trim().isEmpty) return _erro(400, 'Não achei texto neste arquivo.');
+      if (texto.length > Palavra.tamanhoMaximo) return _erro(400, 'Texto muito longo.');
+      return _json({'texto': texto});
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+  }
+
+  /// GET /api/palavras/hoje?culto=<id> — a Palavra pronta de hoje, como o tablet usa no culto.
+  /// Com mais de uma, vale a ligada ao culto pedido; senão, a atualizada por último.
+  Response _palavraDeHoje(Request req) {
+    final hoje = diaIso(_agora());
+    final culto = req.url.queryParameters['culto'] ?? '';
+    final prontas = [
+      for (final j in store.listar('palavras'))
+        if (j['pronta'] == true && j['data'] == hoje) Palavra.fromJson(j),
+    ]..sort((a, b) => (b.atualizadoEm ?? DateTime(2000)).compareTo(a.atualizadoEm ?? DateTime(2000)));
+    final escolhida = prontas.where((p) => culto.isNotEmpty && p.cultoId == culto).firstOrNull ?? prontas.firstOrNull;
+    return _json({'palavra': escolhida == null ? null : PalavraDoCulto.de(escolhida).toJson()});
   }
 
   // ---------- Escalas (pastoral e louvor) ----------

@@ -8,6 +8,7 @@ export 'src/membro.dart';
 export 'src/mensagem.dart';
 export 'src/motivo.dart';
 export 'src/mural.dart';
+export 'src/palavra.dart';
 export 'src/recado.dart';
 export 'src/resumo.dart';
 export 'src/roteiro.dart';

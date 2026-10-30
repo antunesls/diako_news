@@ -13,6 +13,7 @@ import 'data/escala_repo.dart';
 import 'data/conta_repo.dart';
 import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
+import 'data/palavra_repo.dart';
 import 'data/recado_repo.dart';
 import 'data/settings.dart';
 import 'data/visita_repo.dart';
@@ -41,6 +42,7 @@ Future<void> main() async {
   final escalas = EscalaRepo(api: api, cache: () => arquivo('cache_escala.json'));
   final mensagens = MensagemRepo(api: api, cache: () => arquivo('cache_mensagens.json'));
   final visitas = VisitaRepo(api: api, cache: () => arquivo('cache_visitas.json'));
+  final palavra = PalavraRepo(api: api, cache: () => arquivo('cache_palavra.json'));
   final conta = ContaRepo(api: api, cache: () => arquivo('cache_conta.json'));
   // O perfil primeiro (cache), para só buscar o que ele pode ver.
   await conta.carregar();
@@ -52,6 +54,7 @@ Future<void> main() async {
   if (conta.pode('escalasVer')) unawaited(escalas.carregar());
   if (conta.pode('mensagens')) unawaited(mensagens.carregar());
   if (conta.pode('visitantes')) unawaited(visitas.carregar());
+  if (conta.pode('projetar')) unawaited(palavra.carregar());
 
   final agenteLocal = AgenteLocal(() => (base: settings.agenteLocal, token: settings.agenteLocalToken));
   final client = HolyricsClient(api, local: agenteLocal);
@@ -66,6 +69,7 @@ Future<void> main() async {
       if ((tipo == 'escalas' || tipo == 'membros') && conta.pode('escalasVer')) escalas.sincronizar();
       if (tipo == 'mensagens' && conta.pode('mensagens')) mensagens.sincronizar();
       if (tipo == 'visitas' && conta.pode('visitantes')) visitas.sincronizar();
+      if (tipo == 'palavras' && conta.pode('projetar')) palavra.sincronizar();
     },
     aoReconectar: () async {
       await conta.sincronizar();
@@ -75,6 +79,7 @@ Future<void> main() async {
       if (conta.pode('escalasVer')) escalas.sincronizar();
       if (conta.pode('mensagens')) mensagens.sincronizar();
       if (conta.pode('visitantes')) visitas.sincronizar();
+      if (conta.pode('projetar')) palavra.sincronizar();
     },
   );
   if (settings.configurado) tempoReal.iniciar();
@@ -84,6 +89,7 @@ Future<void> main() async {
     motivos: motivos,
     agenda: agenda,
     escalas: escalas,
+    palavra: palavra,
     mensagens: mensagens,
     visitas: visitas,
     conta: conta,

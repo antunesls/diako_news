@@ -8,6 +8,7 @@ import 'package:diako_news/data/conta_repo.dart';
 import 'package:diako_news/data/escala_repo.dart';
 import 'package:diako_news/data/mensagem_repo.dart';
 import 'package:diako_news/data/motivo_repo.dart';
+import 'package:diako_news/data/palavra_repo.dart';
 import 'package:diako_news/data/recado_repo.dart';
 import 'package:diako_news/data/settings.dart';
 import 'package:diako_news/data/visita_repo.dart';
@@ -31,8 +32,12 @@ class ServidorFalso {
 
   final DateTime agora;
 
-  /// Ações recebidas pelo Holyrics, na ordem (ex: "ShowQuickPresentation").
+  /// Ações recebidas pelo Holyrics, na ordem (ex: "ShowQuickPresentation"), com o corpo de cada uma.
   final holyrics = <String>[];
+  final corpos = <Map<String, dynamic>>[];
+
+  /// Palavra pronta de hoje (null = o pastor não preparou texto).
+  Palavra? palavra;
 
   late final hoje = diaIso(agora);
 
@@ -117,10 +122,12 @@ class ServidorFalso {
           '/api/mensagens' => const [],
           '/api/agenda' => {'configurada': true, 'eventos': [evento.toJson()]},
           '/api/escalas/hoje' => {'hoje': true, 'cultos': [culto]},
+          '/api/palavras/hoje' => {'palavra': palavra == null ? null : PalavraDoCulto.de(palavra!).toJson()},
           '/api/estado' => {'qrHolyrics': 'DiakoNews/qr.png', 'qrMensagensHolyrics': 'DiakoNews/qr-mensagens.png'},
           '/api/projetar/boas-vindas' => {'status': 'ok'},
           _ when caminho.startsWith('/api/holyrics/') => () {
               holyrics.add(caminho.substring('/api/holyrics/'.length));
+              corpos.add(req.body.isEmpty ? {} : Map<String, dynamic>.from(jsonDecode(req.body) as Map));
               return {'status': 'ok', 'data': null};
             }(),
           _ => null,
@@ -143,7 +150,8 @@ Future<AppScope> montarApp(ServidorFalso servidor, Directory pasta, Widget home)
   final mensagens = MensagemRepo(api: api, cache: () => arquivo('mensagens.json'));
   final visitas = VisitaRepo(api: api, cache: () => arquivo('visitas.json'));
   final conta = ContaRepo(api: api, cache: () => arquivo('conta.json'));
-  await Future.wait([repo.sincronizar(), motivos.sincronizar(), agenda.sincronizar(), escalas.sincronizar(), mensagens.sincronizar(), visitas.sincronizar()]);
+  final palavra = PalavraRepo(api: api, cache: () => arquivo('palavra.json'));
+  await Future.wait([repo.sincronizar(), motivos.sincronizar(), agenda.sincronizar(), escalas.sincronizar(), mensagens.sincronizar(), visitas.sincronizar(), palavra.sincronizar()]);
   final client = HolyricsClient(api, local: AgenteLocal(() => (base: '', token: '')));
   final status = StatusController(client);
   await status.atualizar();
@@ -152,6 +160,7 @@ Future<AppScope> montarApp(ServidorFalso servidor, Directory pasta, Widget home)
     motivos: motivos,
     agenda: agenda,
     escalas: escalas,
+    palavra: palavra,
     mensagens: mensagens,
     visitas: visitas,
     conta: conta,

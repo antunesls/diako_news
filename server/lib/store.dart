@@ -24,7 +24,7 @@ class Store {
   Future<void> _fila = Future.value();
 
   static const colecoes = ['recados', 'motivos', 'membros', 'mensagens', 'galeria', 'visitas', 'escalas',
-    'indisponibilidades', 'linksEscala', 'repertorio'];
+    'indisponibilidades', 'linksEscala', 'repertorio', 'palavras'];
 
   Stream<String> get mudancas => _mudancas.stream;
   Map<String, int> get versoes => Map.unmodifiable(_versoes);

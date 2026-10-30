@@ -104,6 +104,25 @@ class HolyricsClient {
         },
       });
 
+  /// Trecho da Palavra na TV do palco, para o pastor ler: alinhado à esquerda, no alto, sem negrito.
+  Future<void> leituraPalco(String texto) =>
+      call('SetTextCP', {
+        'text': texto,
+        'show': true,
+        'display_ahead': true,
+        'custom_theme': {
+          'background': {'type': 'transparent', 'id': 'transparent'},
+          'font': {'bold': false, 'color': 'FFFFFF'},
+          'align': {'horizontal': 'left', 'vertical': 'top'},
+        },
+      });
+
+  /// Versículos no telão, na versão padrão do Holyrics. [ids] no formato LLCCCVVV (livro, capítulo,
+  /// versículo), que não depende do idioma das abreviações.
+  // Ainda não testado na igreja (roteiro de teste em docs/modo-culto.html): se a versão do Holyrics
+  // não aceitar ids, é aqui que se troca por references.
+  Future<void> mostrarVersiculo(List<String> ids) => call('ShowVerse', {'ids': ids});
+
   Future<void> contagemPalco(int minutos) =>
       call('StartCountdownCP', {'minutes': minutos, 'seconds': 0, 'yellow_starts_at': 60, 'stop_at_zero': true});
   Future<void> pararContagemPalco() => call('StopCountdownCP');

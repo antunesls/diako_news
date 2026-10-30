@@ -43,3 +43,16 @@ test('painel oferece menu lateral, botão móvel e preserva as páginas existent
     assert.ok(html.includes(`data-painel="${id}"`), `página ${id} desapareceu`);
   }
 });
+
+test('Palavras fica em Cultos e aparece só para quem prepara Palavras', () => {
+  const pregador = menu.gruposPermitidos(['painel', 'escalasVer', 'palavras', 'minhaEscala']);
+  assert.deepEqual(pregador.find((g) => g.nome === 'Cultos').itens.map((i) => i.id), ['escalas', 'repertorio', 'palavras']);
+  assert.ok(!menu.gruposPermitidos(['painel', 'escalasVer']).flatMap((g) => g.itens).some((i) => i.id === 'palavras'));
+});
+
+test('painel carrega o script das Palavras e o menu na versão nova', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../web/painel.html'), 'utf8');
+  assert.match(html, /data-painel="palavras"/);
+  assert.match(html, /<script src="\/palavras\.js\?v=1"><\/script>/);
+  assert.match(html, /<script src="\/menu-lateral\.js\?v=2"><\/script>/);
+});

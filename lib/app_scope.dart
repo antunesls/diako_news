@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'data/agenda_repo.dart';
 import 'data/conta_repo.dart';
 import 'data/escala_repo.dart';
+import 'data/palavra_repo.dart';
 import 'data/mensagem_repo.dart';
 import 'data/motivo_repo.dart';
 import 'data/recado_repo.dart';
@@ -22,6 +23,7 @@ class AppScope extends InheritedWidget {
     required this.motivos,
     required this.agenda,
     required this.escalas,
+    required this.palavra,
     required this.mensagens,
     required this.visitas,
     required this.conta,
@@ -40,6 +42,9 @@ class AppScope extends InheritedWidget {
 
   /// Escala de hoje (pastoral e louvor) para o culto.
   final EscalaRepo escalas;
+
+  /// A Palavra pronta de hoje (sermão preparado no painel) para o Modo Culto.
+  final PalavraRepo palavra;
   final MensagemRepo mensagens;
   final VisitaRepo visitas;
 

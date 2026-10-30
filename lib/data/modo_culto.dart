@@ -4,6 +4,7 @@ import 'package:diako_core/diako_core.dart';
 import 'package:flutter/foundation.dart';
 
 import '../app_scope.dart';
+import '../sync/server_api.dart';
 import 'escala_repo.dart';
 
 /// Estado do Modo Culto: escolhe o culto de hoje, monta o roteiro com os dados do app,
@@ -15,7 +16,7 @@ class ModoCultoController extends ChangeNotifier {
   ModoCultoController(this.scope, {Set<String> recadosSelecionados = const {}, DateTime Function()? agora})
       : _agora = agora ?? DateTime.now {
     _restaurar(recadosSelecionados);
-    _fontes = Listenable.merge([scope.repo, scope.motivos, scope.visitas, scope.agenda, scope.escalas, scope.settings]);
+    _fontes = Listenable.merge([scope.repo, scope.motivos, scope.visitas, scope.agenda, scope.escalas, scope.settings, scope.palavra]);
     _fontes.addListener(_remontar);
     _remontar();
   }
@@ -30,6 +31,12 @@ class ModoCultoController extends ChangeNotifier {
   final Map<TipoMomento, DateTime> _inicios = {};
   List<Momento> _roteiro = [];
   CultoDoDia? _culto;
+
+  /// Trecho da Palavra na TV do palco (null = a leitura ainda não começou).
+  int? _trecho;
+
+  /// Versículo no telão durante a Palavra (ex: Rm 5.8); null = tela preta.
+  String? _versiculo;
 
   List<Momento> get roteiro => _roteiro;
 
@@ -72,7 +79,73 @@ class ModoCultoController extends ChangeNotifier {
   }
 
   /// Minutos previstos para o momento; a Palavra usa o tempo ajustado no tablet.
-  int previsto(TipoMomento tipo) => tipo == TipoMomento.palavra ? scope.settings.minutosPregacao : tipo.minutos;
+  /// Minutos previstos para o momento; a Palavra usa o tempo dela (do painel) ou o ajustado no tablet.
+  int previsto(TipoMomento tipo) =>
+      tipo == TipoMomento.palavra ? palavra?.minutos ?? scope.settings.minutosPregacao : tipo.minutos;
+
+  /// A Palavra pronta de hoje (preparada no painel); null = Palavra sem texto (só cronômetro).
+  PalavraDoCulto? get palavra => scope.palavra.palavra;
+
+  /// Índice do trecho na TV do palco; null antes de começar a leitura.
+  int? get trecho {
+    final t = _trecho, p = palavra;
+    return t == null || p == null || p.trechos.isEmpty ? null : t.clamp(0, p.trechos.length - 1);
+  }
+
+  /// Versículo no telão durante a Palavra; null = tela preta.
+  String? get versiculo => _versiculo;
+
+  /// Passa o trecho [indice] para a TV do palco.
+  Future<void> irParaTrecho(int indice) async {
+    final p = palavra;
+    if (p == null || indice < 0 || indice >= p.trechos.length) return;
+    await scope.client.leituraPalco(p.trechos[indice].texto);
+    _trecho = indice;
+    await _salvar();
+    notifyListeners();
+  }
+
+  /// Próximo trecho (o primeiro, se a leitura não começou). Retorna false no fim.
+  Future<bool> proximoTrecho() async {
+    final p = palavra;
+    final seguinte = trecho == null ? 0 : trecho! + 1;
+    if (p == null || seguinte >= p.trechos.length) return false;
+    await irParaTrecho(seguinte);
+    return true;
+  }
+
+  Future<bool> trechoAnterior() async {
+    final t = trecho;
+    if (t == null || t == 0) return false;
+    await irParaTrecho(t - 1);
+    return true;
+  }
+
+  /// Projeta no telão um versículo citado no trecho (a tela preta da pregação sai antes).
+  Future<void> projetarVersiculo(RefBiblica ref) async {
+    final status = scope.status;
+    if (status.telaPreta) {
+      await scope.client.telaPreta(false);
+      status.telaPreta = false;
+    }
+    if (status.telaVazia) {
+      await scope.client.telaVazia(false);
+      status.telaVazia = false;
+    }
+    await scope.client.mostrarVersiculo(ref.ids);
+    _versiculo = ref.abreviada;
+    notifyListeners();
+    await status.atualizar();
+  }
+
+  /// Tira o versículo: volta a tela preta da pregação.
+  Future<void> tirarVersiculo() async {
+    await scope.client.telaPreta(true);
+    scope.status.telaPreta = true;
+    _versiculo = null;
+    notifyListeners();
+    await scope.status.atualizar();
+  }
 
   /// Hora do culto (hh:mm de hoje) já chegou.
   bool get horaDoCulto {
@@ -105,6 +178,11 @@ class ModoCultoController extends ChangeNotifier {
 
   void _remontar() {
     final c = _culto = _escolherCulto();
+    // Com dois cultos no dia, a Palavra que desce é a ligada a este.
+    if (c != null && c.id.isNotEmpty && scope.palavra.culto != c.id) {
+      scope.palavra.culto = c.id;
+      scope.palavra.sincronizar();
+    }
     final s = scope.settings;
     _roteiro = montarRoteiro(
       horaCulto: c?.hora ?? '',
@@ -129,7 +207,18 @@ class ModoCultoController extends ChangeNotifier {
   Future<void> irPara(PosicaoRoteiro destino) async {
     final p = localizar(_roteiro, destino);
     if (p == null) return;
+    final anterior = _posicao == null ? null : localizar(_roteiro, _posicao!);
+    final saindoDaPalavra = anterior?.tipo == TipoMomento.palavra && p.tipo != TipoMomento.palavra;
     await _executar(passoDe(p));
+    if (saindoDaPalavra) {
+      _versiculo = null;
+      // A TV do palco volta a ficar livre (frases e contagem); falha aqui não segura o culto.
+      if (_trecho != null) {
+        try {
+          await scope.client.mensagemPalco('', mostrar: false);
+        } on ErroAmigavel catch (_) {}
+      }
+    }
     _iniciado = true;
     _posicao = p;
     _inicios.putIfAbsent(p.tipo, _agora);
@@ -168,6 +257,8 @@ class ModoCultoController extends ChangeNotifier {
     _iniciado = false;
     _posicao = null;
     _inicios.clear();
+    _trecho = null;
+    _versiculo = null;
     await scope.settings.salvarModoCulto('');
   }
 
@@ -223,6 +314,7 @@ class ModoCultoController extends ChangeNotifier {
         if (_posicao != null) 'passo': _posicao!.passo,
         'inicios': {for (final e in _inicios.entries) e.key.name: e.value.toIso8601String()},
         'recados': _recados.toList(),
+        if (_trecho != null) 'trecho': _trecho,
       }));
 
   /// Retoma o culto de hoje se o app fechou no meio. A seleção nova de recados, se houver, vale mais.
@@ -241,6 +333,7 @@ class ModoCultoController extends ChangeNotifier {
         final quando = DateTime.tryParse('${e.value}');
         if (t != null && quando != null) _inicios[t] = quando;
       }
+      _trecho = (j['trecho'] as num?)?.toInt();
       if (_recados.isEmpty) _recados = {for (final id in j['recados'] as List? ?? const []) '$id'};
     } catch (_) {
       // Estado salvo ilegível: começa do zero.
