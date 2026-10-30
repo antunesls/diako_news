@@ -21,17 +21,20 @@ EOF
 # O flutter create gera build.gradle.kts (versões novas) ou build.gradle (antigas).
 # Um segundo bloco android {} no fim do arquivo sobrepõe a assinatura do release.
 if [ -f android/app/build.gradle.kts ]; then
+  # No .kts, `java.util...` resolve `java` como a extensão do Gradle e não como pacote:
+  # a classe precisa vir de um import, que só vale no topo do arquivo.
+  sed -i '1i import java.util.Properties' android/app/build.gradle.kts
   cat >> android/app/build.gradle.kts <<'EOF'
 
 // --- Assinatura de release (adicionado pelo CI: tool/ci/assinar_android.sh) ---
-val diakoKeyProps = java.util.Properties().apply {
+val diakoKeyProps = Properties().apply {
     val arquivo = rootProject.file("key.properties")
     if (arquivo.exists()) arquivo.inputStream().use { load(it) }
 }
 android {
     signingConfigs {
         create("diakoRelease") {
-            storeFile = file(diakoKeyProps.getProperty("storeFile"))
+            storeFile = file(diakoKeyProps.getProperty("storeFile", "release.jks"))
             storePassword = diakoKeyProps.getProperty("storePassword")
             keyAlias = diakoKeyProps.getProperty("keyAlias")
             keyPassword = diakoKeyProps.getProperty("keyPassword")
