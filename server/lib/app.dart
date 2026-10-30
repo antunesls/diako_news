@@ -2145,31 +2145,39 @@ class Servidor {
     }
   }
 
-  /// Prévia e importação usam a mesma identificação (título + cantor), sem sobrescrever registros existentes.
+  /// Prévia e importação usam a mesma identificação (título + cantor), sem sobrescrever registros existentes;
+  /// a única exceção é preencher o link de uma música já cadastrada sem link.
   Future<Response> _processarImportacaoRepertorio(Request req, {required bool salvar}) async {
     if (!_podeEditarRepertorio(req)) return _semPermissaoEscala(TipoEscala.louvor);
     final csv = (await _corpo(req))['csv'];
     if (csv is! String || csv.length > 2 * 1024 * 1024) return _erro(400, 'CSV inválido ou grande demais.');
     try {
       final lidas = lerRepertorioCsv(csv);
-      final chaves = {
+      final existentes = {
         for (final m in store.listar('repertorio'))
-          chaveRepertorio(m['titulo'] as String, m['cantor'] as String),
+          chaveRepertorio(m['titulo'] as String, m['cantor'] as String): m,
       };
+      final chaves = {...existentes.keys};
       final novas = <RepertorioMusica>[];
+      final comLink = <Map<String, dynamic>>[];
       var repetidas = 0;
       for (final m in lidas) {
-        if (!chaves.add(chaveRepertorio(m.titulo, m.cantor))) {
+        final chave = chaveRepertorio(m.titulo, m.cantor);
+        final atual = existentes.remove(chave);
+        if (atual != null && ((atual['referencia'] as String?) ?? '').isEmpty && m.referencia.isNotEmpty) {
+          comLink.add({...atual, 'referencia': m.referencia});
+        } else if (!chaves.add(chave)) {
           repetidas++;
         } else {
           novas.add(m.comId(novoId()));
         }
       }
-      if (salvar && novas.isNotEmpty) {
-        await store.salvarVarios('repertorio', [for (final m in novas) m.toJson()]);
+      if (salvar && (novas.isNotEmpty || comLink.isNotEmpty)) {
+        await store.salvarVarios('repertorio', [for (final m in novas) m.toJson(), ...comLink]);
       }
       return _json({
         if (salvar) 'importadas': novas.length else 'novas': novas.length,
+        'links': comLink.length,
         'repetidas': repetidas,
         'musicas': [for (final m in novas) m.toJson()],
       });

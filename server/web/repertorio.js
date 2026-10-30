@@ -82,10 +82,11 @@ $('repertorio-arquivo').addEventListener('change', async (e) => {
     if (arquivo.size > 2 * 1024 * 1024) throw new Error('CSV grande demais (limite de 2 MB).');
     csvRepertorio = await lerArquivoCsv(arquivo);
     const previa = await api('POST', '/api/repertorio/importar/previa', { csv: csvRepertorio });
-    $('repertorio-previa').textContent = `${previa.novas} novas · ${previa.repetidas} já cadastradas (não serão alteradas).`;
+    $('repertorio-previa').textContent = `${previa.novas} novas · ${previa.links} já cadastradas ganham o link do vídeo · ` +
+      `${previa.repetidas} já cadastradas (não serão alteradas).`;
     $('repertorio-preview-lista').replaceChildren(...previa.musicas.map((m) =>
       el('p', {}, `${m.titulo} — ${m.cantor} · ${m.ativo ? 'Ativa' : 'Inativa'}`)));
-    $('repertorio-confirmar').disabled = !previa.novas;
+    $('repertorio-confirmar').disabled = !previa.novas && !previa.links;
     $('repertorio-erro').hidden = true;
   } catch (err) {
     mensagem($('repertorio-erro'), err.message, false);
@@ -100,7 +101,7 @@ $('dlg-importar-repertorio').querySelector('form').addEventListener('submit', as
     const r = await api('POST', '/api/repertorio/importar', { csv: csvRepertorio });
     $('dlg-importar-repertorio').close();
     await carregarRepertorio();
-    mensagem($('repertorio-resultado'), `${r.importadas} músicas importadas; ${r.repetidas} já cadastradas.`);
+    mensagem($('repertorio-resultado'), `${r.importadas} músicas importadas; ${r.links} links preenchidos; ${r.repetidas} já cadastradas.`);
   } catch (err) {
     mensagem($('repertorio-erro'), err.message, false);
     $('repertorio-erro').hidden = false;

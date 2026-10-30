@@ -486,6 +486,20 @@ void main() {
       expect((await chamar('POST', '/api/repertorio/importar', token: admin, json: {'csv': csv})).$2['importadas'], 0);
       expect(((await chamar('GET', '/api/repertorio', token: admin)).$2 as List).first['tomDiakonia'], 'G');
 
+      // Reimportar com links só preenche o link de quem está sem; o resto do cadastro fica como está.
+      const comLinks = 'Louvor,Cantor,Link Versão,Tom Diakonia\n'
+          'Santo pra sempre,Marine Friesen,https://youtu.be/uzCmyHAv5GE,C\n'
+          'Em análise,Outro cantor,,D';
+      final (_, previaLinks) = await chamar('POST', '/api/repertorio/importar/previa', token: admin, json: {'csv': comLinks});
+      expect((previaLinks['novas'], previaLinks['links'], previaLinks['repetidas']), (0, 1, 1));
+      final (_, reimportado) = await chamar('POST', '/api/repertorio/importar', token: admin, json: {'csv': comLinks});
+      expect((reimportado['importadas'], reimportado['links']), (0, 1));
+      final santo = ((await chamar('GET', '/api/repertorio', token: admin)).$2 as List)
+          .firstWhere((m) => m['titulo'] == 'Santo pra sempre') as Map;
+      expect((santo['referencia'], santo['tomDiakonia']), ('https://youtu.be/uzCmyHAv5GE', 'G'));
+      expect((await chamar('POST', '/api/repertorio/importar', token: admin,
+          json: {'csv': comLinks.replaceFirst('uzCmyHAv5GE', 'outroVideo1')})).$2['links'], 0);
+
       await chamar('PUT', '/api/admin/configuracoes', token: admin, json: {'siteCultos': 'Domingo — 19h'});
       await chamar('POST', '/api/escalas/gerar', token: admin, json: {'mes': '2026-11'});
       final id = culto(await mes('2026-11'), '2026-11-01')['id'];
