@@ -2146,7 +2146,8 @@ class Servidor {
   }
 
   /// Prévia e importação usam a mesma identificação (título + cantor), sem sobrescrever registros existentes;
-  /// a única exceção é preencher o link de uma música já cadastrada sem link.
+  /// a única exceção é preencher o link de uma música já cadastrada sem link (ou só com o título do vídeo,
+  /// que é o que sobra da coluna "Link Versão" quando a planilha é exportada).
   Future<Response> _processarImportacaoRepertorio(Request req, {required bool salvar}) async {
     if (!_podeEditarRepertorio(req)) return _semPermissaoEscala(TipoEscala.louvor);
     final csv = (await _corpo(req))['csv'];
@@ -2164,7 +2165,8 @@ class Servidor {
       for (final m in lidas) {
         final chave = chaveRepertorio(m.titulo, m.cantor);
         final atual = existentes.remove(chave);
-        if (atual != null && ((atual['referencia'] as String?) ?? '').isEmpty && m.referencia.isNotEmpty) {
+        bool link(String? r) => RegExp(r'^https?://', caseSensitive: false).hasMatch(r ?? '');
+        if (atual != null && !link(atual['referencia'] as String?) && link(m.referencia)) {
           comLink.add({...atual, 'referencia': m.referencia});
         } else if (!chaves.add(chave)) {
           repetidas++;

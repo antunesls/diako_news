@@ -463,8 +463,8 @@ void main() {
     });
 
     test('repertório: prévia, importação sem sobrescrever, edição e músicas vinculadas na escala', () async {
-      const csv = 'Louvor,Cantor,Status,Tom Diakonia,Observações\n'
-          'Santo pra sempre,Marine Friesen,Ok,"F\nComeça com Bb",Teste\n'
+      const csv = 'Louvor,Cantor,Status,Tom Diakonia,Observações,Link Versão\n'
+          'Santo pra sempre,Marine Friesen,Ok,"F\nComeça com Bb",Teste,Marine Friesen - Santo pra Sempre (Ao Vivo)\n'
           'Em análise,Outro cantor,Pendente,D,Nota';
       final (stPreview, previa) = await chamar('POST', '/api/repertorio/importar/previa', token: admin, json: {'csv': csv});
       expect(stPreview, 200);
