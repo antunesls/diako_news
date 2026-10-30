@@ -392,10 +392,12 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
         itemCount: roteiro.length,
         itemBuilder: (context, i) {
           final m = roteiro[i];
-          final feito = i < atual, agora = i == atual;
+          final agora = i == atual;
           final inicio = _c.inicioDe(m.tipo);
+          // Passou por ele: ✓ só se foi projetado; pulado fica apagado, sem ✓.
+          final passou = i < atual, feito = passou && inicio != null;
           return Opacity(
-            opacity: feito ? .5 : 1,
+            opacity: passou ? .5 : 1,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 2),
               child: Material(
