@@ -137,6 +137,15 @@ void main() {
       expect((await req('GET', '/api/recados')).statusCode, 200);
     });
 
+    test('todo QR do painel pode ser baixado com um clique', () async {
+      final html = File('web/painel.html').readAsStringSync();
+      final qrs = RegExp(r'<img class="qr" src="([^"]+)"').allMatches(html).map((m) => m[1]!).toList();
+      expect(qrs, contains('/qr-oracao.png'));
+      for (final qr in qrs) {
+        expect(html, contains('<a href="$qr" download='), reason: '$qr sem link de download');
+      }
+    });
+
     test('senha errada e limite de tentativas', () async {
       for (var i = 0; i < 4; i++) {
         expect((await req('POST', '/api/login', json: {'senha': 'x'}, autenticado: false)).statusCode, 401);
