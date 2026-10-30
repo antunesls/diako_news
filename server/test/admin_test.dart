@@ -14,6 +14,7 @@ import 'package:diako_server/holyrics.dart';
 import 'package:diako_server/qr_oracao.dart';
 import 'package:diako_server/store.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
@@ -215,6 +216,50 @@ void main() {
       expect(await mural(), allOf(contains('Irmã Maria · Saúde'), isNot(contains('Cirurgia'))));
       expect(await resumo(), allOf(contains('Irmã Maria · Saúde'), isNot(contains('Cirurgia'))));
       expect(await doApp(), isFalse);
+    });
+
+    test('fundo das TVs: cor, imagem por TV, troca e remoção', () async {
+      final foto = Uint8List.fromList(img.encodePng(img.Image(width: 40, height: 24)));
+      Future<Map> fundo(String q) async =>
+          (await corpo(await handler(Request('GET', Uri.parse('http://localhost/api/public/mural?chave=m1$q')))))['fundo']
+              as Map;
+      Future<int> baixar(String url) async => (await handler(Request('GET', Uri.parse('http://localhost$url')))).statusCode;
+
+      expect(await fundo(''), {'cor': '#0b1026', 'imagem': null, 'escurecer': 55});
+      expect((await req('PUT', '/api/admin/configuracoes', json: {'muralFundoCor': 'azul'})).statusCode, 400);
+      expect((await req('PUT', '/api/admin/configuracoes', json: {'boasVindasFundoEscurecer': 95})).statusCode, 400);
+      // A imagem só muda pelo envio: o nome nunca vem do painel.
+      expect((await req('PUT', '/api/admin/configuracoes', json: {'muralFundoImagem': '../config.json'})).statusCode, 400);
+      await req('PUT', '/api/admin/configuracoes', json: {'muralFundoCor': '#F5E6C8', 'boasVindasFundoEscurecer': 30});
+      expect((await fundo(''))['cor'], '#f5e6c8');
+      expect((await fundo('&tela=boas-vindas'))['escurecer'], 30);
+
+      expect((await req('POST', '/api/admin/fundo-tv?tela=palco', bytes: foto)).statusCode, 400);
+      expect((await req('POST', '/api/admin/fundo-tv?tela=mural', bytes: [1, 2, 3])).statusCode, 400);
+      expect((await req('POST', '/api/admin/fundo-tv?tela=mural', bytes: foto, comToken: 'x')).statusCode, 401);
+      final r1 = await corpo(await req('POST', '/api/admin/fundo-tv?tela=boas-vindas', bytes: foto)) as Map;
+      final primeira = r1['imagem'] as String;
+      expect(primeira, matches(RegExp(r'^/fundo-tv/boas-vindas-[0-9a-f]{20}\.jpg$')));
+      expect((await fundo('&tela=boas-vindas'))['imagem'], primeira);
+      expect((await fundo(''))['imagem'], isNull); // cada TV tem o seu
+      expect(await baixar(primeira), 200);
+
+      // Trocar apaga a anterior; remover volta a só a cor.
+      final segunda = (await corpo(await req('POST', '/api/admin/fundo-tv?tela=boas-vindas', bytes: foto)))['imagem'];
+      expect(segunda, isNot(primeira));
+      expect(await baixar(primeira), 404);
+      expect(await baixar('/fundo-tv/..%2Fconfig.json'), 404);
+
+      // O backup leva a imagem e a restauração a devolve (backup sem dados é recusado: um recado basta).
+      await req('POST', '/api/recados', json: {'titulo': 'Culto'});
+      final zip = await (await req('GET', '/api/backups/agora/download')).read().expand((b) => b).toList();
+      expect(ZipDecoder().decodeBytes(zip).findFile('fundos-tv/${(segunda as String).split('/').last}'), isNotNull);
+      await req('DELETE', '/api/admin/fundo-tv?tela=boas-vindas');
+      expect((await fundo('&tela=boas-vindas'))['imagem'], isNull);
+      expect(await baixar(segunda), 404);
+      await req('POST', '/api/backups/restaurar?configuracoes=1', bytes: zip);
+      expect((await fundo('&tela=boas-vindas'))['imagem'], segunda);
+      expect(await baixar(segunda), 200);
     });
   });
 

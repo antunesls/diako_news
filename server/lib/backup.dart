@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'cartazes.dart';
 import 'fotos_membros.dart';
 import 'lgpd.dart';
+import 'fundos_tv.dart';
 import 'galeria.dart';
 import 'qr_oracao.dart';
 import 'repertorio.dart';
@@ -18,7 +19,7 @@ import 'store.dart';
 /// Formato dos arquivos de backup (manifest.json).
 const versaoBackup = 2;
 
-/// Backups em .zip: dados, histórico, cartazes, fotos da galeria do site e configurações públicas
+/// Backups em .zip: dados, histórico, cartazes, fotos da galeria do site, fundos das TVs e configurações públicas
 /// (sem senha nem chaves).
 /// Diário no horário configurado, sob demanda pelo painel e antes de cada restauração.
 class Backup {
@@ -133,6 +134,13 @@ class Backup {
       await for (final e in dirGaleria.list()) {
         final nome = p.basename(e.path);
         if (e is File && Galeria.nomeValido(nome)) arquivo.add(ArchiveFile.bytes('galeria/$nome', await e.readAsBytes()));
+      }
+    }
+    final dirFundos = Directory(FundosTv(pastaDados).pasta);
+    if (await dirFundos.exists()) {
+      await for (final e in dirFundos.list()) {
+        final nome = p.basename(e.path);
+        if (e is File && FundosTv.nomeValido(nome)) arquivo.add(ArchiveFile.bytes('fundos-tv/$nome', await e.readAsBytes()));
       }
     }
     final dirFotosMembros = Directory(FotosMembros(pastaDados).pasta);
@@ -418,6 +426,14 @@ class Restauracao {
       final nome = f.name.substring('galeria/'.length);
       if (Galeria.nomeValido(nome)) fotos[nome] = f.content;
     }
+    final fundos = <String, List<int>>{};
+    var temPastaFundos = false;
+    for (final f in arquivo.files) {
+      if (!f.isFile || !f.name.startsWith('fundos-tv/')) continue;
+      temPastaFundos = true;
+      final nome = f.name.substring('fundos-tv/'.length);
+      if (FundosTv.nomeValido(nome)) fundos[nome] = f.content;
+    }
     final fotosDosMembros = <String, List<int>>{};
     var temPastaFotosMembros = false;
     for (final f in arquivo.files) {
@@ -485,6 +501,17 @@ class Restauracao {
       }
       resumo.fotosGaleria = fotos.keys.where((k) => !k.endsWith('-m.jpg')).length;
       store.avisar('galeria');
+    }
+    // Fundos das TVs (backups de antes deles mantêm os atuais).
+    if (temPastaFundos) {
+      final dir = Directory(FundosTv(pastaDados).pasta);
+      await dir.create(recursive: true);
+      await for (final e in dir.list()) {
+        if (e is File && FundosTv.nomeValido(p.basename(e.path))) await e.delete();
+      }
+      for (final f in fundos.entries) {
+        await File(p.join(dir.path, f.key)).writeAsBytes(f.value, flush: true);
+      }
     }
     // Idem para as fotos do cadastro de membros (backups de antes mantêm as atuais).
     if (temPastaFotosMembros) {

@@ -5,10 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mural — Igreja Diakonia Tulipas</title>
 <style>
-  :root { --fundo: #0b1026; --texto: #ffffff; --suave: rgba(255,255,255,.72); --cor: #5c6bc0; }
+  :root { --fundo: #0b1026; --texto: #ffffff; --suave: rgba(255,255,255,.72); --cor: #5c6bc0;
+    --linha: rgba(255,255,255,.12); --ponto: rgba(255,255,255,.25); --ponto-ativo: #fff; --realce: brightness(1.6); }
+  /* Fundo claro escolhido no /admin: texto escuro (o mural.js liga a classe pela luminância da cor). */
+  body.claro { --texto: #15171c; --suave: rgba(0,0,0,.68); --linha: rgba(0,0,0,.14); --ponto: rgba(0,0,0,.22);
+    --ponto-ativo: #15171c; --realce: brightness(.8); }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html, body { margin: 0; height: 100%; background: var(--fundo); color: var(--texto); overflow: hidden;
+  html { background: var(--fundo) center / cover no-repeat; }
+  html, body { margin: 0; height: 100%; color: var(--texto); overflow: hidden;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; cursor: none; }
   body.mouse { cursor: default; }
   header { position: fixed; inset: 0 0 auto 0; height: 11vh; display: flex; align-items: center; justify-content: space-between; padding: 0 4vw; z-index: 2; }
@@ -30,9 +35,9 @@
   .slide.qr .texto { margin-top: 3vh; }
   /* Agenda: lista com a coluna de data/hora à esquerda. */
   .eventos { display: flex; flex-direction: column; gap: 2.2vh; width: min(88vw, 150vh); text-align: left; }
-  .evento { display: grid; grid-template-columns: 30vh 1fr; gap: 3vh; align-items: baseline; padding-bottom: 2vh; border-bottom: .2vh solid rgba(255,255,255,.12); }
+  .evento { display: grid; grid-template-columns: 30vh 1fr; gap: 3vh; align-items: baseline; padding-bottom: 2vh; border-bottom: .2vh solid var(--linha); }
   .evento:last-child { border-bottom: 0; }
-  .evento .quando { font-size: 3.4vh; font-weight: 600; color: var(--cor); filter: brightness(1.6); }
+  .evento .quando { font-size: 3.4vh; font-weight: 600; color: var(--cor); filter: var(--realce); }
   .evento .titulo { font-size: 4.2vh; font-weight: 700; line-height: 1.2; }
   .evento .local { font-size: 3vh; color: var(--suave); margin-top: .6vh; }
   .evento .descricao { font-size: 2.6vh; color: var(--suave); margin-top: .6vh; line-height: 1.35; }
@@ -43,8 +48,8 @@
   .slide.hoje .evento .titulo { font-size: 5.6vh; }
   .slide.hoje .evento .local { font-size: 3.6vh; }
   footer { position: fixed; inset: auto 0 0 0; height: 7vh; display: flex; align-items: center; justify-content: center; gap: 1vh; }
-  .ponto { width: 1.1vh; height: 1.1vh; border-radius: 50%; background: rgba(255,255,255,.25); transition: background .4s; }
-  .ponto.ativo { background: #fff; }
+  .ponto { width: 1.1vh; height: 1.1vh; border-radius: 50%; background: var(--ponto); transition: background .4s; }
+  .ponto.ativo { background: var(--ponto-ativo); }
   #vazio { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 4vh; color: var(--suave); }
   #aviso { position: fixed; right: 2vw; bottom: 1.5vh; font-size: 1.8vh; color: var(--suave); }
   /* TV de boas-vindas (?tela=boas-vindas): nomes grandes, poucos por tela. */
@@ -58,7 +63,7 @@
 </head>
 <body>
 <header>
-  <img src="/logo-claro.png" alt="Igreja Diakonia Tulipas">
+  <img id="logo" src="/logo-claro.png" alt="Igreja Diakonia Tulipas">
   <div id="relogio" aria-live="off"></div>
 </header>
 <main id="palco" aria-live="polite"></main>
@@ -174,12 +179,37 @@
     return paginas.map((p) => ({ tipo: 'bv', titulo: 'Sejam bem-vindos!', itens: p }));
   }
 
+  /** Fundo escolhido no /admin: cor, imagem opcional com véu escuro e texto claro ou escuro. */
+  let fundoAtual = '';
+  function aplicarFundo(f) {
+    if (!f) return;
+    const chave = JSON.stringify(f);
+    if (chave === fundoAtual) return;
+    fundoAtual = chave;
+    const raiz = document.documentElement;
+    raiz.style.setProperty('--fundo', f.cor || '#0b1026');
+    const veu = Math.min(90, Math.max(0, Number(f.escurecer) || 0)) / 100;
+    raiz.style.backgroundImage = f.imagem
+      ? `linear-gradient(rgba(0,0,0,${veu}), rgba(0,0,0,${veu})), url("${f.imagem}")` : '';
+    // Sem imagem, a cor decide: acima de 0,3 de luminância o texto escuro tem mais contraste que o branco.
+    const claro = !f.imagem && luminancia(f.cor || '#0b1026') > 0.3;
+    document.body.classList.toggle('claro', claro);
+    document.getElementById('logo').src = claro ? '/logo.png' : '/logo-claro.png';
+  }
+
+  function luminancia(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const canal = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
+  }
+
   async function carregar() {
     try {
       const r = await fetch(API_MURAL, { cache: 'no-store' });
       if (!r.ok) throw new Error();
       const j = await r.json();
       document.getElementById('aviso').hidden = true;
+      aplicarFundo(j.fundo);
       const lista = TELA ? slidesBoasVindas(j) : j.slides;
       const nova = JSON.stringify(lista);
       // Só remonta quando o conteúdo mudou, para não reiniciar a sequência à toa.

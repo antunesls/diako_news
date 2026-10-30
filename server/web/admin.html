@@ -33,6 +33,20 @@
   #login img { width: 260px; max-width: 80%; margin-bottom: 24px; }
   #login form { text-align: left; }
   @media (max-width: 760px) { nav.secoes { position: static; flex-basis: 100%; flex-direction: row; flex-wrap: wrap; } }
+  /* Fundo das TVs: prévia em 16:9 com a mesma lógica do mural.html. */
+  .fundo-tv { margin-top: 16px; }
+  .fundo-tv h3 { font-size: 16px; margin-bottom: 8px; }
+  .fundo-tv-grade { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 560px) { .fundo-tv-grade { grid-template-columns: 1fr; } }
+  .previa-tv { aspect-ratio: 16 / 9; border-radius: 8px; border: 1px solid var(--linha); background: #0b1026 center / cover no-repeat; color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px; text-align: center; position: relative; }
+  .previa-tv img { position: absolute; top: 8px; left: 10px; height: 14px; width: auto; }
+  .previa-tv .faixa { width: 40px; height: 3px; border-radius: 2px; background: #ab47bc; margin-bottom: 4px; }
+  .previa-tv strong { font-size: 17px; }
+  .previa-tv .linha { font-size: 13px; opacity: .75; }
+  .previa-tv.claro { color: #15171c; }
+  input[type=color] { width: 64px; height: 40px; padding: 2px; border: 1px solid var(--linha); border-radius: 8px; background: var(--superficie); cursor: pointer; }
+  input[type=range] { width: 100%; accent-color: var(--primaria); }
 </style>
 </head>
 <body>
@@ -149,6 +163,54 @@
           <button class="botao secundario" type="button" id="nova-chave-mural">Gerar nova chave</button>
           <button class="botao secundario" type="button" id="desativar-chave-mural">Deixar aberto (sem chave)</button>
           <span id="res-mural" role="status"></span>
+        </div>
+        <div class="bloco-google">
+          <h3>Fundo das TVs</h3>
+          <p class="dica">Cor ou imagem atrás dos avisos. Com imagem, o escurecimento mantém o texto legível; com cor clara, o texto fica escuro sozinho. A TV muda em até 1 minuto (10 s na de boas-vindas).</p>
+          <div class="fundo-tv">
+            <h3>TV de informações</h3>
+            <div class="fundo-tv-grade">
+              <div class="previa-tv" id="previa-mural" aria-label="Prévia do fundo: TV de informações">
+                <img src="/logo-claro.png" alt="">
+                <span class="faixa"></span>
+                <strong>Motivos de oração</strong>
+                <span class="linha">Irmã Maria · Saúde</span>
+              </div>
+              <div>
+                <div class="campo"><label for="fundo-cor-mural">Cor de fundo</label><input type="color" id="fundo-cor-mural" value="#0b1026"></div>
+                <div class="campo"><label for="fundo-escurecer-mural">Escurecer a imagem: <span id="fundo-escurecer-valor-mural">55%</span></label>
+                  <input type="range" id="fundo-escurecer-mural" min="0" max="90" step="5" value="55"></div>
+                <div class="acoes">
+                  <button class="botao" type="button" id="fundo-salvar-mural">Salvar cor e escurecimento</button>
+                  <label class="botao secundario">Enviar imagem<input type="file" id="fundo-arquivo-mural" accept="image/jpeg,image/png" class="escondido"></label>
+                  <button class="botao secundario" type="button" id="fundo-remover-mural">Remover imagem</button>
+                </div>
+                <span id="res-fundo-mural" role="status"></span>
+              </div>
+            </div>
+          </div>
+          <div class="fundo-tv">
+            <h3>TV de boas-vindas</h3>
+            <div class="fundo-tv-grade">
+              <div class="previa-tv" id="previa-boas-vindas" aria-label="Prévia do fundo: TV de boas-vindas">
+                <img src="/logo-claro.png" alt="">
+                <span class="faixa"></span>
+                <strong>Motivos de oração</strong>
+                <span class="linha">Irmã Maria · Saúde</span>
+              </div>
+              <div>
+                <div class="campo"><label for="fundo-cor-boas-vindas">Cor de fundo</label><input type="color" id="fundo-cor-boas-vindas" value="#0b1026"></div>
+                <div class="campo"><label for="fundo-escurecer-boas-vindas">Escurecer a imagem: <span id="fundo-escurecer-valor-boas-vindas">55%</span></label>
+                  <input type="range" id="fundo-escurecer-boas-vindas" min="0" max="90" step="5" value="55"></div>
+                <div class="acoes">
+                  <button class="botao" type="button" id="fundo-salvar-boas-vindas">Salvar cor e escurecimento</button>
+                  <label class="botao secundario">Enviar imagem<input type="file" id="fundo-arquivo-boas-vindas" accept="image/jpeg,image/png" class="escondido"></label>
+                  <button class="botao secundario" type="button" id="fundo-remover-boas-vindas">Remover imagem</button>
+                </div>
+                <span id="res-fundo-boas-vindas" role="status"></span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -418,6 +480,6 @@
 </dialog>
 
 <script src="/comum.js?v=5"></script>
-<script src="/admin.js?v=10"></script>
+<script src="/admin.js?v=11"></script>
 </body>
 </html>

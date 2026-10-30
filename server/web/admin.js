@@ -101,6 +101,7 @@ function preencher() {
   $('visitanteQrAtivo').checked = cfg.visitanteQrAtivo !== false;
   $('muralBoasVindas').checked = cfg.muralBoasVindas === true;
   $('textoMotivos').checked = cfg.textoMotivos !== false;
+  preencherFundos();
   $('link-visitante-admin').textContent = base + '/visitante';
 
   // Holyrics
@@ -161,6 +162,77 @@ $('form-inicio').addEventListener('submit', (e) => {
 });
 
 $('muralBoasVindas').addEventListener('change', () => salvar({ muralBoasVindas: $('muralBoasVindas').checked }, $('res-mural')));
+
+// ---------- Fundo das TVs ----------
+
+// Nome da TV na URL (?tela=) → prefixo das chaves nas configurações.
+const TELAS_FUNDO = { 'mural': 'mural', 'boas-vindas': 'boasVindas' };
+
+function preencherFundos() {
+  for (const [tela, prefixo] of Object.entries(TELAS_FUNDO)) {
+    if (document.activeElement !== $('fundo-cor-' + tela)) $('fundo-cor-' + tela).value = cfg[prefixo + 'FundoCor'] || '#0b1026';
+    $('fundo-escurecer-' + tela).value = cfg[prefixo + 'FundoEscurecer'] ?? 55;
+    $('fundo-remover-' + tela).disabled = !cfg[prefixo + 'FundoImagem'];
+    previaFundo(tela);
+  }
+}
+
+/** Mesma conta do mural.html: véu sobre a imagem; sem imagem, cor clara pede texto escuro. */
+function previaFundo(tela) {
+  const prefixo = TELAS_FUNDO[tela];
+  const cor = $('fundo-cor-' + tela).value;
+  const veu = Number($('fundo-escurecer-' + tela).value) / 100;
+  const imagem = cfg[prefixo + 'FundoImagem'];
+  $('fundo-escurecer-valor-' + tela).textContent = Math.round(veu * 100) + '%';
+  const previa = $('previa-' + tela);
+  previa.style.backgroundColor = cor;
+  previa.style.backgroundImage = imagem
+    ? `linear-gradient(rgba(0,0,0,${veu}), rgba(0,0,0,${veu})), url("/fundo-tv/${imagem}")` : '';
+  const claro = !imagem && luminanciaCor(cor) > 0.3;
+  previa.classList.toggle('claro', claro);
+  previa.querySelector('img').src = claro ? '/logo.png' : '/logo-claro.png';
+  $('fundo-escurecer-' + tela).disabled = !imagem;
+}
+
+function luminanciaCor(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const canal = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
+}
+
+for (const [tela, prefixo] of Object.entries(TELAS_FUNDO)) {
+  const saida = $('res-fundo-' + tela);
+  $('fundo-cor-' + tela).addEventListener('input', () => previaFundo(tela));
+  $('fundo-escurecer-' + tela).addEventListener('input', () => previaFundo(tela));
+  $('fundo-salvar-' + tela).addEventListener('click', () => salvar({
+    [prefixo + 'FundoCor']: $('fundo-cor-' + tela).value,
+    [prefixo + 'FundoEscurecer']: Number($('fundo-escurecer-' + tela).value),
+  }, saida));
+  $('fundo-arquivo-' + tela).addEventListener('change', async (e) => {
+    const arquivo = e.target.files[0];
+    e.target.value = '';
+    if (!arquivo) return;
+    mensagem(saida, 'Enviando…');
+    try {
+      await api('POST', '/api/admin/fundo-tv?tela=' + tela, arquivo, { bruto: true, tipo: arquivo.type });
+      cfg = await api('GET', '/api/admin/configuracoes');
+      preencher();
+      mensagem(saida, 'Imagem enviada.');
+    } catch (err) {
+      mensagem(saida, err.message, false);
+    }
+  });
+  $('fundo-remover-' + tela).addEventListener('click', async () => {
+    try {
+      await api('DELETE', '/api/admin/fundo-tv?tela=' + tela);
+      cfg = await api('GET', '/api/admin/configuracoes');
+      preencher();
+      mensagem(saida, 'Imagem removida: a TV usa só a cor.');
+    } catch (err) {
+      mensagem(saida, err.message, false);
+    }
+  });
+}
 
 $('form-lgpd').addEventListener('submit', (e) => {
   e.preventDefault();

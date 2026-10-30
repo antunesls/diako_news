@@ -25,6 +25,9 @@ class Configuracoes {
 
   static const nomeIgrejaPadrao = 'Igreja Diakonia Tulipas';
 
+  /// Azul-marinho que o mural sempre usou.
+  static const corFundoPadrao = '#0b1026';
+
   /// Campos que nunca saem do servidor nem vão para o backup.
   static const _segredos = {'senhaHash', 'senhaSal', 'chaveAgente', 'holyricsToken', 'agendaUrl', 'smtpSenha'};
 
@@ -75,6 +78,13 @@ class Configuracoes {
       'visitanteQrAtivo': true,
       'muralBoasVindas': false, // boas-vindas também no mural principal (igreja com uma TV só)
       'textoMotivos': true, // desligado: telão, mural e resumo mostram só por quem orar e a categoria
+      // Fundo das TVs: cor, imagem opcional (data/fundos-tv) e quanto escurecer a imagem (%).
+      'muralFundoCor': corFundoPadrao,
+      'muralFundoImagem': '',
+      'muralFundoEscurecer': 55,
+      'boasVindasFundoCor': corFundoPadrao,
+      'boasVindasFundoImagem': '',
+      'boasVindasFundoEscurecer': 55,
     };
     if (await arquivo.exists()) {
       var texto = await arquivo.readAsString();
@@ -113,6 +123,22 @@ class Configuracoes {
   /// Texto dos pedidos em público (telão, mural, resumo do WhatsApp). Desligado, só por quem orar
   /// e a categoria; nas orações respondidas também some o testemunho.
   bool get textoMotivos => _valores['textoMotivos'] as bool? ?? true;
+
+  /// Fundo de uma TV; [prefixo] é "mural" ou "boasVindas" (ver FundosTv.telas).
+  ({String cor, String imagem, int escurecer}) fundoTv(String prefixo) {
+    final cor = _s('${prefixo}FundoCor');
+    return (
+      cor: RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(cor) ? cor.toLowerCase() : corFundoPadrao,
+      imagem: _s('${prefixo}FundoImagem'),
+      escurecer: _i('${prefixo}FundoEscurecer', 55).clamp(0, 90),
+    );
+  }
+
+  /// Troca a imagem de fundo de uma TV ('' = sem imagem). Só o envio pelo /admin chama.
+  Future<void> definirImagemFundo(String prefixo, String nome) async {
+    _valores['${prefixo}FundoImagem'] = nome;
+    await _salvar();
+  }
   String get pedidoTitulo => _s('pedidoTitulo');
   String get pedidoIntro => _s('pedidoIntro');
   String get pedidoObrigado => _s('pedidoObrigado');
@@ -302,6 +328,12 @@ class Configuracoes {
             novos['termoLgpdVersao'] = termoLgpdVersao + 1;
           }
           novos[k] = v == termoLgpdPadrao(nomeIgreja) ? '' : v;
+        case 'muralFundoCor' || 'boasVindasFundoCor':
+          final v = texto(k, 7, vazio: false).toLowerCase();
+          if (!RegExp(r'^#[0-9a-f]{6}$').hasMatch(v)) throw FormatException('Cor inválida em "$k" (use #rrggbb).');
+          novos[k] = v;
+        case 'muralFundoEscurecer' || 'boasVindasFundoEscurecer':
+          novos[k] = inteiro(k, 0, 90);
         case 'visitanteQrAtivo' || 'muralBoasVindas' || 'textoMotivos':
           if (mudancas[k] is! bool) throw FormatException('"$k" deve ser verdadeiro ou falso.');
           novos[k] = mudancas[k];
@@ -325,7 +357,8 @@ class Configuracoes {
       'smtpHost', 'smtpPorta', 'smtpSsl', 'smtpUsuario', 'smtpRemetente', 'smtpDestinatario',
       'siteAtivo', 'siteAgenda', 'sitePix', 'siteGaleria', 'siteCultos', 'siteEndereco', 'sitePixChave', 'sitePixNome', 'sitePixCidade',
       'siteInstagram', 'siteYoutube', 'siteWhatsapp', 'termoLgpdTexto', 'termoLgpdVersao', 'visitanteQrAtivo', 'muralBoasVindas',
-      'textoMotivos',
+      'textoMotivos', 'muralFundoCor', 'muralFundoImagem', 'muralFundoEscurecer',
+      'boasVindasFundoCor', 'boasVindasFundoImagem', 'boasVindasFundoEscurecer',
     };
     for (final e in dados.entries) {
       if (permitidos.contains(e.key)) _valores[e.key] = e.value;

@@ -26,6 +26,7 @@ import 'historico.dart';
 import 'holyrics.dart';
 import 'email_mensagens.dart';
 import 'fotos_membros.dart';
+import 'fundos_tv.dart';
 import 'galeria.dart';
 import 'lgpd.dart';
 import 'pagina_inicial.dart';
@@ -108,6 +109,9 @@ class Servidor {
 
   /// Fotos do carrossel da página inicial (data/galeria).
   final Galeria galeria;
+
+  /// Imagens de fundo das TVs do mural e de boas-vindas (data/fundos-tv).
+  late final FundosTv fundosTv = FundosTv(store.pasta);
 
   /// Fotos do cadastro de membros (data/fotos-membros) — nunca públicas.
   final FotosMembros fotosMembros;
@@ -200,6 +204,7 @@ class Servidor {
       ..get('/qr-mensagens.png', (Request _) => _arquivo(File(p.join(cartazes.pasta, arquivoQrMensagens))))
       ..get('/cartazes/<nome>', (Request _, String nome) => _arquivo(cartazes.arquivo(nome)))
       ..get('/galeria/<arquivo>', _fotoGaleria)
+      ..get('/fundo-tv/<arquivo>', _imagemFundoTv)
       ..post('/api/login', _login)
       ..post('/api/logout', _logout)
       ..get('/api/eu', _eu)
@@ -326,6 +331,8 @@ class Servidor {
       ..get('/api/public/site', _site)
       ..get('/api/admin/configuracoes', _adminConfiguracoes)
       ..put('/api/admin/configuracoes', _adminSalvar)
+      ..post('/api/admin/fundo-tv', _enviarFundoTv)
+      ..delete('/api/admin/fundo-tv', _removerFundoTv)
       ..post('/api/admin/chave', _adminNovaChave)
       ..post('/api/admin/senha', _adminSenha)
       ..post('/api/admin/sessoes/encerrar', _adminEncerrarSessoes)
@@ -3036,6 +3043,7 @@ class Servidor {
         'igreja': _termo.igreja,
         'nomes': nomes,
         'qr': cfg?.visitanteQrAtivo == false ? null : '/qr-visitante.png',
+        'fundo': _fundoTv('boas-vindas'),
       });
     }
     final slides = montarMural(
@@ -3052,7 +3060,62 @@ class Servidor {
       mostrarDescricao: cfg?.agendaMostrarDescricao ?? true,
       textoMotivos: cfg?.textoMotivos ?? true,
     );
-    return _json({'atualizado': _agora().toIso8601String(), 'slides': [for (final s in slides) s.toJson()]});
+    return _json({
+      'atualizado': _agora().toIso8601String(),
+      'slides': [for (final s in slides) s.toJson()],
+      'fundo': _fundoTv('mural'),
+    });
+  }
+
+  /// Fundo da TV para o mural.html; a imagem só vai quando o arquivo existe.
+  Map<String, dynamic> _fundoTv(String tela) {
+    final f = cfg?.fundoTv(FundosTv.telas[tela]!);
+    final imagem = f == null || f.imagem.isEmpty || !fundosTv.existe(f.imagem) ? null : '/fundo-tv/${f.imagem}';
+    return {'cor': f?.cor ?? Configuracoes.corFundoPadrao, 'imagem': imagem, 'escurecer': f?.escurecer ?? 55};
+  }
+
+  /// POST /api/admin/fundo-tv?tela=mural|boas-vindas — corpo: bytes da imagem. Troca e apaga a anterior.
+  Future<Response> _enviarFundoTv(Request req) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    final tela = req.url.queryParameters['tela'] ?? '';
+    final prefixo = FundosTv.telas[tela];
+    if (prefixo == null) return _erro(400, 'Escolha a TV: mural ou boas-vindas.');
+    final tamanho = req.contentLength;
+    if (tamanho != null && tamanho > Galeria.tamanhoMaximo) return _erro(413, 'Imagem maior que 15 MB.');
+    final bytes = await _lerBytes(req, Galeria.tamanhoMaximo);
+    if (bytes == null) return _erro(413, 'Imagem maior que 15 MB.');
+    final String nome;
+    try {
+      nome = await fundosTv.salvar(tela, bytes);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+    final anterior = c.fundoTv(prefixo).imagem;
+    await c.definirImagemFundo(prefixo, nome);
+    if (anterior.isNotEmpty) await fundosTv.excluir(anterior);
+    return _json(_fundoTv(tela));
+  }
+
+  /// DELETE /api/admin/fundo-tv?tela=… — a TV volta a usar só a cor.
+  Future<Response> _removerFundoTv(Request req) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    final tela = req.url.queryParameters['tela'] ?? '';
+    final prefixo = FundosTv.telas[tela];
+    if (prefixo == null) return _erro(400, 'Escolha a TV: mural ou boas-vindas.');
+    final anterior = c.fundoTv(prefixo).imagem;
+    await c.definirImagemFundo(prefixo, '');
+    if (anterior.isNotEmpty) await fundosTv.excluir(anterior);
+    return _json(_fundoTv(tela));
+  }
+
+  /// GET /fundo-tv/<arquivo> — público (a TV abre sem login); o nome muda a cada envio: cache longo.
+  Future<Response> _imagemFundoTv(Request _, String arquivo) async {
+    final f = fundosTv.arquivo(arquivo);
+    if (f == null || !await f.exists()) return Response.notFound('Não encontrado');
+    return Response.ok(f.openRead(),
+        headers: {'content-type': 'image/jpeg', 'cache-control': 'public, max-age=31536000, immutable'});
   }
 
   List<Evento> _eventosDoMural() {
