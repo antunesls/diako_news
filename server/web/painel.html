@@ -292,6 +292,8 @@
   .palavra-trecho:last-child { border-bottom: 0; }
   .palavra-trecho p { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 15px; }
   .palavra-destaque { margin: 4px 0 0; font: italic 600 14px var(--fonte); color: #5b3fa0; }
+  dialog.resumo-palavra { width: min(620px, 94vw); border: 0; border-radius: var(--raio); padding: 22px; }
+  dialog.resumo-palavra textarea { font-family: var(--fonte); }
   /* Ensaio da Palavra (tela cheia, nada é projetado) */
   dialog.ensaio { width: min(1100px, 96vw); height: min(780px, 94vh); max-width: none; padding: 0; border: 0; border-radius: var(--raio); }
   dialog.ensaio[open] { display: flex; flex-direction: column; }
@@ -498,6 +500,12 @@
           <button type="button" class="botao pequeno" id="palavra-nova">+ Nova Palavra</button>
         </div>
         <p class="dica">Prepare aqui o texto da pregação. No culto, o tablet passa o texto trecho por trecho na TV do palco e projeta no telão os versículos citados. Só a Palavra <strong>pronta</strong> com a data do culto vai para o tablet.</p>
+        <div class="repertorio-filtros">
+          <div class="campo"><label for="palavras-busca">Buscar Palavra</label><input id="palavras-busca" type="search" placeholder="Título, texto ou versículo (ex.: Jo 3)" autocomplete="off"></div>
+          <div class="campo"><label for="palavras-serie">Série</label><select id="palavras-serie"><option value="">Todas as séries</option></select></div>
+          <div class="campo"><button type="button" class="botao secundario pequeno" id="palavras-limpar">Limpar busca</button></div>
+        </div>
+        <p id="palavras-contagem" class="dica" role="status"></p>
         <p id="palavras-resultado" role="status"></p>
         <div id="palavras-lista"></div>
       </div>
@@ -510,7 +518,7 @@
         <div class="palavra-campos">
           <div class="campo"><label for="palavra-campo-titulo">Título</label><input id="palavra-campo-titulo" maxlength="120" autocomplete="off"></div>
           <div class="campo"><label for="palavra-campo-data">Data do culto</label><input id="palavra-campo-data" type="date"></div>
-          <div class="campo"><label for="palavra-campo-serie">Série (opcional)</label><input id="palavra-campo-serie" maxlength="80" autocomplete="off"></div>
+          <div class="campo"><label for="palavra-campo-serie">Série (opcional)</label><input id="palavra-campo-serie" maxlength="80" autocomplete="off" list="palavra-series-lista"><datalist id="palavra-series-lista"></datalist></div>
           <div class="campo"><label for="palavra-campo-minutos">Tempo previsto (min)</label><input id="palavra-campo-minutos" type="number" min="5" max="180" step="5"></div>
         </div>
         <div class="palavra-grade">
@@ -549,12 +557,26 @@
           <button type="button" class="botao perigo pequeno" id="palavra-excluir">Excluir</button>
           <span class="espaco"></span>
           <span id="palavra-ensaio-info" class="dica"></span>
+          <button type="button" class="botao secundario" id="palavra-resumo">Resumo para o WhatsApp</button>
           <button type="button" class="botao secundario" id="palavra-ensaiar">Ensaiar</button>
           <button type="button" class="botao secundario" id="palavra-salvar">Salvar</button>
           <button type="button" class="botao" id="palavra-pronta">Marcar como pronta</button>
         </div>
       </div>
     </section>
+
+    <dialog id="dlg-resumo-palavra" class="resumo-palavra" aria-labelledby="titulo-resumo-palavra">
+      <h2 id="titulo-resumo-palavra">Resumo para o WhatsApp</h2>
+      <p class="dica">Título, tópicos, versículos citados e frases de destaque. Pode editar antes de copiar.</p>
+      <label for="palavra-resumo-texto" class="escondido">Resumo</label>
+      <textarea id="palavra-resumo-texto" rows="16"></textarea>
+      <div class="barra">
+        <span id="palavra-resumo-resultado" role="status"></span>
+        <span class="espaco"></span>
+        <button type="button" class="botao secundario" id="palavra-resumo-fechar">Fechar</button>
+        <button type="button" class="botao" id="palavra-resumo-copiar">Copiar</button>
+      </div>
+    </dialog>
 
     <dialog id="dlg-ensaio" class="ensaio" aria-labelledby="ensaio-titulo">
       <div class="ensaio-topo">
@@ -1253,7 +1275,7 @@
 <script src="/roteiros.js?v=1"></script>
 <script src="/palavras-pdf.js?v=1"></script>
 <script src="/palavras-ensaio.js?v=1"></script>
-<script src="/palavras.js?v=6"></script>
+<script src="/palavras.js?v=7"></script>
 <script src="/palavras-ensaio-tela.js?v=1"></script>
 <script src="/escala-impressao.js?v=3"></script>
 <script src="/escalas.js?v=9"></script>

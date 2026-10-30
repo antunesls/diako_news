@@ -290,6 +290,28 @@ void main() {
       expect((await chamar('PUT', '/api/palavras/${p['id']}', token: admin, json: {'ultimoEnsaio': {'em': 'ontem', 'totalSegundos': -1}})).$1, 400);
     });
 
+        test('busca, filtro por série e resumo para o WhatsApp', () async {
+      Future<void> nova(String titulo, String serie, String texto) =>
+          chamar('POST', '/api/palavras', token: admin, json: {'titulo': titulo, 'serie': serie, 'texto': texto});
+      await nova('Quando a fé espera', 'Hebreus 11', 'Pela fé, Abraão. Hb 11.8.');
+      await nova('A nuvem de testemunhas', 'Hebreus 11', 'Corramos com perseverança.');
+      await nova('Em memória de mim', 'Ceia do Senhor', 'A graça chegou primeiro. 1Co 11.23-24.');
+      List<String> titulos(dynamic lista) => [for (final p in lista as List) p['titulo'] as String];
+
+      expect(titulos((await chamar('GET', '/api/palavras?serie=hebreus%2011', token: admin)).$2),
+          unorderedEquals(['Quando a fé espera', 'A nuvem de testemunhas']));
+      expect(titulos((await chamar('GET', '/api/palavras?busca=graca', token: admin)).$2), ['Em memória de mim']);
+      expect(titulos((await chamar('GET', '/api/palavras?busca=Hb%2011', token: admin)).$2), ['Quando a fé espera']);
+      expect(titulos((await chamar('GET', '/api/palavras?busca=perseveranca&serie=Ceia%20do%20Senhor', token: admin)).$2), isEmpty);
+
+      final (st, resumo) = await chamar('POST', '/api/palavras/resumo', token: admin,
+          json: {'titulo': 'Em memória de mim', 'texto': '# A mesa\nTexto com **frase**.'});
+      expect(st, 200);
+      expect(resumo['texto'], startsWith('*Em memória de mim*\nAdministrador'));
+      expect(resumo['texto'], contains('• A mesa'));
+      expect(resumo['texto'], contains('“frase”'));
+    });
+
         test('prévia no editor e importação pelo painel', () async {
       final (st, previa) = await chamar('POST', '/api/palavras/analisar', token: admin, json: {'texto': 'Leia Jo 3.16.\n\nE Os 6.6.'});
       expect(st, 200);

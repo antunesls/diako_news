@@ -257,6 +257,7 @@ class Servidor {
       ..get('/api/palavras', _listarPalavras)
       ..get('/api/palavras/hoje', _palavraDeHoje)
       ..post('/api/palavras/analisar', _analisarPalavra)
+      ..post('/api/palavras/resumo', _resumoWhatsappPalavra)
       ..post('/api/palavras/importar', _importarPalavra)
       ..post('/api/palavras/google', _importarGoogleDocs)
       ..post('/api/palavras', _criarPalavra)
@@ -1856,12 +1857,19 @@ class Servidor {
         'minutosTopicos': minutosDosTopicos(p.texto),
       };
 
+  /// GET /api/palavras?busca=…&serie=… — a busca procura no título, na série, no texto e nos
+  /// versículos citados ("Jo 3", "Romanos 5.8").
   Response _listarPalavras(Request req) {
     final conta = Auth.contaDa(req);
     final todas = _revisaPalavras(req);
+    final busca = req.url.queryParameters['busca'] ?? '';
+    final serie = (req.url.queryParameters['serie'] ?? '').trim().toLowerCase();
     final lista = [
       for (final j in store.listar('palavras'))
-        if (todas || j['autorId'] == conta?.id) Palavra.fromJson(j),
+        if (todas || j['autorId'] == conta?.id)
+          if (Palavra.fromJson(j) case final p
+              when (serie.isEmpty || p.serie.toLowerCase() == serie) && palavraCorresponde(p, busca))
+            p,
     ]..sort((a, b) {
         // Sem data primeiro (rascunhos novos), depois da mais recente para a mais antiga.
         if (a.data.isEmpty != b.data.isEmpty) return a.data.isEmpty ? -1 : 1;
@@ -1952,6 +1960,30 @@ class Servidor {
       if (texto.length > Palavra.tamanhoMaximo) return _erro(400, 'Texto muito longo.');
       final palavra = Palavra.fromJson({'id': '', 'titulo': '', 'texto': texto, 'decisoes': corpo['decisoes'] ?? const {}});
       return _json({'trechos': [for (final t in palavra.trechos) t.toJson()], 'minutosTopicos': minutosDosTopicos(texto)});
+    } on TypeError {
+      return _erro(400, 'Dados inválidos.');
+    }
+  }
+
+  /// POST /api/palavras/resumo {titulo, data, serie, texto, decisoes, autorNome} — resumo do sermão
+  /// para o WhatsApp, com o que está no editor (sem precisar salvar antes).
+  Future<Response> _resumoWhatsappPalavra(Request req) async {
+    try {
+      final corpo = await _corpo(req);
+      final texto = corpo['texto'] as String? ?? '';
+      if (texto.length > Palavra.tamanhoMaximo) return _erro(400, 'Texto muito longo.');
+      final palavra = Palavra.fromJson({
+        'id': '',
+        'titulo': corpo['titulo'] ?? '',
+        'data': corpo['data'] ?? '',
+        'serie': corpo['serie'] ?? '',
+        'autorNome': corpo['autorNome'] ?? Auth.contaDa(req)?.nome ?? '',
+        'texto': texto,
+        'decisoes': corpo['decisoes'] ?? const {},
+      });
+      return _json({'texto': resumoDaPalavra(palavra)});
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
     } on TypeError {
       return _erro(400, 'Dados inválidos.');
     }

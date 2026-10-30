@@ -111,3 +111,9 @@ Falta conferir na igreja: o `ShowVerse` com `ids` e o tamanho do texto na TV do 
 - Mede o tempo total e o de cada tópico (voltar a um trecho soma no tópico dele); ao concluir, tabela por tópico com previsto, ensaio e diferença. As contas ficam em `server/web/palavras-ensaio.js`, testadas no Node.
 - **Guardar tempo do ensaio** grava `ultimoEnsaio` (data, total e segundos por tópico) na Palavra, sem criar versão nova; a lista e o editor mostram o último ensaio.
 - Conferido no navegador com o servidor local.
+
+## Entrega 3, itens 5 e 6: séries, busca e resumo (2026-10-30)
+
+- `GET /api/palavras?busca=…&serie=…`: a busca (core `palavraCorresponde`) procura sem acento no título, na série e no texto; se a busca é uma referência ("Jo 3", "1 Coríntios 11.24"), acha as Palavras que citam aquele capítulo ou versículo (intervalos contam). O painel tem campo de busca, filtro por série e sugestão das séries existentes no editor.
+- `POST /api/palavras/resumo`: resumo para o WhatsApp (core `resumoDaPalavra`) com título, dia, pregador, série, tópicos, versículos citados e frases de destaque, a partir do que está no editor (sem salvar). Diálogo com "Copiar".
+- Conferidos no navegador com o servidor local.

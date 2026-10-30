@@ -21,16 +21,84 @@ function dataDaPalavra(iso) {
   return new Date(a, m - 1, d).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+/** Séries já usadas (para o filtro da lista e a sugestão no editor). */
+let seriesPalavras = [];
+
 async function carregarPalavras() {
   $('palavras-lista-tela').hidden = false;
   $('palavra-editor').hidden = true;
+  await buscarPalavras();
+}
+carregar.palavras = carregarPalavras;
+
+/** Lista com a busca e a série escolhidas (a busca acha título, série, texto e versículo, como "Jo 3"). */
+async function buscarPalavras() {
+  const busca = $('palavras-busca').value.trim();
+  const serie = $('palavras-serie').value;
+  const q = new URLSearchParams({ ...(busca ? { busca } : {}), ...(serie ? { serie } : {}) }).toString();
   try {
-    desenharListaPalavras(await api('GET', '/api/palavras'));
+    const lista = await api('GET', '/api/palavras' + (q ? '?' + q : ''));
+    if (!busca && !serie) atualizarSeries(lista);
+    desenharListaPalavras(lista);
+    $('palavras-contagem').textContent = busca || serie ? `${lista.length} Palavra(s) encontrada(s).` : '';
   } catch (err) {
     mensagem($('palavras-resultado'), err.message, false);
   }
 }
-carregar.palavras = carregarPalavras;
+
+function atualizarSeries(lista) {
+  seriesPalavras = [...new Set(lista.map((p) => p.serie).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const atual = $('palavras-serie').value;
+  $('palavras-serie').replaceChildren(el('option', { value: '' }, 'Todas as séries'), ...seriesPalavras.map((s) => el('option', { value: s }, s)));
+  $('palavras-serie').value = seriesPalavras.includes(atual) ? atual : '';
+  $('palavra-series-lista').replaceChildren(...seriesPalavras.map((s) => el('option', { value: s })));
+}
+
+let buscaAgendada = null;
+$('palavras-busca').addEventListener('input', () => {
+  clearTimeout(buscaAgendada);
+  buscaAgendada = setTimeout(buscarPalavras, 300);
+});
+$('palavras-serie').addEventListener('change', buscarPalavras);
+$('palavras-limpar').addEventListener('click', () => {
+  $('palavras-busca').value = '';
+  $('palavras-serie').value = '';
+  buscarPalavras();
+});
+
+// Resumo do sermão para o WhatsApp, com o que está no editor (sem precisar salvar).
+$('palavra-resumo').addEventListener('click', async () => {
+  const erro = $('palavra-importar-erro');
+  erro.hidden = true;
+  try {
+    const r = await api('POST', '/api/palavras/resumo', {
+      titulo: $('palavra-campo-titulo').value.trim(),
+      data: $('palavra-campo-data').value,
+      serie: $('palavra-campo-serie').value.trim(),
+      texto: $('palavra-texto').value,
+      decisoes: decisoesPalavra,
+      ...(palavraAtual && palavraAtual.autorNome ? { autorNome: palavraAtual.autorNome } : {}),
+    });
+    $('palavra-resumo-texto').value = r.texto;
+    $('palavra-resumo-resultado').textContent = '';
+    $('dlg-resumo-palavra').showModal();
+    $('palavra-resumo-copiar').focus();
+  } catch (err) {
+    erro.textContent = err.message;
+    erro.hidden = false;
+  }
+});
+$('palavra-resumo-copiar').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('palavra-resumo-texto').value);
+    mensagem($('palavra-resumo-resultado'), 'Copiado! Cole no grupo do WhatsApp.');
+  } catch {
+    // Sem permissão de área de transferência (ex: http): seleciona para Ctrl+C.
+    $('palavra-resumo-texto').select();
+    mensagem($('palavra-resumo-resultado'), 'Texto selecionado: use Ctrl+C para copiar.');
+  }
+});
+$('palavra-resumo-fechar').addEventListener('click', () => $('dlg-resumo-palavra').close());
 
 function desenharListaPalavras(lista) {
   $('palavras-lista').replaceChildren(...(lista.length ? lista.map((p) =>

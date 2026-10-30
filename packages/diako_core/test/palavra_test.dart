@@ -105,6 +105,50 @@ void main() {
     });
   });
 
+  group('busca e resumo', () {
+    final p = Palavra(
+      id: 'p',
+      titulo: 'Em memória de mim',
+      autorId: 'u',
+      autorNome: 'Pr. Marcos',
+      data: '2026-11-01',
+      serie: 'Ceia do Senhor',
+      texto: '# A mesa (10 min)\nPaulo repete: 1Co 11.23-24. **A graça chegou primeiro.**\n\n'
+          '# O convite\nComo diz Romanos 5.8, Deus prova o seu amor.',
+      decisoes: {'1Co 11.23-24': const DecisaoReferencia(StatusReferencia.confirmada)},
+    );
+
+    test('busca por texto sem acento, série e versículo citado', () {
+      expect(palavraCorresponde(p, 'memoria'), isTrue);
+      expect(palavraCorresponde(p, 'ceia do'), isTrue);
+      expect(palavraCorresponde(p, 'graça'), isTrue);
+      expect(palavraCorresponde(p, '1Co 11'), isTrue, reason: 'capítulo citado');
+      expect(palavraCorresponde(p, '1 Coríntios 11.24'), isTrue, reason: 'versículo dentro do intervalo');
+      expect(palavraCorresponde(p, '1Co 11.30'), isFalse);
+      expect(palavraCorresponde(p, 'Rm 5'), isTrue, reason: 'pendente também conta na busca');
+      expect(palavraCorresponde(p, 'batismo'), isFalse);
+      expect(palavraCorresponde(p, ''), isTrue);
+    });
+
+    test('resumo para o WhatsApp', () {
+      expect(resumoDaPalavra(p), [
+        '*Em memória de mim*',
+        'Domingo, 01/11 · Pr. Marcos · Série: Ceia do Senhor',
+        '',
+        '*Tópicos*',
+        '• A mesa',
+        '• O convite',
+        '',
+        '*Versículos*',
+        '• 1 Coríntios 11.23-24',
+        '• Romanos 5.8',
+        '',
+        '*Para guardar*',
+        '“A graça chegou primeiro.”',
+      ].join('\n'));
+    });
+  });
+
   group('frases de destaque', () {
     test('tira as marcas e guarda as frases; marca solta some', () {
       final marcado = extrairDestaques('Repare: **A graça chegou primeiro.** E mais.');

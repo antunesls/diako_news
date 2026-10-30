@@ -688,3 +688,67 @@ class PalavraDoCulto {
         trechos: [for (final t in j['trechos'] as List? ?? const []) TrechoAnalisado.fromJson(Map<String, dynamic>.from(t as Map))],
       );
 }
+
+/// A [ref] está dentro de [busca]: mesmo livro e capítulo e, se a busca tem versículos, algum em comum.
+bool _refCorresponde(RefBiblica ref, RefBiblica busca) {
+  if (ref.livro.numero != busca.livro.numero || ref.capitulo != busca.capitulo) return false;
+  if (!busca.completa) return true;
+  return ref.faixas.any((a) => busca.faixas.any((b) => a.$1 <= b.$2 && b.$1 <= a.$2));
+}
+
+/// Referência digitada na busca; aceita só o capítulo ("Jo 3") e nome sem versículo ("Salmo 23").
+RefBiblica? _referenciaDaBusca(String busca) {
+  final t = busca.trim();
+  final r = lerReferencia(t);
+  if (r != null) return r;
+  // "Jo 3" (abreviação sem versículo) não conta como referência no texto, mas conta na busca.
+  final m = RegExp(r'^((?:[123]\s*)?[A-Za-zÀ-ÖØ-öø-ÿ]+)\.?\s+(\d{1,3})$').firstMatch(t);
+  if (m == null) return null;
+  final achada = acharReferencias('${m.group(1)} ${m.group(2)}.1').firstOrNull;
+  return achada == null ? null : RefBiblica(achada.ref.livro, achada.ref.capitulo);
+}
+
+/// A Palavra corresponde à busca do painel: texto (título, série ou corpo, sem diferenciar acentos)
+/// ou, se a busca é uma referência bíblica ("Jo 3", "Romanos 5.8"), algum versículo citado nela.
+bool palavraCorresponde(Palavra p, String busca) {
+  final b = busca.trim();
+  if (b.isEmpty) return true;
+  final ref = _referenciaDaBusca(b);
+  if (ref != null && p.trechos.expand((t) => t.referencias).any((r) => r.ref != null && _refCorresponde(r.ref!, ref))) {
+    return true;
+  }
+  final chave = semAcento(b.toLowerCase())!;
+  return [p.titulo, p.serie, p.texto].any((campo) => semAcento(campo.toLowerCase())!.contains(chave));
+}
+
+/// Resumo do sermão para o WhatsApp (negrito com *): título, quando e quem pregou, tópicos,
+/// versículos citados e frases de destaque.
+String resumoDaPalavra(Palavra p) {
+  final trechos = p.trechos;
+  final topicos = <String>[];
+  for (final t in trechos) {
+    if (t.topico.isNotEmpty && !topicos.contains(t.topico)) topicos.add(t.topico);
+  }
+  final versiculos = <String>[];
+  for (final r in trechos.expand((t) => t.referencias)) {
+    if (r.projetavel && !versiculos.contains(r.ref!.nome)) versiculos.add(r.ref!.nome);
+  }
+  final destaques = [for (final t in trechos) ...t.destaques];
+  final data = DateTime.tryParse(p.data);
+  final quem = [
+    if (data != null) _diaPorExtenso(data),
+    if (p.autorNome.trim().isNotEmpty) p.autorNome.trim(),
+    if (p.serie.isNotEmpty) 'Série: ${p.serie}',
+  ].join(' · ');
+  return [
+    '*${p.titulo.trim()}*',
+    if (quem.isNotEmpty) quem,
+    if (topicos.isNotEmpty) ...['', '*Tópicos*', for (final t in topicos) '• $t'],
+    if (versiculos.isNotEmpty) ...['', '*Versículos*', for (final v in versiculos) '• $v'],
+    if (destaques.isNotEmpty) ...['', '*Para guardar*', for (final d in destaques) '“$d”'],
+  ].join('\n');
+}
+
+const _diasDaSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+String _diaPorExtenso(DateTime d) =>
+    '${_diasDaSemana[d.weekday - 1]}, ${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
