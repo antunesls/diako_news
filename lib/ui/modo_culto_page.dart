@@ -121,6 +121,89 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
   Future<void> _palco(String frase) =>
       _acao(() => _scope.status.mensagemPalco(frase, tema: _scope.settings.tema, papelDeParede: _scope.settings.papelDeParedePalco), sucesso: 'Enviado ao palco: "$frase"');
 
+  /// Liga/desliga o envio ao Holyrics no app inteiro. Ao religar, sincroniza as telas com o
+  /// passo atual; se o envio falhar, a chave volta a desligada (nada saiu pela metade).
+  Future<void> _alternarProjecao(bool ligada) async {
+    _scope.projecao.value = ligada;
+    if (!ligada) return;
+    if (!await _acao(_c.sincronizarProjecao, sucesso: 'Projeção ligada e sincronizada')) {
+      _scope.projecao.value = false;
+    }
+  }
+
+  /// Trocar de culto/Palavra com o culto iniciado precisa de confirmação: o progresso some.
+  Future<bool> _confirmarTroca() async {
+    if (!_c.iniciado) return true;
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Trocar de culto?'),
+            content: const Text('O progresso, os cronômetros e o trecho atuais serão reiniciados.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Trocar e reiniciar')),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  /// Escolhe qualquer culto da escala de hoje em diante (ou volta à seleção automática).
+  Future<void> _escolherCulto() async {
+    await _scope.escalas.buscarFuturos();
+    if (!mounted) return;
+    final escolha = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Escolher culto'),
+        content: SizedBox(
+          width: 480,
+          height: 420,
+          child: ListView(children: [
+            ListTile(
+                title: const Text('Seleção automática (hoje)'),
+                subtitle: const Text('O tablet escolhe o culto do dia'),
+                onTap: () => Navigator.pop(ctx, '')),
+            for (final c in _scope.escalas.futuros)
+              ListTile(
+                title: Text('${c.nome} · ${c.rotulo} · ${c.horaTexto}'),
+                subtitle: Text('${c.data} · ${c.hora}'),
+                onTap: () => Navigator.pop(ctx, c.id),
+              ),
+          ]),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar'))],
+      ),
+    );
+    if (escolha == null || !mounted || !await _confirmarTroca() || !mounted) return;
+    final culto = _scope.escalas.futuros.where((c) => c.id == escolha).firstOrNull;
+    await _acao(() => _c.selecionarCulto(culto));
+  }
+
+  /// Escolhe entre as Palavras prontas da data do culto em uso.
+  Future<void> _escolherPalavra() async {
+    await _scope.palavra.buscarOpcoes(_c.culto?.data ?? diaIso(DateTime.now()));
+    if (!mounted) return;
+    final opcoes = _scope.palavra.opcoes;
+    final id = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Escolher Palavra'),
+        content: SizedBox(
+          width: 420,
+          height: 320,
+          child: ListView(children: [
+            if (opcoes.isEmpty) const ListTile(title: Text('Nenhuma Palavra pronta nesta data')),
+            for (final p in opcoes) ListTile(title: Text(p.titulo), onTap: () => Navigator.pop(ctx, p.id)),
+          ]),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar'))],
+      ),
+    );
+    if (id == null || !mounted || !await _confirmarTroca() || !mounted) return;
+    await _acao(() => _c.selecionarPalavra(id));
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
@@ -132,7 +215,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
       child: Scaffold(
         body: SafeArea(
           child: ListenableBuilder(
-            listenable: Listenable.merge([_c, scope.status, scope.motivos, scope.visitas]),
+            listenable: Listenable.merge([_c, scope.status, scope.motivos, scope.visitas, scope.projecao]),
             builder: (context, _) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -157,6 +240,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
     final subtitulo = [
       if (culto != null) '${culto.rotulo} · ${culto.horaTexto}',
       if (pregador.isNotEmpty) 'Ministração: $pregador',
+      if (_c.palavra != null) 'Palavra: ${_c.palavra!.titulo}',
     ].join(' · ');
 
     String relogio = '';
@@ -165,7 +249,9 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
       relogio = '${agora.difference(inicio).inMinutes} min de culto';
     } else if (RegExp(r'^\d{2}:\d{2}$').hasMatch(culto?.hora ?? '')) {
       final p = culto!.hora.split(':');
-      final hora = DateTime(agora.year, agora.month, agora.day, int.parse(p[0]), int.parse(p[1]));
+      // Culto escolhido de outro dia: a contagem usa a data dele, não a de hoje.
+      final dia = DateTime.tryParse(culto.data) ?? agora;
+      final hora = DateTime(dia.year, dia.month, dia.day, int.parse(p[0]), int.parse(p[1]));
       final falta = hora.difference(agora);
       relogio = falta.isNegative ? 'hora do culto' : 'começa em ${falta.inMinutes + 1} min';
     }
@@ -205,6 +291,27 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
                 const SizedBox(width: 12),
               ],
               const StatusHolyricsChip(),
+              IconButton(
+                tooltip: 'Escolher culto',
+                onPressed: _escolherCulto,
+                icon: const Icon(Icons.event_outlined),
+              ),
+              IconButton(
+                tooltip: 'Escolher Palavra',
+                onPressed: _escolherPalavra,
+                icon: const Icon(Icons.menu_book_outlined),
+              ),
+              const SizedBox(width: 8),
+              Icon(_scope.projecao.value ? Icons.live_tv_outlined : Icons.tv_off_outlined,
+                  color: _scope.projecao.value ? null : esquema.error),
+              Tooltip(
+                message: _scope.projecao.value ? 'Projeção' : 'Projeção desligada',
+                child: Switch(
+                  key: const Key('chave-projecao'),
+                  value: _scope.projecao.value,
+                  onChanged: _alternarProjecao,
+                ),
+              ),
               const SizedBox(width: 18),
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,

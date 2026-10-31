@@ -20,6 +20,8 @@ class ModoCultoController extends ChangeNotifier {
     _fontes.addListener(_remontar);
     _remontar();
     _conferirPix();
+    // Cultos de hoje em diante, para o seletor do tablet.
+    scope.escalas.buscarFuturos();
   }
 
   final AppScope scope;
@@ -51,6 +53,32 @@ class ModoCultoController extends ChangeNotifier {
 
   /// Culto de hoje na escala; null se não há (o roteiro sai sem contagem e sem louvor).
   CultoDoDia? get culto => _culto;
+
+  /// Culto escolhido manualmente nesta sessão; null = seleção automática de hoje.
+  CultoDoDia? _cultoManual;
+  String? _cultoRestaurado;
+
+  /// Troca o culto que o tablet está operando (só nesta sessão). O progresso de outro culto
+  /// nunca é reaproveitado: reinicia, como no "Encerrar o culto".
+  Future<void> selecionarCulto(CultoDoDia? culto) async {
+    await encerrar();
+    _cultoManual = culto;
+    scope.palavra
+      ..limparEscolha()
+      ..culto = culto?.id ?? '';
+    if (culto != null) scope.palavra.data = culto.data;
+    _remontar();
+    await scope.palavra.sincronizar();
+    await scope.palavra.buscarOpcoes(culto?.data ?? diaIso(_agora()));
+  }
+
+  /// Fixa uma das Palavras prontas da data do culto escolhido (só nesta sessão).
+  Future<void> selecionarPalavra(String id) async {
+    await encerrar();
+    scope.palavra.id = id;
+    await scope.palavra.sincronizar();
+    notifyListeners();
+  }
 
   /// Já passou da tela "Antes do culto".
   bool get iniciado => _iniciado;
@@ -140,7 +168,7 @@ class ModoCultoController extends ChangeNotifier {
   Future<void> irParaTrecho(int indice) async {
     final p = palavra;
     if (p == null || indice < 0 || indice >= p.trechos.length) return;
-    await scope.client.leituraPalco(p.trechos[indice].texto);
+    if (scope.projecao.value) await scope.client.leituraPalco(p.trechos[indice].texto);
     _trecho = indice;
     final topico = p.trechos[indice].topico;
     if (topico.isNotEmpty) _inicioTopicos.putIfAbsent(topico, _agora);
@@ -228,6 +256,7 @@ class ModoCultoController extends ChangeNotifier {
   }
 
   CultoDoDia? _escolherCulto() {
+    if (_cultoManual != null) return _cultoManual;
     final escalas = scope.escalas;
     if (!escalas.hoje || escalas.cultos.isEmpty) return null;
     final agora = _agora();
@@ -252,6 +281,16 @@ class ModoCultoController extends ChangeNotifier {
 
   void _remontar() {
     final c = _culto = _escolherCulto();
+    // Progresso salvo de outro culto (ou de quando a escala mudou) não vale para este.
+    if (c != null && _cultoRestaurado != null && _cultoRestaurado != c.id) {
+      _cultoRestaurado = null;
+      _iniciado = false;
+      _posicao = null;
+      _inicios.clear();
+      _trecho = null;
+      _inicioTopicos.clear();
+      scope.settings.salvarModoCulto('');
+    }
     // Com dois cultos no dia, a Palavra que desce é a ligada a este.
     if (c != null && c.id.isNotEmpty && scope.palavra.culto != c.id) {
       scope.palavra.culto = c.id;
@@ -287,15 +326,18 @@ class ModoCultoController extends ChangeNotifier {
     final anterior = _posicao == null ? null : localizar(_roteiro, _posicao!);
     final saindoDaPalavra = anterior != null && momentoDe(anterior).tipo == TipoMomento.palavra &&
         momentoDe(p).tipo != TipoMomento.palavra;
-    await _executar(passoDe(p));
+    // Com a projeção desligada (ensaio), o roteiro anda no tablet sem tocar no Holyrics.
+    if (scope.projecao.value) await _executar(passoDe(p));
     if (saindoDaPalavra) {
       _versiculo = null;
       _destaque = null;
       // A TV do palco volta a ficar livre: tira o trecho da leitura e também avisos como
       // "Faltam 5 minutos", que não valem mais depois da pregação. Falha aqui não segura o culto.
-      try {
-        await scope.client.mensagemPalco('', mostrar: false);
-      } on ErroAmigavel catch (_) {}
+      if (scope.projecao.value) {
+        try {
+          await scope.client.mensagemPalco('', mostrar: false);
+        } on ErroAmigavel catch (_) {}
+      }
     }
     _iniciado = true;
     _posicao = p;
@@ -343,6 +385,24 @@ class ModoCultoController extends ChangeNotifier {
     _destaque = null;
     _inicioTopicos.clear();
     await scope.settings.salvarModoCulto('');
+  }
+
+  /// Ao religar a projeção, envia o passo e a leitura atuais: as telas ficam como o tablet
+  /// mostra. Sem culto iniciado, não mexe em nada (quem projeta é o Avançar).
+  Future<void> sincronizarProjecao() async {
+    if (!scope.projecao.value) return;
+    final atual = posicao;
+    if (atual == null) return;
+    await _executar(passoDe(atual));
+    final t = trecho;
+    if (t != null) await scope.client.leituraPalco(palavra!.trechos[t].texto);
+    if (_versiculo != null) {
+      final refs = t == null ? const <ReferenciaNoTrecho>[] : palavra!.trechos[t].referencias;
+      final ref = refs.where((r) => r.ref?.abreviada == _versiculo).firstOrNull?.ref;
+      if (ref != null) await projetarVersiculo(ref);
+    } else if (_destaque != null) {
+      await projetarDestaque(_destaque!);
+    }
   }
 
   Future<void> _executar(Passo passo) async {
@@ -403,6 +463,10 @@ class ModoCultoController extends ChangeNotifier {
         await limpar();
         await client.mostrarImagem(passo.valor);
       case AcaoPasso.contagem:
+        // O Holyrics conta até uma hora de hoje: culto de outro dia começa sem contagem.
+        if (_culto?.data != diaIso(_agora())) {
+          throw ServidorException('A contagem só pode ser projetada no dia do culto. Use "Começar o culto agora".');
+        }
         await limpar();
         await client.contagemTela(passo.valor, horaExata: true, textoAntes: 'O culto começa em', tema: tema);
       case AcaoPasso.boasVindas:
@@ -425,6 +489,8 @@ class ModoCultoController extends ChangeNotifier {
 
   Future<void> _salvar() => scope.settings.salvarModoCulto(jsonEncode({
         'dia': diaIso(_agora()),
+        'cultoId': _culto?.id ?? '',
+        'dataCulto': _culto?.data ?? '',
         'iniciado': _iniciado,
         if (_posicao != null) 'momento': _posicao!.chave,
         if (_posicao != null) 'ordem': _posicao!.ordem,
@@ -443,6 +509,9 @@ class ModoCultoController extends ChangeNotifier {
       if (texto.isEmpty) return;
       final j = Map<String, dynamic>.from(jsonDecode(texto) as Map);
       if (j['dia'] != diaIso(_agora())) return;
+      // Retomada de um culto que não é de hoje (escolhido noutra sessão): não restore.
+      if (j['dataCulto'] is String && j['dataCulto'] != '' && j['dataCulto'] != diaIso(_agora())) return;
+      _cultoRestaurado = j['cultoId'] as String?;
       _iniciado = j['iniciado'] == true;
       final chave = j['momento'];
       if (chave is String && chave.isNotEmpty) {
@@ -477,6 +546,8 @@ class ModoCultoController extends ChangeNotifier {
   void dispose() {
     _descartado = true;
     _fontes.removeListener(_remontar);
+    // A escolha de culto/Palavra é desta sessão: saindo do Modo Culto, volta a de hoje.
+    if (_cultoManual != null || scope.palavra.id.isNotEmpty) scope.palavra.limparEscolha();
     super.dispose();
   }
 }

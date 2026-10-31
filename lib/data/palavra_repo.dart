@@ -22,13 +22,43 @@ class PalavraRepo extends ChangeNotifier {
   bool _online = false;
   String? _erro;
 
-  /// A Palavra de hoje; null se não há uma pronta (ou a cópia é de outro dia).
-  PalavraDoCulto? get palavra => _dia == diaIso(_agora()) ? _palavra : null;
+  /// A Palavra de hoje (ou da data escolhida); null se não há uma pronta para ela.
+  PalavraDoCulto? get palavra => _dia == (data.isEmpty ? diaIso(_agora()) : data) ? _palavra : null;
   bool get online => _online;
   String? get erro => _erro;
 
-  /// Culto da escala de hoje, para escolher entre duas Palavras no mesmo dia.
+  /// Culto da escala, para escolher entre duas Palavras no mesmo dia.
   String culto = '';
+
+  /// Data e Palavra escolhidas no tablet (só nesta sessão; vazias = seleção automática).
+  String data = '';
+  String id = '';
+
+  /// Palavras prontas da data escolhida (título e id, para o seletor).
+  List<({String id, String titulo})> opcoes = [];
+
+  /// Esquece a escolha manual (ao sair do Modo Culto, a Palavra volta a ser a de hoje).
+  void limparEscolha() {
+    culto = '';
+    data = '';
+    id = '';
+    _dia = '';
+    _palavra = null;
+  }
+
+  /// Busca as Palavras prontas do dia, sem o texto (é só para escolher).
+  Future<void> buscarOpcoes(String dia) async {
+    try {
+      final j = await api.palavraDeHoje(data: dia, listar: true);
+      opcoes = [
+        for (final p in j['palavras'] as List? ?? const []) (id: (p as Map)['id'] as String, titulo: p['titulo'] as String),
+      ];
+      notifyListeners();
+    } on ErroAmigavel catch (e) {
+      _erro = e.message;
+      notifyListeners();
+    }
+  }
 
   Future<void> carregar() async {
     try {
@@ -51,7 +81,7 @@ class PalavraRepo extends ChangeNotifier {
 
   Future<void> sincronizar() async {
     try {
-      final j = {...await api.palavraDeHoje(culto: culto), 'dia': diaIso(_agora())};
+      final j = {...await api.palavraDeHoje(culto: culto, data: data, id: id), 'dia': data.isEmpty ? diaIso(_agora()) : data};
       _ler(j);
       _online = true;
       _erro = null;

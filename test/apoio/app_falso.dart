@@ -48,6 +48,12 @@ class ServidorFalso {
   /// Palavra pronta de hoje (null = o pastor não preparou texto).
   Palavra? palavra;
 
+  /// Cultos extras de outras datas (respondem no /api/escalas/hoje?todos=1).
+  List<Map<String, dynamic>> cultosExtras = [];
+
+  /// Palavras prontas extras de outras datas (respondem no /api/palavras/hoje?data=...).
+  List<Palavra> palavrasExtras = [];
+
   late final hoje = diaIso(agora);
 
   late final recados = [
@@ -136,8 +142,20 @@ class ServidorFalso {
           '/api/visitas' => [for (final v in visitas) v.toJson()],
           '/api/mensagens' => const [],
           '/api/agenda' => {'configurada': true, 'eventos': [evento.toJson()]},
-          '/api/escalas/hoje' => {'hoje': true, 'cultos': [culto]},
-          '/api/palavras/hoje' => {'palavra': palavra == null ? null : PalavraDoCulto.de(palavra!).toJson()},
+          '/api/escalas/hoje' => {
+              'hoje': true,
+              'cultos': req.url.queryParameters['todos'] == '1' ? [culto, ...cultosExtras] : [culto],
+            },
+          '/api/palavras/hoje' => () {
+              final dia = req.url.queryParameters['data'] ?? hoje;
+              final prontas = [if (palavra != null) palavra!, ...palavrasExtras].where((p) => p.pronta && p.data == dia).toList();
+              if (req.url.queryParameters['listar'] == '1') {
+                return {'palavras': [for (final p in prontas) {'id': p.id, 'titulo': p.titulo}]};
+              }
+              final id = req.url.queryParameters['id'];
+              final p = id == null ? prontas.firstOrNull : prontas.where((p) => p.id == id).firstOrNull;
+              return {'palavra': p == null ? null : PalavraDoCulto.de(p).toJson()};
+            }(),
           '/api/estado' => {'qrHolyrics': 'DiakoNews/qr.png', 'qrMensagensHolyrics': 'DiakoNews/qr-mensagens.png', 'qrPixHolyrics': 'DiakoNews/qr-pix.png'},
           '/api/projetar/boas-vindas' => {'status': 'ok'},
           _ when caminho.startsWith('/api/holyrics/') => () {
@@ -160,7 +178,9 @@ class ServidorFalso {
 Future<AppScope> montarApp(ServidorFalso servidor, Directory pasta, Widget home) async {
   SharedPreferences.setMockInitialValues({'servidor': 'http://srv:8080', 'sessao': 's'});
   final settings = AppSettings(await SharedPreferences.getInstance());
-  final api = ServerApi(() => ServidorConfig(base: settings.servidor, sessao: settings.sessao), httpClient: servidor.cliente);
+  final projecao = ValueNotifier<bool>(true);
+  final api = ServerApi(() => ServidorConfig(base: settings.servidor, sessao: settings.sessao),
+      httpClient: servidor.cliente, projecaoAtiva: () => projecao.value);
   Future<File> arquivo(String nome) async => File('${pasta.path}/$nome');
   final repo = RecadoRepo(api: api, cache: () => arquivo('recados.json'));
   final motivos = MotivoRepo(api: api, cache: () => arquivo('motivos.json'));
@@ -171,7 +191,7 @@ Future<AppScope> montarApp(ServidorFalso servidor, Directory pasta, Widget home)
   final conta = ContaRepo(api: api, cache: () => arquivo('conta.json'));
   final palavra = PalavraRepo(api: api, cache: () => arquivo('palavra.json'));
   await Future.wait([repo.sincronizar(), motivos.sincronizar(), agenda.sincronizar(), escalas.sincronizar(), mensagens.sincronizar(), visitas.sincronizar(), palavra.sincronizar()]);
-  final client = HolyricsClient(api, local: AgenteLocal(() => (base: '', token: '')));
+  final client = HolyricsClient(api, local: AgenteLocal(() => (base: '', token: '')), projecao: projecao);
   final status = StatusController(client);
   await status.atualizar();
   return AppScope(
@@ -189,6 +209,7 @@ Future<AppScope> montarApp(ServidorFalso servidor, Directory pasta, Widget home)
     agenteLocal: AgenteLocal(() => (base: '', token: '')),
     status: status,
     tempoReal: TempoReal(api, aoMudar: (_) {}, aoReconectar: () {}),
+    projecao: projecao,
     // O mesmo MaterialApp do app (tema e o desconto da barra de navegação).
     child: DiakoNewsApp(home: home),
   );

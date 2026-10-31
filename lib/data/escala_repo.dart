@@ -89,12 +89,16 @@ class EscalaRepo extends ChangeNotifier {
   final Future<File> Function() _cache;
 
   List<CultoDoDia> _cultos = [];
+  List<CultoDoDia> _futuros = [];
   bool _hoje = false;
   bool _online = false;
   String? _erro;
 
   /// Cultos de hoje; sem culto hoje, os do próximo dia com culto.
   List<CultoDoDia> get cultos => _cultos;
+
+  /// Cultos da escala de hoje em diante (para o tablet escolher qual operar).
+  List<CultoDoDia> get futuros => _futuros;
 
   /// Os [cultos] são de hoje (senão, são do próximo dia com culto).
   bool get hoje => _hoje;
@@ -138,5 +142,17 @@ class EscalaRepo extends ChangeNotifier {
       _erro = e.message;
     }
     notifyListeners();
+  }
+
+  /// Busca de novo a lista de cultos de hoje em diante (não fica em cache: é só para escolher).
+  Future<void> buscarFuturos() async {
+    try {
+      final j = await api.cultosFuturos();
+      _futuros = [for (final c in (j['cultos'] as List? ?? const [])) CultoDoDia.fromJson(Map<String, dynamic>.from(c as Map))];
+      notifyListeners();
+    } on ErroAmigavel catch (e) {
+      _erro = e.message;
+      notifyListeners();
+    }
   }
 }

@@ -33,6 +33,7 @@ class AppScope extends InheritedWidget {
     required this.agenteLocal,
     required this.status,
     required this.tempoReal,
+    required this.projecao,
     required super.child,
   });
 
@@ -58,6 +59,9 @@ class AppScope extends InheritedWidget {
   final AgenteLocal agenteLocal;
   final StatusController status;
   final TempoReal tempoReal;
+
+  /// Chave de projeção desta sessão, compartilhada por todas as telas.
+  final ValueNotifier<bool> projecao;
 
   static AppScope of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppScope>()!;
 

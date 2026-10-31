@@ -2042,16 +2042,28 @@ class Servidor {
     }
   }
 
-  /// GET /api/palavras/hoje?culto=<id> — a Palavra pronta de hoje, como o tablet usa no culto.
-  /// Com mais de uma, vale a ligada ao culto pedido; senão, a atualizada por último.
+  /// GET /api/palavras/hoje — a Palavra para o tablet, como ele usa no culto. Sem parâmetros,
+  /// a pronta de hoje (com mais de uma, a ligada ao culto pedido; senão, a atualizada por
+  /// último). Com ?data=aaaa-mm-dd, a dessa data; ?listar=1 devolve só o resumo das prontas
+  /// dela; ?id=<id> escolhe uma delas.
   Response _palavraDeHoje(Request req) {
-    final hoje = diaIso(_agora());
-    final culto = req.url.queryParameters['culto'] ?? '';
+    final q = req.url.queryParameters;
+    final data = q['data'] ?? diaIso(_agora());
+    final dia = DateTime.tryParse(data);
+    if (dia == null || diaIso(dia) != data) return _erro(400, 'Data inválida.');
+    final culto = q['culto'] ?? '';
     final prontas = [
       for (final j in store.listar('palavras'))
-        if (j['pronta'] == true && j['data'] == hoje) Palavra.fromJson(j),
+        if (j['pronta'] == true && j['data'] == data) Palavra.fromJson(j),
     ]..sort((a, b) => (b.atualizadoEm ?? DateTime(2000)).compareTo(a.atualizadoEm ?? DateTime(2000)));
-    final escolhida = prontas.where((p) => culto.isNotEmpty && p.cultoId == culto).firstOrNull ?? prontas.firstOrNull;
+    if (q['listar'] == '1') {
+      return _json({
+        'palavras': [for (final p in prontas) {'id': p.id, 'titulo': p.titulo, 'minutos': p.minutos}],
+      });
+    }
+    final escolhida = q['id'] != null
+        ? prontas.where((p) => p.id == q['id']).firstOrNull
+        : prontas.where((p) => culto.isNotEmpty && p.cultoId == culto).firstOrNull ?? prontas.firstOrNull;
     return _json({'palavra': escolhida == null ? null : PalavraDoCulto.de(escolhida).toJson()});
   }
 
@@ -2294,14 +2306,18 @@ class Servidor {
     });
   }
 
-  /// GET /api/escalas/hoje — cultos de hoje para o tablet; sem culto hoje, o próximo em até 7 dias.
-  Response _escalaDeHoje(Request _) {
+  /// GET /api/escalas/hoje — cultos de hoje para o tablet; sem culto hoje, o próximo em até 7
+  /// dias. Com ?todos=1, todos os de hoje em diante (para o tablet escolher qual operar).
+  Response _escalaDeHoje(Request req) {
     final hoje = diaEscala(_agora());
     final limite = diaEscala(_agora().add(const Duration(days: 7)));
     final cultos = _cultos();
     var lista = cultos.where((c) => c.data == hoje).toList();
     final ehHoje = lista.isNotEmpty;
-    if (!ehHoje) {
+    if (req.url.queryParameters['todos'] == '1') {
+      lista = cultos.where((c) => c.data.compareTo(hoje) >= 0).toList()
+        ..sort((a, b) => a.data == b.data ? a.hora.compareTo(b.hora) : a.data.compareTo(b.data));
+    } else if (!ehHoje) {
       final proximo = cultos.where((c) => c.data.compareTo(hoje) > 0 && c.data.compareTo(limite) <= 0).firstOrNull;
       lista = [if (proximo != null) ...cultos.where((c) => c.data == proximo.data)];
     }

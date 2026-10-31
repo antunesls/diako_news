@@ -238,6 +238,48 @@ void main() {
       expect(culto.trechos.first.referencias.single.ref!.ids, ['45005008']);
     });
 
+    test('tablet escolhe entre Palavras prontas de outra data sem revelar rascunhos', () async {
+      final telao = await criar('tablet-futuro', Perfil.telao);
+      final amanha = diaIso(DateTime.now().add(const Duration(days: 1)));
+      final ids = <String>[];
+      for (final titulo in ['Primeira', 'Segunda']) {
+        final (_, criada) = await chamar('POST', '/api/palavras',
+            token: admin, json: {'titulo': titulo, 'data': amanha, 'texto': 'Mensagem de esperança.', 'pronta': true});
+        ids.add(criada['id'] as String);
+      }
+      await chamar('POST', '/api/palavras', token: admin, json: {'titulo': 'Rascunho', 'data': amanha, 'texto': 'Não mostrar.'});
+      final (status, lista) = await chamar('GET', '/api/palavras/hoje?data=$amanha&listar=1', token: telao);
+      expect(status, 200);
+      expect((lista['palavras'] as List).map((p) => p['titulo']).toSet(), {'Primeira', 'Segunda'});
+      final (s2, escolhida) = await chamar('GET', '/api/palavras/hoje?data=$amanha&id=${ids.first}', token: telao);
+      expect(s2, 200);
+      expect(escolhida['palavra']['titulo'], 'Primeira');
+      expect((await chamar('GET', '/api/palavras/hoje?data=2026-99-99', token: telao)).$1, 400);
+      expect((await chamar('GET', '/api/palavras/hoje?data=$amanha&id=inexistente', token: telao)).$2['palavra'], isNull);
+    });
+
+    test('tablet lista cultos futuros da escala em ordem sem incluir passados', () async {
+      final telao = await criar('tablet-escala', Perfil.telao);
+      final amanha = diaIso(DateTime.now().add(const Duration(days: 1)));
+      final distante = diaIso(DateTime.now().add(const Duration(days: 20)));
+      final ontem = diaIso(DateTime.now().subtract(const Duration(days: 1)));
+      for (final (id, data, hora) in [
+        ('passado', ontem, '19:00'),
+        ('hoje', hoje, '10:00'),
+        ('noite', amanha, '19:00'),
+        ('manha', amanha, '09:00'),
+        ('distante', distante, '18:00'),
+      ]) {
+        await store.salvar('escalas', {
+          'id': id, 'data': data, 'hora': hora, 'nome': 'Culto',
+          'pastoral': <String, dynamic>{}, 'louvor': <String, dynamic>{},
+        });
+      }
+      final (status, resposta) = await chamar('GET', '/api/escalas/hoje?todos=1', token: telao);
+      expect(status, 200);
+      expect((resposta['cultos'] as List).map((c) => c['id']), ['hoje', 'manha', 'noite', 'distante']);
+    });
+
     test('modelos de roteiro: pastoral edita, o tablet recebe o do culto de hoje', () async {
       final telao = await criar('telao', Perfil.telao);
       const itens = [

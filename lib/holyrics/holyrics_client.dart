@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../sync/server_api.dart';
 import 'agente_local.dart';
 
@@ -34,12 +36,22 @@ class Apresentacao {
 /// o token e repassa para a API Server do Holyrics.
 /// Docs: https://github.com/holyrics/API-Server
 class HolyricsClient {
-  HolyricsClient(this._api, {this.local});
+  HolyricsClient(this._api, {this.local, this.projecao});
 
   final ServerApi _api;
   final AgenteLocal? local;
 
+  /// Chave de projeção do app: desligada, escritas no Holyrics são recusadas no próprio cliente.
+  /// As consultas (o que está no ar, temas) continuam, para o estado ficar certo no ensaio.
+  final ValueListenable<bool>? projecao;
+
+  /// Ações que não projetam nada: liberadas mesmo com a chave desligada.
+  static const _consultas = {'GetCPInfo', 'GetCurrentPresentation', 'GetThumbnail', 'GetThemes'};
+
   Future<dynamic> call(String action, [Map<String, dynamic> body = const {}]) async {
+    if (projecao?.value == false && !_consultas.contains(action)) {
+      throw HolyricsException('Projeção desligada. Ligue a chave para enviar ao telão ou à TV do palco.');
+    }
     final relogio = Stopwatch()..start();
     final viaLocal = await local?.holyrics(action, body);
     final Map<String, dynamic> json;

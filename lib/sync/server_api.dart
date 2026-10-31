@@ -60,10 +60,13 @@ class Cartaz {
 
 /// Cliente REST do servidor DiakoHub.
 class ServerApi {
-  ServerApi(this._config, {http.Client? httpClient}) : _http = httpClient ?? http.Client();
+  ServerApi(this._config, {http.Client? httpClient, this.projecaoAtiva}) : _http = httpClient ?? http.Client();
 
   final ServidorConfig Function() _config;
   final http.Client _http;
+
+  /// A chave de projeção do app inteiro: desligada, nenhuma escrita sai para o telão.
+  final bool Function()? projecaoAtiva;
 
   static const timeout = Duration(seconds: 8);
 
@@ -100,19 +103,37 @@ class ServerApi {
   Future<Map<String, dynamic>> estado() async => Map<String, dynamic>.from(await _req('GET', '/api/estado') as Map);
 
   /// Escala de hoje (ou do próximo culto em até 7 dias): {hoje, cultos: [...]}.
-  /// A Palavra pronta de hoje para o culto: {palavra: {...} ou null}.
-  Future<Map<String, dynamic>> palavraDeHoje({String culto = ''}) async => Map<String, dynamic>.from(
-      await _req('GET', '/api/palavras/hoje${culto.isEmpty ? '' : '?culto=${Uri.encodeQueryComponent(culto)}'}') as Map);
+  /// A Palavra pronta de hoje para o culto: {palavra: {...} ou null}. Com [data], a desse dia;
+  /// com [id], a escolhida entre as prontas do dia; com [listar], só o resumo delas.
+  Future<Map<String, dynamic>> palavraDeHoje({String culto = '', String data = '', String id = '', bool listar = false}) async {
+    final q = Uri(queryParameters: {
+      if (culto.isNotEmpty) 'culto': culto,
+      if (data.isNotEmpty) 'data': data,
+      if (id.isNotEmpty) 'id': id,
+      if (listar) 'listar': '1',
+    }).query;
+    return Map<String, dynamic>.from(
+        await _req('GET', '/api/palavras/hoje${q.isEmpty ? '' : '?$q'}') as Map);
+  }
 
   Future<Map<String, dynamic>> escalaHoje() async => Map<String, dynamic>.from(await _req('GET', '/api/escalas/hoje') as Map);
+
+  /// Cultos da escala de hoje em diante, para escolher no tablet.
+  Future<Map<String, dynamic>> cultosFuturos() async =>
+      Map<String, dynamic>.from(await _req('GET', '/api/escalas/hoje?todos=1') as Map);
 
   Future<Map<String, dynamic>> marcarVisitaMencionada(String id, {bool desfazer = false}) async =>
       Map<String, dynamic>.from(await _req('POST', '/api/visitas/${Uri.encodeComponent(id)}/mencionada',
           json: {if (desfazer) 'desfazer': true}) as Map);
 
   /// Retorna o JSON do Holyrics ({"status": "ok"} quando projetou).
-  Future<Map<String, dynamic>> projetarBoasVindas({List<String>? ids}) async =>
-      Map<String, dynamic>.from(await _req('POST', '/api/projetar/boas-vindas', json: {if (ids != null) 'ids': ids}) as Map);
+  Future<Map<String, dynamic>> projetarBoasVindas({List<String>? ids}) async {
+    if (projecaoAtiva?.call() == false) {
+      throw ServidorException('Projeção desligada. Ligue a chave para enviar ao telão.');
+    }
+    return Map<String, dynamic>.from(
+        await _req('POST', '/api/projetar/boas-vindas', json: {if (ids != null) 'ids': ids}) as Map);
+  }
 
   /// Próximos eventos do Google Agenda (lidos pelo servidor).
   Future<AgendaServidor> agenda({int dias = 30}) async {

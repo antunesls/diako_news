@@ -32,7 +32,9 @@ Future<void> main() async {
   ]);
 
   final settings = AppSettings(await SharedPreferences.getInstance());
-  final api = ServerApi(() => ServidorConfig(base: settings.servidor, sessao: settings.sessao));
+  final projecao = ValueNotifier<bool>(true);
+  final api = ServerApi(() => ServidorConfig(base: settings.servidor, sessao: settings.sessao),
+      projecaoAtiva: () => projecao.value);
 
   // Cópias locais (cache) para mostrar os dados mesmo sem conexão com o servidor.
   Future<File> arquivo(String nome) async => File('${(await getApplicationDocumentsDirectory()).path}/$nome');
@@ -57,7 +59,7 @@ Future<void> main() async {
   if (conta.pode('projetar')) unawaited(palavra.carregar());
 
   final agenteLocal = AgenteLocal(() => (base: settings.agenteLocal, token: settings.agenteLocalToken));
-  final client = HolyricsClient(api, local: agenteLocal);
+  final client = HolyricsClient(api, local: agenteLocal, projecao: projecao);
   final status = StatusController(client)..iniciar();
 
   final tempoReal = TempoReal(
@@ -100,6 +102,7 @@ Future<void> main() async {
     agenteLocal: agenteLocal,
     status: status,
     tempoReal: tempoReal,
+    projecao: projecao,
     child: const DiakoNewsApp(),
   ));
 }

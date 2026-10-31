@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:diako_news/holyrics/holyrics_client.dart';
 import 'package:diako_news/sync/server_api.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -44,6 +45,25 @@ void main() {
   });
 
   group('HolyricsClient via servidor', () {
+    test('chave desligada bloqueia escritas, mas as consultas de estado continuam', () async {
+      final chave = ValueNotifier(false);
+      var chamadas = 0;
+      final servidor = ServerApi(() => const ServidorConfig(base: 'http://192.168.0.10:8080', sessao: 'sess'),
+          httpClient: MockClient((_) async {
+        chamadas++;
+        return http.Response('{"status":"ok","data":null}', 200);
+      }));
+      final c = HolyricsClient(servidor, projecao: chave);
+      await expectLater(c.projetarTexto('Teste'), throwsA(isA<HolyricsException>()));
+      await expectLater(c.mensagemPalco('Teste'), throwsA(isA<HolyricsException>()));
+      expect(chamadas, 0, reason: 'nada sai com a projeção desligada');
+      await c.apresentacaoAtual();
+      expect(chamadas, 1, reason: 'consultar o que está no ar segue de pé');
+      chave.value = true;
+      await c.projetarTexto('Agora sim');
+      expect(chamadas, 2);
+    });
+
     test('usa /api/holyrics/<ação> com a sessão', () async {
       await cliente({'status': 'ok'}).testar();
       expect(ultima.method, 'POST');

@@ -142,7 +142,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scope = _scope;
     return ListenableBuilder(
-      listenable: Listenable.merge([scope.repo, scope.motivos, scope.agenda, scope.escalas, scope.mensagens, scope.visitas, scope.conta]),
+      listenable: Listenable.merge([scope.repo, scope.motivos, scope.agenda, scope.escalas, scope.mensagens, scope.visitas, scope.conta, scope.projecao]),
       builder: (context, _) {
         final conta = scope.conta;
         // Seções que o perfil vê; se a atual saiu (perfil trocado), volta para Recados.
@@ -233,6 +233,26 @@ class _HomePageState extends State<HomePage> {
                                 _Secao.mensagens =>
                                   _destino(Icons.mail_outline, Icons.mail, 'Mensagens', scope.mensagens.novas),
                               },
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Column(
+                          children: [
+                            Text(
+                              scope.projecao.value ? 'Projeção' : 'Projeção\ndesligada',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: scope.projecao.value ? null : esquema.error,
+                              ),
+                            ),
+                            Switch(
+                              key: const Key('chave-projecao'),
+                              value: scope.projecao.value,
+                              onChanged: (value) => scope.projecao.value = value,
+                            ),
                           ],
                         ),
                       ),

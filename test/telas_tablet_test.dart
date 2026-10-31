@@ -16,7 +16,13 @@ void main() {
   late Directory pasta;
   ServidorFalso? atual; // o da tela aberta por último (tocar() espera as chamadas dele)
   setUp(() async => pasta = await Directory.systemTemp.createTemp('diako_telas'));
-  tearDown(() => pasta.delete(recursive: true));
+  tearDown(() async {
+    try {
+      await pasta.delete(recursive: true);
+    } on FileSystemException {
+      // No Windows o cache em arquivo às vezes ainda está aberto; é pasta temporária.
+    }
+  });
 
   Future<ServidorFalso> abrir(WidgetTester tester, Widget home, {Palavra? palavra, void Function(ServidorFalso)? antes}) async {
     tester.view.physicalSize = const Size(1920, 1200);
@@ -53,6 +59,54 @@ void main() {
     expect(find.textContaining('Entrar no Modo Culto'), findsOneWidget);
     expect(find.text('Próximo'), findsOneWidget);
     expect(find.text('PRÉ-VISUALIZAÇÃO'), findsOneWidget);
+  });
+
+  testWidgets('chave de projeção: ensaio sem Holyrics e religar sincroniza o passo', (tester) async {
+    final servidor = await abrir(tester, const ModoCultoPage());
+    expect(find.byTooltip('Projeção'), findsOneWidget);
+    await tocar(tester, find.byKey(const Key('chave-projecao')));
+    expect(find.byTooltip('Projeção desligada'), findsOneWidget);
+    final antes = servidor.holyrics.where((a) => !a.startsWith('Get')).length;
+    await tocar(tester, find.text('Começar o culto agora'));
+    await tocar(tester, find.text(TipoMomento.recados.titulo).first);
+    expect(servidor.holyrics.where((a) => !a.startsWith('Get')).length, antes, reason: 'ensaio não pode enviar nada');
+    await tocar(tester, find.byKey(const Key('chave-projecao')));
+    expect(servidor.holyrics, contains('ShowQuickPresentation'), reason: 'religar projeta o passo atual');
+  });
+
+  testWidgets('escolhe o culto de amanhã e a Palavra pronta dele', (tester) async {
+    final dia = diaIso(DateTime.now().add(const Duration(days: 1)));
+    await abrir(tester, const ModoCultoPage(), antes: (s) {
+      s.cultosExtras = [{...s.culto, 'id': 'amanha', 'data': dia, 'nome': 'Culto de amanhã', 'hora': '19:00'}];
+      s.palavrasExtras = [
+        Palavra(id: 'p1', titulo: 'Primeira Palavra', autorId: 'x', data: dia, pronta: true, texto: 'Primeiro texto.'),
+        Palavra(id: 'p2', titulo: 'Segunda Palavra', autorId: 'x', data: dia, pronta: true, texto: 'Segundo texto.'),
+      ];
+    });
+    await tocar(tester, find.byTooltip('Escolher culto'));
+    await tocar(tester, find.textContaining('Culto de amanhã'));
+    expect(find.textContaining('Culto de amanhã'), findsWidgets);
+    await tocar(tester, find.byTooltip('Escolher Palavra'));
+    await tocar(tester, find.text('Primeira Palavra').last);
+    expect(find.textContaining('Primeira Palavra'), findsWidgets);
+  });
+
+  testWidgets('trocar de culto iniciado pede confirmação e recomeça do início', (tester) async {
+    final dia = diaIso(DateTime.now().add(const Duration(days: 1)));
+    await abrir(tester, const ModoCultoPage(), antes: (s) {
+      s.cultosExtras = [{...s.culto, 'id': 'futuro', 'data': dia, 'nome': 'Culto futuro'}];
+    });
+    await tocar(tester, find.text('Começar o culto agora'));
+    await tocar(tester, find.byTooltip('Escolher culto'));
+    await tocar(tester, find.textContaining('Culto futuro'));
+    expect(find.text('Trocar de culto?'), findsOneWidget);
+    await tocar(tester, find.text('Cancelar').last);
+    expect(find.text('MODO CULTO'), findsOneWidget, reason: 'cancelar mantém o culto em andamento');
+    await tocar(tester, find.byTooltip('Escolher culto'));
+    await tocar(tester, find.textContaining('Culto futuro'));
+    await tocar(tester, find.text('Trocar e reiniciar'));
+    expect(find.textContaining('Culto futuro'), findsWidgets);
+    expect(find.text('Começar o culto agora'), findsOneWidget, reason: 'o novo culto começa do início');
   });
 
   testWidgets('Modo Culto: conferência, todos os momentos e o Avançar', (tester) async {
