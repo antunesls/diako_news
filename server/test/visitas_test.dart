@@ -175,6 +175,27 @@ void main() {
       expect(vs.where((v) => v['primeiraVez'] == false), hasLength(1));
     });
 
+    test('aniversário do visitante é opcional; sem ele o cadastro fica sem data', () async {
+      final (st, _) = await chamar('POST', '/api/visitas', token: admin,
+          json: {'pessoas': [{'nome': 'Sem Data', 'telefone': '11 90000-0000'}], 'mencionar': false, 'autorizo': true});
+      expect(st, 201);
+      final cadastro = porNome(await membros(), 'Sem Data');
+      expect(cadastro.containsKey('dia'), isFalse);
+      expect(cadastro.containsKey('mes'), isFalse);
+      expect(cadastro['telefone'], '11 90000-0000');
+      // Voltando sem aniversário, o telefone acha o mesmo cadastro (não cria outra pessoa).
+      await chamar('POST', '/api/visitas', token: admin,
+          json: {'pessoas': [{'nome': 'Sem Data', 'telefone': '(11) 90000-0000'}], 'mencionar': false, 'autorizo': true});
+      expect(await membros(), hasLength(1));
+      // Data preenchida e inválida continua recusada.
+      expect((await chamar('POST', '/api/visitas', token: admin,
+          json: {'pessoas': [{'nome': 'X', 'aniversario': '31/02'}], 'mencionar': false})).$1, 400);
+      // Na exportação, quem não informou fica com a coluna vazia (sem "null").
+      final (se, csv) = await chamar('GET', '/api/membros/exportar', token: admin);
+      expect(se, 200);
+      expect(csv, isNot(contains('null')));
+    });
+
     test('Recepção só vê as visitas de hoje, mesmo pedindo outro período', () async {
       final obreiro = await criarUsuario('ana.recepcao', Perfil.recepcao);
       final hoje = diaIso(DateTime.now());

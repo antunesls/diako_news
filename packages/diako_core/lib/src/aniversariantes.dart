@@ -24,7 +24,9 @@ List<({Membro membro, DateTime data})> aniversariantesDaSemana(List<Membro> memb
   for (final dia in diasDaSemana(hoje)) {
     for (final m in membros) {
       if (!podeDivulgarAniversario(m)) continue;
-      var (d, mes) = (m.dia, m.mes);
+      // Visitante que não informou o aniversário fica fora (sem data para comemorar).
+      if (m.dia == null || m.mes == null) continue;
+      var (d, mes) = (m.dia!, m.mes!);
       if (d == 29 && mes == 2 && !_bissexto(dia.year)) d = 28;
       if (d == dia.day && mes == dia.month) resultado.add((membro: m, data: dia));
     }

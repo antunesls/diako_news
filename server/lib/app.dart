@@ -1187,7 +1187,9 @@ class Servidor {
       for (final m in lista)
         [
           m.nome,
-          m.ano == null ? m.aniversario : '${m.dia.toString().padLeft(2, '0')}/${m.mes.toString().padLeft(2, '0')}/${m.ano}',
+          m.ano == null || m.dia == null || m.mes == null
+              ? m.aniversario
+              : '${m.dia.toString().padLeft(2, '0')}/${m.mes.toString().padLeft(2, '0')}/${m.ano}',
           m.idadeEm(agora) ?? '',
           m.status.nome,
           m.telefone ?? '',
@@ -1518,13 +1520,14 @@ class Servidor {
       semAcento(nome.toLowerCase())!.replaceAll(RegExp(r'\s+'), ' ').trim();
 
   /// Cadastro de quem já veio: mesmo nome e (mesmo telefone ou mesmo aniversário).
-  Map<String, dynamic>? _cadastroExistente(String nome, String telefone, int dia, int mes) {
+  Map<String, dynamic>? _cadastroExistente(String nome, String telefone, int? dia, int? mes) {
     final alvo = _nomeComparavel(nome);
     final fone = telefone.replaceAll(RegExp(r'\D'), '');
     for (final doc in store.listar('membros')) {
       if (_nomeComparavel(doc['nome'] as String? ?? '') != alvo) continue;
       final foneDoc = '${doc['telefone'] ?? ''}${doc['whatsapp'] ?? ''}'.replaceAll(RegExp(r'\D'), '');
-      if ((fone.isNotEmpty && foneDoc.contains(fone)) || (doc['dia'] == dia && doc['mes'] == mes)) return doc;
+      final mesmaData = dia != null && mes != null && doc['dia'] == dia && doc['mes'] == mes;
+      if ((fone.isNotEmpty && foneDoc.contains(fone)) || mesmaData) return doc;
     }
     return null;
   }
@@ -1563,25 +1566,29 @@ class Servidor {
     // 1. Valida todo mundo antes de gravar qualquer coisa.
     final agora = _agora();
     final hoje = diaIso(agora);
-    final pessoas = <({String nome, int dia, int mes, int? ano, String telefone, String parentesco, bool autorizo})>[];
+    final pessoas = <({String nome, int? dia, int? mes, int? ano, String telefone, String parentesco, bool autorizo})>[];
     for (final (i, p) in brutas.indexed) {
       final nome = limpo(p['nome']);
       final quem = i == 0 ? 'Aniversário' : 'Aniversário de ${nome.isEmpty ? 'acompanhante' : nome}';
       if (nome.isEmpty) return _erro(400, 'Falta o nome de um acompanhante.');
-      final aniv = RegExp(r'^(\d{1,2})/(\d{1,2})(?:/(\d{4}))?$').firstMatch(limpo(p['aniversario']));
-      if (aniv == null) return _erro(400, '$quem: use dia/mês, por exemplo 05/03.');
-      final dia = int.parse(aniv.group(1)!), mes = int.parse(aniv.group(2)!);
-      if (!Membro.dataValida(dia, mes)) return _erro(400, '$quem: essa data não existe.');
+      // O aniversário é opcional (o visitante pode não saber ou não querer informar).
+      final anivTexto = limpo(p['aniversario']);
+      final aniv = anivTexto.isEmpty ? null : RegExp(r'^(\d{1,2})/(\d{1,2})(?:/(\d{4}))?$').firstMatch(anivTexto);
+      if (anivTexto.isNotEmpty && aniv == null) return _erro(400, '$quem: use dia/mês, por exemplo 05/03.');
+      final dia = aniv == null ? null : int.parse(aniv.group(1)!);
+      final mes = aniv == null ? null : int.parse(aniv.group(2)!);
+      if (dia != null && mes != null && !Membro.dataValida(dia, mes)) return _erro(400, '$quem: essa data não existe.');
+      final ano = aniv?.group(3);
       final telefone = limpo(p['telefone']);
       if (telefone.length > 20 || nome.length > 100) return _erro(400, 'Algum campo ficou longo demais.');
       final parentesco = i == 0 ? '' : (const {'conjuge', 'filho', 'outro'}.contains(p['parentesco']) ? p['parentesco'] as String : 'outro');
       pessoas.add((
-        nome: nome, dia: dia, mes: mes, ano: aniv.group(3) == null ? null : int.parse(aniv.group(3)!),
+        nome: nome, dia: dia, mes: mes, ano: ano == null ? null : int.parse(ano),
         telefone: telefone, parentesco: parentesco, autorizo: i == 0 ? corpo['autorizo'] == true : p['autorizo'] == true,
       ));
     }
-    int? idade(int? ano, int dia, int mes) {
-      if (ano == null) return null;
+    int? idade(int? ano, int? dia, int? mes) {
+      if (ano == null || dia == null || mes == null) return null;
       final aniversarioEsteAno = DateTime(agora.year, mes, dia);
       return agora.year - ano - (aniversarioEsteAno.isAfter(agora) ? 1 : 0);
     }
@@ -1636,8 +1643,8 @@ class Servidor {
         } else {
           final m = _montarMembro({
             'nome': p.nome,
-            'dia': p.dia,
-            'mes': p.mes,
+            if (p.dia != null) 'dia': p.dia,
+            if (p.mes != null) 'mes': p.mes,
             if (p.ano != null) 'ano': p.ano,
             if (p.telefone.isNotEmpty) 'telefone': p.telefone,
             if (fone.length == 11) 'whatsapp': p.telefone,
@@ -1831,7 +1838,8 @@ class Servidor {
   static String? _validarMembro(Membro m) {
     if (m.nome.trim().isEmpty) return 'Informe o nome.';
     if (m.nome.length > 100) return 'Nome muito longo.';
-    if (!Membro.dataValida(m.dia, m.mes)) return 'Data de aniversário inválida.';
+    if ((m.dia == null) != (m.mes == null)) return 'Data de aniversário inválida.';
+    if (m.dia != null && !Membro.dataValida(m.dia!, m.mes!)) return 'Data de aniversário inválida.';
     if (m.ano != null && (m.ano! < 1900 || m.ano! > DateTime.now().year)) return 'Ano de nascimento inválido.';
     if (m.cpf != null && !Membro.cpfValido(m.cpf!)) return 'CPF inválido: confira os números.';
     if (m.email != null && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(m.email!)) return 'E-mail inválido.';

@@ -63,12 +63,14 @@ class MudancaStatus {
 
 /// Pessoa cadastrada pela igreja. Os campos [nome], [dia], [mes] e [ativo] (derivado do
 /// status) são o formato antigo, usado pelo aniversariantes do telão, do mural e do app.
+/// O aniversário é opcional: quem se cadastra como visitante pode não informar (fica fora
+/// das listas de aniversariantes até completar o cadastro).
 class Membro {
   Membro({
     required this.id,
     required this.nome,
-    required this.dia,
-    required this.mes,
+    this.dia,
+    this.mes,
     this.ano,
     this.sexo,
     this.estadoCivil,
@@ -114,9 +116,9 @@ class Membro {
   final String id;
   String nome;
 
-  /// Dia e mês do aniversário. O ano ([ano]) é opcional.
-  int dia;
-  int mes;
+  /// Dia e mês do aniversário (null quando não informado). O ano ([ano]) é opcional.
+  int? dia;
+  int? mes;
   int? ano;
 
   /// 'M' ou 'F' (null quando não informado).
@@ -191,14 +193,15 @@ class Membro {
   /// Entra nos aniversariantes do telão (derivado do status).
   bool get ativo => status.ativo;
 
-  /// "dd/mm" (formato antigo, sem o ano).
-  String get aniversario => '${dia.toString().padLeft(2, '0')}/${mes.toString().padLeft(2, '0')}';
+  /// "dd/mm" (formato antigo, sem o ano); vazio quando o aniversário não foi informado.
+  String get aniversario =>
+      dia == null || mes == null ? '' : '${dia!.toString().padLeft(2, '0')}/${mes!.toString().padLeft(2, '0')}';
 
-  /// Idade que a pessoa tem hoje (null quando o ano não é guardado).
+  /// Idade que a pessoa tem hoje (null quando o ano não é guardado ou não há aniversário).
   int? idadeEm(DateTime agora) {
-    if (ano == null) return null;
+    if (ano == null || dia == null || mes == null) return null;
     var idade = agora.year - ano!;
-    final aniversarioEsteAno = DateTime(agora.year, mes, dia);
+    final aniversarioEsteAno = DateTime(agora.year, mes!, dia!);
     return aniversarioEsteAno.isAfter(agora) ? idade - 1 : idade;
   }
 
@@ -240,8 +243,8 @@ class Membro {
   Map<String, dynamic> toJson() => {
         'id': id,
         'nome': nome,
-        'dia': dia,
-        'mes': mes,
+        if (dia != null) 'dia': dia,
+        if (mes != null) 'mes': mes,
         'ativo': ativo,
         if (ano != null) 'ano': ano,
         if (sexo != null && sexo!.isNotEmpty) 'sexo': sexo,
@@ -291,8 +294,8 @@ class Membro {
     return Membro(
       id: j['id'] as String,
       nome: j['nome'] as String? ?? '',
-      dia: (j['dia'] as num?)?.toInt() ?? 1,
-      mes: (j['mes'] as num?)?.toInt() ?? 1,
+      dia: (j['dia'] as num?)?.toInt(),
+      mes: (j['mes'] as num?)?.toInt(),
       ano: (j['ano'] as num?)?.toInt(),
       sexo: _sexo(j['sexo']),
       estadoCivil: _texto(j['estadoCivil']),

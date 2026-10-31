@@ -227,7 +227,7 @@ async function carregarInicio() {
 
   // Aniversariantes (hoje e nos próximos 6 dias)
   const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
-  const aniversarios = membros.filter((m) => m.ativo).map((m) => {
+  const aniversarios = membros.filter((m) => m.ativo && m.dia && m.mes).map((m) => {
     let data = new Date(agora.getFullYear(), m.mes - 1, m.dia);
     if (data < inicioHoje) data = new Date(agora.getFullYear() + 1, m.mes - 1, m.dia);
     return { nome: m.nome, data, dias: Math.round((data - inicioHoje) / 86400000) };
@@ -845,13 +845,13 @@ const normalizado = (s) => semAcento(s).toLowerCase().replace(/\s+/g, ' ').trim(
 const soDigitos = (s) => (s || '').replace(/\D/g, '');
 const inicialMembro = (m) => m.nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 const doisDigitos = (n) => String(n).padStart(2, '0');
-const aniversarioDe = (m) => doisDigitos(m.dia) + '/' + doisDigitos(m.mes) + (m.ano ? '/' + m.ano : '');
+const aniversarioDe = (m) => (m.dia && m.mes) ? doisDigitos(m.dia) + '/' + doisDigitos(m.mes) + (m.ano ? '/' + m.ano : '') : '';
 const dataBr = (iso) => (iso ? new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR') : null);
 const hojeIso = () => new Date().toLocaleDateString('sv-SE'); // aaaa-mm-dd no fuso local
 const ehNova = (m) => m.criadoEm && Date.parse(m.criadoEm) >= Date.now() - NOVENTA_DIAS;
 
 function idadeDe(m) {
-  if (!m.ano) return null;
+  if (!m.ano || !m.dia || !m.mes) return null;
   const hoje = new Date();
   let i = hoje.getFullYear() - m.ano;
   if (hoje.getMonth() + 1 < m.mes || (hoje.getMonth() + 1 === m.mes && hoje.getDate() < m.dia)) i--;
@@ -1033,7 +1033,7 @@ function membrosFiltrados() {
     .filter((m) => {
       if (f.status === 'ativos' ? !m.ativo : f.status && m.status !== f.status) return false;
       if (f.ministerio && !(m.ministerios || []).includes(f.ministerio)) return false;
-      if (f.aniversariantes && (!m.ativo || m.mes !== mes)) return false;
+      if (f.aniversariantes && (!m.ativo || !m.dia || m.mes !== mes)) return false;
       if (f.semConsentimento && m.consentimentoEm) return false;
       if (f.novas && !ehNova(m)) return false;
       if (busca) {
@@ -1051,7 +1051,7 @@ function renderComposicao() {
   const total = membros.length;
   const atual = $('filtro-status-membro').value;
   const contagem = Object.keys(STATUS_MEMBRO).map((s) => [s, membros.filter((m) => statusValido(m.status) === s).length]);
-  const aniversariantes = membros.filter((m) => m.ativo && m.mes === mes).length;
+  const aniversariantes = membros.filter((m) => m.ativo && m.dia && m.mes === mes).length;
   const novas = membros.filter(ehNova).length;
   const alternarStatus = (s) => {
     $('filtro-status-membro').value = atual === s ? '' : s;
@@ -1200,7 +1200,7 @@ function abrirFicha(id) {
         el('h2', { style: 'font-size:24px;margin:0 0 4px' }, m.nome),
         pilulaStatus(m),
         idade != null ? el('span', { class: 'dica', style: 'margin-left:8px' }, idade + ' anos') : null)),
-    par('Aniversário', aniversarioDe(m)),
+    par('Aniversário', aniversarioDe(m) || null),
     par('Sexo', m.sexo === 'M' ? 'Masculino' : m.sexo === 'F' ? 'Feminino' : null),
     par('Estado civil', m.estadoCivil),
     par('Telefone', m.telefone ? [mascaraTelefone(m.telefone) + '  ', ...linksTelefone(m.telefone, { ligar: true, whatsapp: !m.whatsapp })] : null),
@@ -1327,7 +1327,7 @@ async function imprimirTermo(m) {
   const idade = idadeDe(m);
   const dados = [
     'Nome: ' + m.nome,
-    'Data de nascimento: ' + aniversarioDe(m),
+    'Data de nascimento: ' + (aniversarioDe(m) || 'não informada'),
     m.cpf ? 'CPF: ' + mascaraCpf(m.cpf) : null,
   ].filter(Boolean);
   $('impressao-membros').replaceChildren(
@@ -1571,8 +1571,10 @@ function editarMembro(m) {
 
   abrirDialogo($('dlg-membro'), $('erro-membro'), async () => {
     const atual = membroEmEdicao;
-    const aniversario = lerAniversario($('b-aniversario').value);
-    if (!aniversario) {
+    // Aniversário opcional (visitante pode não ter informado); se preenchido, precisa ser válido.
+    const textoAniversario = $('b-aniversario').value.trim();
+    const aniversario = textoAniversario ? lerAniversario(textoAniversario) : null;
+    if (textoAniversario && !aniversario) {
       mostrarSecao('pessoal');
       throw new Error('Aniversário: use dd/mm ou dd/mm/aaaa com uma data que exista.');
     }
@@ -1590,9 +1592,9 @@ function editarMembro(m) {
     const texto = (id) => $(id).value.trim() || null;
     const dados = {
       nome: $('b-nome').value.trim(),
-      dia: aniversario.dia,
-      mes: aniversario.mes,
-      ano: aniversario.ano,
+      dia: aniversario ? aniversario.dia : null,
+      mes: aniversario ? aniversario.mes : null,
+      ano: aniversario ? aniversario.ano : null,
       sexo: $('b-sexo').value || null,
       estadoCivil: $('b-estado-civil').value || null,
       cpf: soDigitos($('b-cpf').value) || null,

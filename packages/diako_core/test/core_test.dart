@@ -146,6 +146,15 @@ void main() {
       expect(recadoAniversariantes([_membro('Ana', 1, 1)], DateTime(2026, 6, 10)), isNull);
     });
 
+    test('quem não informou o aniversário (visitante) não entra na lista', () {
+      final semData = Membro(id: 'sem', nome: 'Sem aniversário', dia: null, mes: null, consentimentoEm: '2026-01-10');
+      final lista = aniversariantesDaSemana([semData, _membro('Ana', 1, 1)], DateTime(2026, 12, 30));
+      expect(lista.map((a) => a.membro.nome), ['Ana']);
+      expect(semData.aniversario, '');
+      expect(semData.idadeEm(DateTime(2026, 12, 30)), isNull);
+      expect(Membro.fromJson(semData.toJson()).dia, isNull);
+    });
+
     test('só divulga quem autorizou o uso dos dados (LGPD)', () {
       final revogada = Membro.fromJson({
         'id': 'Rui', 'nome': 'Rui', 'dia': 28, 'mes': 10, 'status': 'membro',

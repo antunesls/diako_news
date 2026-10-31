@@ -110,7 +110,7 @@
         el('button', { type: 'button', class: 'fv-link fv-tirar', 'aria-label': 'Tirar esta pessoa', onclick: () => bloco.remove() }, 'Tirar'),
         el('div', { class: 'fv-grade' },
           el('div', { class: 'campo' }, el('label', { for: id + '-nome' }, 'Nome'), el('input', { type: 'text', id: id + '-nome', maxlength: '100', 'data-campo': 'nome', autocomplete: 'off' })),
-          el('div', { class: 'campo' }, el('label', { for: id + '-aniv' }, 'Aniversário ', el('span', { class: 'dica' }, '(dia/mês)')),
+          el('div', { class: 'campo' }, el('label', { for: id + '-aniv' }, 'Aniversário ', el('span', { class: 'dica' }, '(dia/mês, opcional)')),
             comMascara(el('input', { type: 'text', id: id + '-aniv', inputmode: 'numeric', maxlength: '10', placeholder: '05/03', 'data-campo': 'aniversario', autocomplete: 'off' }), mascaraData)),
           el('div', { class: 'campo' }, el('label', { for: id + '-par' }, 'Parentesco'), parentesco)),
         linhaAutorizo);
@@ -153,7 +153,7 @@
     const form = el('form', { class: 'cartao', novalidate: true },
       el('div', { class: 'campo' }, el('label', { for: 'fv-nome' }, 'Nome'), nome),
       el('div', { class: 'fv-grade' },
-        el('div', { class: 'campo' }, el('label', { for: 'fv-aniversario' }, 'Aniversário ', el('span', { class: 'dica' }, '(dia/mês)')), aniversario),
+        el('div', { class: 'campo' }, el('label', { for: 'fv-aniversario' }, 'Aniversário ', el('span', { class: 'dica' }, '(dia/mês, opcional)')), aniversario),
         el('div', { class: 'campo' }, el('label', { for: 'fv-telefone' }, 'Telefone / WhatsApp ', el('span', { class: 'dica' }, '(opcional)')), telefone)),
       el('div', { class: 'campo' }, el('label', { for: 'fv-como' }, 'Como conheceu a igreja? ', el('span', { class: 'dica' }, '(opcional)')), comoConheceu, listaComo),
 
@@ -192,13 +192,16 @@
       mostrarErro('');
       const dataOk = (v) => /^\d{2}\/\d{2}(\/\d{4})?$/.test(v);
       if (!nome.value.trim()) return mostrarErro('Escreva o nome.', nome);
-      if (!dataOk(aniversario.value)) return mostrarErro('Aniversário: use dia/mês, por exemplo 05/03.', aniversario);
-      const pessoas = [{ nome: nome.value, aniversario: aniversario.value, telefone: telefone.value }];
+      // O aniversário é opcional: só confere o formato quando a pessoa preenche.
+      const aniv = aniversario.value.trim();
+      if (aniv && !dataOk(aniv)) return mostrarErro('Aniversário: use dia/mês, por exemplo 05/03.', aniversario);
+      const pessoas = [{ nome: nome.value, ...(aniv ? { aniversario: aniv } : {}), telefone: telefone.value }];
       for (const b of acompanhantes.querySelectorAll('[data-acompanhante]')) {
         const n = b.querySelector('[data-campo=nome]'), a = b.querySelector('[data-campo=aniversario]');
         if (!n.value.trim()) return mostrarErro('Escreva o nome de quem veio junto (ou toque em "Tirar").', n);
-        if (!dataOk(a.value)) return mostrarErro(`Aniversário de ${n.value.trim()}: use dia/mês, por exemplo 05/03.`, a);
-        pessoas.push({ nome: n.value, aniversario: a.value, parentesco: b.querySelector('select').value,
+        const anivAcompanhante = a.value.trim();
+        if (anivAcompanhante && !dataOk(anivAcompanhante)) return mostrarErro(`Aniversário de ${n.value.trim()}: use dia/mês, por exemplo 05/03.`, a);
+        pessoas.push({ nome: n.value, ...(anivAcompanhante ? { aniversario: anivAcompanhante } : {}), parentesco: b.querySelector('select').value,
           autorizo: b.querySelector('input[type=checkbox]').checked });
       }
       if (!mencionarSim.checked && !mencionarNao.checked) return mostrarErro('Responda se o pastor pode citar a visita no culto.', mencionarSim);
