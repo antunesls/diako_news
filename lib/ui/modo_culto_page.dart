@@ -119,7 +119,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
       });
 
   Future<void> _palco(String frase) =>
-      _acao(() => _scope.client.mensagemPalco(frase), sucesso: 'Enviado ao palco: "$frase"');
+      _acao(() => _scope.status.mensagemPalco(frase, tema: _scope.settings.tema, papelDeParede: _scope.settings.papelDeParedePalco), sucesso: 'Enviado ao palco: "$frase"');
 
   @override
   Widget build(BuildContext context) {

@@ -42,6 +42,9 @@ class ServidorFalso {
   /// O que o GetCurrentPresentation responde (null = nada no ar).
   Map<String, dynamic>? noAr;
 
+  /// Simula o Holyrics confirmar que o slide em branco entrou no ar.
+  bool confirmarSlide = false;
+
   /// Palavra pronta de hoje (null = o pastor não preparou texto).
   Palavra? palavra;
 
@@ -141,6 +144,9 @@ class ServidorFalso {
               holyrics.add(caminho.substring('/api/holyrics/'.length));
               corpos.add(req.body.isEmpty ? {} : Map<String, dynamic>.from(jsonDecode(req.body) as Map));
               if (recusar.contains(holyrics.last)) return {'status': 'error', 'error': 'file not found'};
+              if (confirmarSlide && holyrics.last == 'ShowQuickPresentation') {
+                noAr = {'type': 'quick_presentation', 'name': ''};
+              }
               return {'status': 'ok', 'data': holyrics.last == 'GetCurrentPresentation' ? noAr : null};
             }(),
           _ => null,

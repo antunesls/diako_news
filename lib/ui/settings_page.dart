@@ -28,6 +28,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late int _segundos;
   late bool _repetir;
   late bool _negrito;
+  late bool _papelDeParedePalco;
   late int _motivosPorSlide;
   bool _iniciado = false;
   bool _entrando = false;
@@ -45,6 +46,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _segundos = s.segundosPorSlide;
     _repetir = s.repetirSequencia;
     _negrito = s.negritoTitulo;
+    _papelDeParedePalco = s.papelDeParedePalco;
     _motivosPorSlide = s.motivosPorSlide;
   }
 
@@ -61,6 +63,7 @@ class _SettingsPageState extends State<SettingsPage> {
         segundosPorSlide: _segundos,
         repetirSequencia: _repetir,
         negritoTitulo: _negrito,
+        papelDeParedePalco: _papelDeParedePalco,
         motivosPorSlide: _motivosPorSlide,
         pin: _pin.text,
       );
@@ -502,6 +505,14 @@ class _SettingsPageState extends State<SettingsPage> {
               subtitle: const Text('Desligue se aparecer "<b>" no telão.'),
               value: _negrito,
               onChanged: (v) => setState(() => _negrito = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Manter o papel de parede no telão ao avisar o palco'),
+              subtitle: const Text('Se não houver nada no ar, mostra o papel de parede do Holyrics (F8). '
+                  'Sem imagem configurada, aparece a logo do Holyrics.'),
+              value: _papelDeParedePalco,
+              onChanged: (v) => setState(() => _papelDeParedePalco = v),
             ),
             const Divider(height: 48),
             Text('Mensagens do palco', style: Theme.of(context).textTheme.titleLarge),

@@ -18,6 +18,7 @@ const acoesPermitidas = {
   'CloseCurrentPresentation',
   'SetF9',
   'SetF10',
+  'SetF8',
   'SetTextCP',
   'StartCountdownCP',
   'StopCountdownCP',

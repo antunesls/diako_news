@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:diako_core/diako_core.dart';
+import 'package:diako_news/app_scope.dart';
 import 'package:diako_news/ui/home_page.dart';
 import 'package:diako_news/ui/modo_culto_page.dart';
+import 'package:diako_news/ui/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -110,11 +112,87 @@ void main() {
     await tocar(tester, find.text('Começar o culto agora'));
     await tocar(tester, find.text(TipoMomento.palavra.titulo).first);
     await tocar(tester, find.text('Faltam 5 minutos'));
-    expect(servidor.corpos.last, containsPair('text', 'Faltam 5 minutos'));
+    expect(servidor.corpos.lastWhere((c) => c.containsKey('show')), containsPair('text', 'Faltam 5 minutos'));
 
     await tocar(tester, find.text(TipoMomento.oracaoFinal.titulo).first);
     final palco = servidor.corpos.lastWhere((c) => c.containsKey('show'));
     expect(palco['show'], false, reason: 'sem leitura do texto, o aviso também tem que sair');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('mensagem ao palco sem nada no ar: slide em branco antes', (tester) async {
+    // Com nada projetado o Holyrics esconde as telas, inclusive a do palco.
+    final servidor = await abrir(tester, const HomePage());
+    var antes = servidor.holyrics.length;
+    await tocar(tester, find.text('O culto começa em 5 min'));
+    expect(servidor.holyrics.sublist(antes),
+        containsAllInOrder(['GetCurrentPresentation', 'ShowQuickPresentation', 'SetTextCP']));
+    expect(servidor.holyrics.sublist(antes), isNot(contains('SetF9')), reason: 'F9 logo após abrir o slide falha no Holyrics');
+    final i = antes + servidor.holyrics.sublist(antes).indexOf('ShowQuickPresentation');
+    expect(servidor.corpos[i]['text'], ' ');
+    expect(servidor.corpos.lastWhere((c) => c.containsKey('show'))['text'], 'O culto começa em 5 min');
+
+    // Com algo no ar, só a mensagem: o telão não muda.
+    servidor.noAr = {'type': 'quick_presentation', 'name': ''};
+    antes = servidor.holyrics.length;
+    await tocar(tester, find.text('O culto começa em 2 min'));
+    final enviados = servidor.holyrics.sublist(antes);
+    expect(enviados, contains('SetTextCP'));
+    expect(enviados, isNot(contains('ShowQuickPresentation')));
+    expect(enviados, isNot(contains('SetF9')));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('papel de parede do palco é opcional e só liga F8 quando não há projeção', (tester) async {
+    final servidor = await abrir(tester, const HomePage(), antes: (s) => s.confirmarSlide = true);
+    final scope = AppScope.of(tester.element(find.byType(HomePage)));
+    expect(scope.settings.papelDeParedePalco, isFalse);
+    await tocar(tester, find.text('O culto começa em 5 min'));
+    expect(servidor.holyrics, isNot(contains('SetF8')));
+
+    await tocar(tester, find.byTooltip('Configurações'));
+    expect(find.byType(SettingsPage), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Manter o papel de parede no telão ao avisar o palco'), 250,
+        scrollable: find.descendant(of: find.byType(SettingsPage), matching: find.byType(Scrollable)).first);
+    final opcao = find.widgetWithText(SwitchListTile, 'Manter o papel de parede no telão ao avisar o palco');
+    expect(opcao, findsOneWidget);
+    await tester.ensureVisible(opcao);
+    await tester.tap(opcao);
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(SettingsPage))).pop();
+    await tester.pumpAndSettle();
+    expect(scope.settings.papelDeParedePalco, isTrue);
+
+    servidor.noAr = null;
+    final antes = servidor.holyrics.length;
+    await tester.ensureVisible(find.text('O culto começa em 2 min'));
+    await tester.pump();
+    await tocar(tester, find.text('O culto começa em 2 min'));
+    final enviados = servidor.holyrics.sublist(antes);
+    expect(enviados, containsAllInOrder(['ShowQuickPresentation', 'GetCurrentPresentation', 'SetF8', 'SetTextCP']));
+    expect(servidor.corpos[antes + enviados.indexOf('SetF8')], {'enable': true});
+
+    final depois = servidor.holyrics.length;
+    await tester.ensureVisible(find.text('O culto começa em 5 min'));
+    await tester.pump();
+    await tocar(tester, find.text('O culto começa em 5 min'));
+    expect(servidor.holyrics.sublist(depois), isNot(contains('SetF8')));
+    expect(servidor.holyrics.sublist(depois), isNot(contains('ShowQuickPresentation')));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('se F8 for recusado, a mensagem ao palco ainda é enviada', (tester) async {
+    final servidor = await abrir(tester, const HomePage(), antes: (s) {
+      s.confirmarSlide = true;
+      s.recusar.add('SetF8');
+    });
+    final scope = AppScope.of(tester.element(find.byType(HomePage)));
+    await tester.runAsync(() => scope.settings.atualizar(papelDeParedePalco: true));
+    await tocar(tester, find.text('O culto começa em 5 min'));
+    expect(servidor.holyrics, containsAllInOrder(['ShowQuickPresentation', 'SetF8', 'SetTextCP']));
+    expect(servidor.corpos.lastWhere((c) => c.containsKey('show'))['text'], 'O culto começa em 5 min');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

@@ -43,7 +43,7 @@ class PalcoPanel extends StatelessWidget {
                 const SizedBox(height: 8),
                 FrasesPalco(
                   frases: frases,
-                  onEnviar: (frase) => executar(context, () => scope.client.mensagemPalco(frase),
+                  onEnviar: (frase) => executar(context, () => scope.status.mensagemPalco(frase, tema: scope.settings.tema, papelDeParede: scope.settings.papelDeParedePalco),
                       sucesso: 'Mensagem enviada ao palco: "$frase"'),
                 ),
               ],

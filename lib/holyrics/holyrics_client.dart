@@ -95,6 +95,9 @@ class HolyricsClient {
   }
   Future<void> telaPreta(bool ativar) => call('SetF10', {'enable': ativar});
 
+  /// Papel de parede do Holyrics (F8) por cima do que está no ar; projetar outra coisa o desliga.
+  Future<void> papelDeParede(bool ativar) => call('SetF8', {'enable': ativar});
+
   Future<void> mensagemPalco(String texto, {bool mostrar = true}) =>
       call('SetTextCP', {
         'text': texto,

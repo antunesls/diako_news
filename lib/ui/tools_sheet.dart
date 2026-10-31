@@ -163,7 +163,7 @@ class _FerramentasState extends State<_Ferramentas> {
           const SizedBox(height: 8),
           FrasesPalco(
             frases: scope.settings.frasesPalco,
-            onEnviar: (frase) => executar(context, () => client.mensagemPalco(frase),
+            onEnviar: (frase) => executar(context, () => scope.status.mensagemPalco(frase, tema: scope.settings.tema, papelDeParede: scope.settings.papelDeParedePalco),
                 sucesso: 'Mensagem enviada ao palco: "$frase"'),
           ),
           const SizedBox(height: 12),
@@ -180,7 +180,7 @@ class _FerramentasState extends State<_Ferramentas> {
             children: [
               Expanded(
                 child: FilledButton.tonal(
-                  onPressed: () => executar(context, () => client.mensagemPalco(_mensagem.text.trim()),
+                  onPressed: () => executar(context, () => scope.status.mensagemPalco(_mensagem.text.trim(), tema: scope.settings.tema, papelDeParede: scope.settings.papelDeParedePalco),
                       sucesso: 'Mensagem enviada ao palco'),
                   child: const Text('Enviar'),
                 ),

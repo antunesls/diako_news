@@ -17,6 +17,10 @@ class AppSettings extends ChangeNotifier {
   int get segundosPorSlide => _prefs.getInt('segundosPorSlide') ?? 10;
   bool get repetirSequencia => _prefs.getBool('repetirSequencia') ?? true;
   bool get negritoTitulo => _prefs.getBool('negritoTitulo') ?? true;
+
+  /// Mensagem ao palco com nada no ar: o telão mostra o papel de parede do Holyrics (F8) em vez do
+  /// fundo do tema. Desligado por padrão: sem papel de parede, o F8 mostra a logo do Holyrics.
+  bool get papelDeParedePalco => _prefs.getBool('papelDeParedePalco') ?? false;
   int get motivosPorSlide => _prefs.getInt('motivosPorSlide') ?? 4;
   String get pin => _prefs.getString('pin') ?? '';
 
@@ -74,6 +78,7 @@ class AppSettings extends ChangeNotifier {
     int? segundosPorSlide,
     bool? repetirSequencia,
     bool? negritoTitulo,
+    bool? papelDeParedePalco,
     int? motivosPorSlide,
     String? pin,
   }) async {
@@ -86,6 +91,7 @@ class AppSettings extends ChangeNotifier {
     if (segundosPorSlide != null) await _prefs.setInt('segundosPorSlide', segundosPorSlide);
     if (repetirSequencia != null) await _prefs.setBool('repetirSequencia', repetirSequencia);
     if (negritoTitulo != null) await _prefs.setBool('negritoTitulo', negritoTitulo);
+    if (papelDeParedePalco != null) await _prefs.setBool('papelDeParedePalco', papelDeParedePalco);
     if (motivosPorSlide != null) await _prefs.setInt('motivosPorSlide', motivosPorSlide);
     if (pin != null) await _prefs.setString('pin', pin.trim());
     notifyListeners();

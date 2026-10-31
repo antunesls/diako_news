@@ -317,6 +317,13 @@ void main() {
       expect(jsonDecode(c.body), {'text': 'Oi'});
     });
 
+    test('encaminha SetF8 ao Holyrics', () async {
+      final r = await req('POST', '/api/holyrics/SetF8', json: {'enable': true});
+      expect(await corpo(r), {'status': 'ok'});
+      expect(chamadasHolyrics.single.url.path, '/api/SetF8');
+      expect(jsonDecode(chamadasHolyrics.single.body), {'enable': true});
+    });
+
     test('bloqueia ações fora da lista', () async {
       expect((await req('POST', '/api/holyrics/DeleteSong', json: {})).statusCode, 403);
       expect(chamadasHolyrics, isEmpty);

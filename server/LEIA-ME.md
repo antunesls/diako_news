@@ -38,7 +38,7 @@ O agente também escuta na porta `8097` da rede da igreja para os **tablets pare
 1. Leve o arquivo `DiakoServer.zip` (gerado pelo `empacotar.ps1`) e descompacte.
 2. No Holyrics: **Arquivo > Configurações > API Server**. Ative, crie um token e libere estas ações:
    `GetCPInfo`, `GetCurrentPresentation`, `ShowQuickPresentation`, `ShowImage`, `ActionNext`, `ActionPrevious`,
-   `ActionNextQuickPresentation`, `ActionPreviousQuickPresentation`, `CloseCurrentPresentation`, `SetF9`, `SetF10`,
+   `ActionNextQuickPresentation`, `ActionPreviousQuickPresentation`, `CloseCurrentPresentation`, `SetF8`, `SetF9`, `SetF10`,
    `SetTextCP`, `StartCountdownCP`, `StopCountdownCP`, `ShowCountdown`, `GetThemes`, `GetThumbnail`.
    Anote o token e a porta.
 3. Descubra a **pasta de imagens do Holyrics**: no Holyrics, abra a aba de Imagens e use a opção de abrir a pasta. Copie o caminho.
