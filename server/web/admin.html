@@ -47,6 +47,13 @@
   .previa-tv.claro { color: #15171c; }
   input[type=color] { width: 64px; height: 40px; padding: 2px; border: 1px solid var(--linha); border-radius: 8px; background: var(--superficie); cursor: pointer; }
   input[type=range] { width: 100%; accent-color: var(--primaria); }
+  /* Arte dos QR do telão: a fonte vem do próprio servidor (a igreja pode estar sem internet). */
+  @font-face { font-family: 'Montserrat'; font-weight: 100 900; font-display: block; src: url('/fontes/montserrat.woff2') format('woff2'); }
+  .arte-qr .fundo-tv-grade { grid-template-columns: minmax(260px, 1.2fr) 1fr; }
+  @media (max-width: 760px) { .arte-qr .fundo-tv-grade { grid-template-columns: 1fr; } }
+  .previa-arte-qr { width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 8px; border: 1px solid var(--linha); display: block; background: #fff; }
+  .modos-arte-qr { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-bottom: 12px; }
+  .arte-qr textarea { width: 100%; }
 </style>
 </head>
 <body>
@@ -94,6 +101,7 @@
       <a href="#agenda">Agenda (Google)</a>
       <a href="#email">Avisos por e-mail</a>
       <a href="#projecao">Projeção</a>
+      <a href="#qr-telao">QR codes do telão</a>
       <a href="#backup">Backup e restauração</a>
       <a href="#usuarios">Usuários e perfis</a>
       <a href="#seguranca">Senha e aparelhos</a>
@@ -346,6 +354,14 @@
         </form>
       </section>
 
+      <section class="cartao" id="qr-telao">
+        <h2>QR codes do telão</h2>
+        <p class="dica">A imagem que vai ao telão com cada QR no culto. <b>Padrão</b>: só o QR em fundo branco.
+          <b>Automático</b>: o DiakoHub monta com título, chamada, cores ou foto e o logo. <b>Arte própria</b>: envie uma arte
+          pronta (Canva, 1920×1080) e escolha onde o QR entra. O QR sempre vai num cartão branco, para a câmera ler bem.</p>
+        <div id="lista-artes-qr"></div>
+      </section>
+
       <section class="cartao" id="email">
         <h2>Avisos da caixa de mensagens por e-mail</h2>
         <p class="dica">O aviso não inclui o texto nem os dados de quem escreveu. As mensagens permanecem no painel e no tablet mesmo quando o e-mail falha. Use uma senha de aplicativo do provedor, se necessário.</p>
@@ -480,6 +496,7 @@
 </dialog>
 
 <script src="/comum.js?v=5"></script>
-<script src="/admin.js?v=11"></script>
+<script src="/arte-qr.js?v=1"></script>
+<script src="/admin.js?v=12"></script>
 </body>
 </html>

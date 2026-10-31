@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:diako_server/agenda.dart';
 import 'package:diako_server/agenda_google_api.dart';
 import 'package:diako_server/agente_hub.dart';
+import 'package:diako_server/artes_qr.dart';
 import 'package:diako_server/app.dart';
 import 'package:diako_server/auth.dart';
 import 'package:diako_server/backup.dart';
@@ -13,7 +14,6 @@ import 'package:diako_server/configuracoes.dart';
 import 'package:diako_server/email_mensagens.dart';
 import 'package:diako_server/historico.dart';
 import 'package:diako_server/holyrics.dart';
-import 'package:diako_server/qr_oracao.dart';
 import 'package:diako_server/store.dart';
 import 'package:diako_server/tablets_locais.dart';
 import 'package:diako_server/usuarios.dart';
@@ -49,9 +49,7 @@ Future<void> main(List<String> args) async {
   await auth.carregar();
 
   final base = cfg.urlBase;
-  await gravarQr(config.pastaCartazes, cfg.urlOracao);
-  await gravarQrMensagens(config.pastaCartazes, cfg.urlMensagens);
-  await gravarQrPix(config.pastaCartazes, chave: cfg.sitePixChave, nome: cfg.sitePixNome, cidade: cfg.sitePixCidade);
+  await gravarQrsProjetados(config.pastaCartazes, cfg, ArtesQr(config.pastaDados));
 
   final backup = Backup(
     pastaDados: config.pastaDados,
@@ -115,9 +113,7 @@ Future<void> main(List<String> args) async {
       pastaCartazes: config.pastaCartazes,
       aplicarConfiguracoes: (dados) async {
         await cfg.restaurarPublicas(dados);
-        await gravarQr(config.pastaCartazes, cfg.urlOracao);
-        await gravarQrMensagens(config.pastaCartazes, cfg.urlMensagens);
-        await gravarQrPix(config.pastaCartazes, chave: cfg.sitePixChave, nome: cfg.sitePixNome, cidade: cfg.sitePixCidade);
+        await gravarQrsProjetados(config.pastaCartazes, cfg, ArtesQr(config.pastaDados));
         store.avisar('cartazes');
       },
     ),

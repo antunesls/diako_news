@@ -26,3 +26,4 @@ dependencies:
   web_socket_channel: ^3.0.3
 dev_dependencies:
   test: ^1.33.0
+  zxing2: ^0.2.4

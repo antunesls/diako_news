@@ -261,6 +261,80 @@ void main() {
       expect((await fundo('&tela=boas-vindas'))['imagem'], segunda);
       expect(await baixar(segunda), 200);
     });
+
+    test('arte dos QR: envio, posição, troca, volta ao padrão e backup', () async {
+      final arte = img.Image(width: 1280, height: 720); // outra proporção de 16:9: vira 1920x1080
+      img.fill(arte, color: img.ColorRgb8(20, 40, 90));
+      final bytesArte = img.encodePng(arte);
+      List<int> projetado(String arquivo) => File(p.join(pastaCartazes, arquivo)).readAsBytesSync();
+      final padrao = projetado(arquivoQr);
+      String? fundoAtual() => (cfg.publicas()['arteQrOracaoFundo'] as String?);
+
+      // Validações: QR, modo, imagem e login.
+      expect((await req('POST', '/api/admin/arte-qr?qr=visitante&modo=arte', bytes: bytesArte)).statusCode, 400);
+      expect((await req('POST', '/api/admin/arte-qr?qr=oracao&modo=padrao', bytes: bytesArte)).statusCode, 400);
+      expect((await req('POST', '/api/admin/arte-qr?qr=oracao&modo=arte', bytes: [1, 2, 3])).statusCode, 400);
+      expect((await req('POST', '/api/admin/arte-qr?qr=oracao&modo=arte', bytes: bytesArte, comToken: 'x')).statusCode, 401);
+      expect((await req('PUT', '/api/admin/configuracoes', json: {'arteQrOracaoPosicao': 'topo'})).statusCode, 400);
+      expect((await req('PUT', '/api/admin/configuracoes', json: {'arteQrPixTamanho': 'XG'})).statusCode, 400);
+      expect((await req('PUT', '/api/admin/configuracoes', json: {'arteQrOracaoLayout': '[1,2]'})).statusCode, 400);
+      // O arquivo da arte só muda pelo envio, nunca pelo painel.
+      expect((await req('PUT', '/api/admin/configuracoes', json: {'arteQrOracaoFundo': '../config.json'})).statusCode, 400);
+
+      final r = await corpo(await req('POST', '/api/admin/arte-qr?qr=oracao&modo=automatico', bytes: bytesArte)) as Map;
+      expect(r, {
+        'qr': 'oracao', 'modo': 'automatico', 'posicao': 'direita-meio', 'tamanho': 'M', 'temFundo': true, 'temFoto': false,
+      });
+      final primeira = fundoAtual()!;
+      final comArte = projetado(arquivoQr);
+      expect(comArte, isNot(equals(padrao)), reason: 'o QR projetado ganhou a arte');
+      final png = img.decodePng(Uint8List.fromList(comArte))!;
+      expect([png.width, png.height], [1920, 1080]);
+      expect(png.getPixel(40, 40).b, greaterThan(70), reason: 'o fundo é a arte, não o branco');
+      expect(projetado(arquivoQrMensagens), isNot(equals(comArte)), reason: 'cada QR tem a sua');
+
+      // Prévia (admin) e imagem para o tablet: os dois servem exatamente o arquivo projetado.
+      final previa = await (await req('GET', '/api/admin/arte-qr/previa?qr=oracao')).read().expand((b) => b).toList();
+      expect(previa, comArte);
+      expect(await (await req('GET', '/api/qr-projetado?qr=oracao')).read().expand((b) => b).toList(), comArte);
+      expect((await req('GET', '/api/admin/arte-qr/fundo?qr=oracao')).statusCode, 200);
+      expect((await req('GET', '/api/admin/arte-qr/previa?qr=pix')).statusCode, 404, reason: 'sem chave PIX');
+
+      // Mudar a posição recompõe; trocar a arte apaga a anterior.
+      await req('PUT', '/api/admin/configuracoes', json: {'arteQrOracaoPosicao': 'esquerda-baixo', 'arteQrOracaoTamanho': 'G'});
+      expect(projetado(arquivoQr), isNot(equals(comArte)));
+      await req('POST', '/api/admin/arte-qr?qr=oracao&modo=arte', bytes: bytesArte);
+      final segunda = fundoAtual()!;
+      expect(segunda, isNot(primeira));
+      expect(File(p.join(tmp.path, 'data', 'artes-qr', primeira)).existsSync(), isFalse);
+      expect(cfg.arteQr('oracao').modo, 'arte');
+
+      // Foto do editor automático: guardada à parte, não mexe no telão.
+      final antesDaFoto = projetado(arquivoQr);
+      final f = await corpo(await req('POST', '/api/admin/arte-qr/foto?qr=oracao', bytes: bytesArte)) as Map;
+      expect(f['temFoto'], isTrue);
+      final foto = cfg.fotoArteQr('oracao');
+      expect(foto, matches(RegExp(r'^oracao-foto-[0-9a-f]{20}\.jpg$')));
+      expect(projetado(arquivoQr), antesDaFoto);
+      final jpg = await (await req('GET', '/api/admin/arte-qr/foto?qr=oracao')).read().expand((b) => b).toList();
+      expect(img.decodeJpg(Uint8List.fromList(jpg))!.width, 1920);
+
+      // Backup leva arte e foto; voltar ao padrão apaga as duas; restaurar devolve.
+      await req('POST', '/api/recados', json: {'titulo': 'Culto'});
+      final zip = await (await req('GET', '/api/backups/agora/download')).read().expand((b) => b).toList();
+      expect(ZipDecoder().decodeBytes(zip).findFile('artes-qr/$segunda'), isNotNull);
+      expect(ZipDecoder().decodeBytes(zip).findFile('artes-qr/$foto'), isNotNull);
+      final volta = await corpo(await req('DELETE', '/api/admin/arte-qr?qr=oracao')) as Map;
+      expect(volta['modo'], 'padrao');
+      expect(volta['temFoto'], isFalse);
+      expect(projetado(arquivoQr), padrao, reason: 'o QR branco de antes');
+      expect(File(p.join(tmp.path, 'data', 'artes-qr', segunda)).existsSync(), isFalse);
+      expect(File(p.join(tmp.path, 'data', 'artes-qr', foto)).existsSync(), isFalse);
+      await req('POST', '/api/backups/restaurar?configuracoes=1', bytes: zip);
+      expect(cfg.arteQr('oracao').modo, 'arte');
+      expect(File(p.join(tmp.path, 'data', 'artes-qr', segunda)).existsSync(), isTrue);
+      expect(File(p.join(tmp.path, 'data', 'artes-qr', foto)).existsSync(), isTrue);
+    });
   });
 
   group('senha e sessões', () {

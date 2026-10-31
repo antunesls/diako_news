@@ -26,6 +26,7 @@ import 'historico.dart';
 import 'holyrics.dart';
 import 'email_mensagens.dart';
 import 'fotos_membros.dart';
+import 'artes_qr.dart';
 import 'fundos_tv.dart';
 import 'galeria.dart';
 import 'lgpd.dart';
@@ -112,6 +113,7 @@ class Servidor {
 
   /// Imagens de fundo das TVs do mural e de boas-vindas (data/fundos-tv).
   late final FundosTv fundosTv = FundosTv(store.pasta);
+  late final ArtesQr artesQr = ArtesQr(store.pasta);
 
   /// Fotos do cadastro de membros (data/fotos-membros) — nunca públicas.
   final FotosMembros fotosMembros;
@@ -221,6 +223,8 @@ class Servidor {
       ..post('/api/public/pedidos', _novoPedido)
       ..post('/api/public/mensagens', _novaMensagem)
       ..get('/api/estado', _estado)
+      // O QR como vai ao telão (com a arte), para a prévia do Modo Culto no tablet.
+      ..get('/api/qr-projetado', _previaArteQr)
       ..get('/api/mensagens', _listarMensagens)
       ..put('/api/mensagens/<id>', _atualizarMensagem)
       ..post('/api/mensagens/<id>/avisar', _reenviarAviso)
@@ -333,6 +337,13 @@ class Servidor {
       ..put('/api/admin/configuracoes', _adminSalvar)
       ..post('/api/admin/fundo-tv', _enviarFundoTv)
       ..delete('/api/admin/fundo-tv', _removerFundoTv)
+      ..post('/api/admin/arte-qr', _enviarArteQr)
+      ..delete('/api/admin/arte-qr', _removerArteQr)
+      ..get('/api/admin/arte-qr/fundo', _fundoArteQr)
+      ..get('/api/admin/arte-qr/previa', _previaArteQr)
+      ..post('/api/admin/arte-qr/foto', _enviarFotoArteQr)
+      ..delete('/api/admin/arte-qr/foto', _removerFotoArteQr)
+      ..get('/api/admin/arte-qr/foto', _fotoArteQr)
       ..post('/api/admin/chave', _adminNovaChave)
       ..post('/api/admin/senha', _adminSenha)
       ..post('/api/admin/sessoes/encerrar', _adminEncerrarSessoes)
@@ -3110,6 +3121,128 @@ class Servidor {
     return _json(_fundoTv(tela));
   }
 
+  /// Arquivo projetado de cada QR (o que o Holyrics abre e o agente copia).
+  static const _arquivoDoQr = {'oracao': arquivoQr, 'mensagens': arquivoQrMensagens, 'pix': arquivoQrPix};
+
+  /// POST /api/admin/arte-qr?qr=oracao|mensagens|pix&modo=automatico|arte — corpo: bytes da imagem
+  /// (sem o QR). Troca a arte, apaga a anterior e refaz o QR projetado.
+  Future<Response> _enviarArteQr(Request req) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    final qr = req.url.queryParameters['qr'] ?? '';
+    final modo = req.url.queryParameters['modo'] ?? '';
+    if (!qrsComArte.contains(qr)) return _erro(400, 'Escolha o QR: oracao, mensagens ou pix.');
+    if (modo != 'automatico' && modo != 'arte') return _erro(400, 'Modo inválido: automatico ou arte.');
+    final tamanho = req.contentLength;
+    if (tamanho != null && tamanho > Galeria.tamanhoMaximo) return _erro(413, 'Imagem maior que 15 MB.');
+    final bytes = await _lerBytes(req, Galeria.tamanhoMaximo);
+    if (bytes == null) return _erro(413, 'Imagem maior que 15 MB.');
+    final String nome;
+    try {
+      nome = await artesQr.salvar(qr, bytes);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+    final anterior = c.arteQr(qr).fundo;
+    await c.definirArteQr(qr, modo: modo, fundo: nome);
+    if (anterior.isNotEmpty && anterior != nome) await artesQr.excluir(anterior);
+    await gravarQrsProjetados(cartazes.pasta, c, artesQr);
+    store.avisar('cartazes');
+    return _json(_estadoArteQr(c, qr));
+  }
+
+  /// DELETE /api/admin/arte-qr?qr=… — volta ao QR padrão (fundo branco).
+  Future<Response> _removerArteQr(Request req) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    final qr = req.url.queryParameters['qr'] ?? '';
+    if (!qrsComArte.contains(qr)) return _erro(400, 'Escolha o QR: oracao, mensagens ou pix.');
+    final anterior = c.arteQr(qr).fundo;
+    final foto = c.fotoArteQr(qr);
+    await c.definirArteQr(qr, modo: 'padrao', fundo: '');
+    await c.definirFotoArteQr(qr, '');
+    if (anterior.isNotEmpty) await artesQr.excluir(anterior);
+    if (foto.isNotEmpty) await artesQr.excluir(foto);
+    await gravarQrsProjetados(cartazes.pasta, c, artesQr);
+    store.avisar('cartazes');
+    return _json(_estadoArteQr(c, qr));
+  }
+
+  Map<String, dynamic> _estadoArteQr(Configuracoes c, String qr) {
+    final a = c.arteQr(qr);
+    return {
+      'qr': qr,
+      'modo': a.modo,
+      'posicao': a.posicao,
+      'tamanho': a.tamanho,
+      'temFundo': a.fundo.isNotEmpty,
+      'temFoto': c.fotoArteQr(qr).isNotEmpty,
+    };
+  }
+
+  /// POST /api/admin/arte-qr/foto?qr=… — foto de fundo do editor automático (o navegador desenha a
+  /// arte por cima dela). Não muda o que está no telão até a arte ser salva.
+  Future<Response> _enviarFotoArteQr(Request req) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    final qr = req.url.queryParameters['qr'] ?? '';
+    if (!qrsComArte.contains(qr)) return _erro(400, 'Escolha o QR: oracao, mensagens ou pix.');
+    final bytes = await _lerBytes(req, Galeria.tamanhoMaximo);
+    if (bytes == null) return _erro(413, 'Imagem maior que 15 MB.');
+    final String nome;
+    try {
+      nome = await artesQr.salvar(qr, bytes, foto: true);
+    } on FormatException catch (e) {
+      return _erro(400, e.message);
+    }
+    final anterior = c.fotoArteQr(qr);
+    await c.definirFotoArteQr(qr, nome);
+    if (anterior.isNotEmpty) await artesQr.excluir(anterior);
+    return _json(_estadoArteQr(c, qr));
+  }
+
+  /// DELETE /api/admin/arte-qr/foto?qr=… — o editor automático volta a usar só a cor.
+  Future<Response> _removerFotoArteQr(Request req) async {
+    final c = cfg;
+    if (c == null) return _erro(501, 'Configurações indisponíveis.');
+    final qr = req.url.queryParameters['qr'] ?? '';
+    if (!qrsComArte.contains(qr)) return _erro(400, 'Escolha o QR: oracao, mensagens ou pix.');
+    final anterior = c.fotoArteQr(qr);
+    await c.definirFotoArteQr(qr, '');
+    if (anterior.isNotEmpty) await artesQr.excluir(anterior);
+    return _json(_estadoArteQr(c, qr));
+  }
+
+  /// GET /api/admin/arte-qr/foto?qr=… — a foto de fundo do editor automático.
+  Future<Response> _fotoArteQr(Request req) async {
+    final c = cfg;
+    final qr = req.url.queryParameters['qr'] ?? '';
+    if (c == null || !qrsComArte.contains(qr)) return Response.notFound('Não encontrado');
+    final f = artesQr.arquivo(c.fotoArteQr(qr));
+    if (f == null || !await f.exists()) return Response.notFound('Sem foto.');
+    return Response.ok(f.openRead(), headers: {'content-type': 'image/jpeg', 'cache-control': 'no-store'});
+  }
+
+  /// GET /api/admin/arte-qr/fundo?qr=… — a arte sem o QR, para a prévia do editor.
+  Future<Response> _fundoArteQr(Request req) async {
+    final c = cfg;
+    final qr = req.url.queryParameters['qr'] ?? '';
+    if (c == null || !qrsComArte.contains(qr)) return Response.notFound('Não encontrado');
+    final f = artesQr.arquivo(c.arteQr(qr).fundo);
+    if (f == null || !await f.exists()) return Response.notFound('Sem arte.');
+    return Response.ok(f.openRead(), headers: {'content-type': 'image/png', 'cache-control': 'no-store'});
+  }
+
+  /// GET /api/admin/arte-qr/previa?qr=… — o PNG final, exatamente o que vai ao telão.
+  Future<Response> _previaArteQr(Request req) async {
+    final qr = req.url.queryParameters['qr'] ?? '';
+    final nome = _arquivoDoQr[qr];
+    if (nome == null) return Response.notFound('Não encontrado');
+    final f = File(p.join(cartazes.pasta, nome));
+    if (!await f.exists()) return Response.notFound(qr == 'pix' ? 'Configure a chave PIX.' : 'QR indisponível.');
+    return Response.ok(f.openRead(), headers: {'content-type': 'image/png', 'cache-control': 'no-store'});
+  }
+
   /// GET /fundo-tv/<arquivo> — público (a TV abre sem login); o nome muda a cada envio: cache longo.
   Future<Response> _imagemFundoTv(Request _, String arquivo) async {
     final f = fundosTv.arquivo(arquivo);
@@ -3378,17 +3511,17 @@ class Servidor {
     // Holyrics direto: aplica a nova conexão sem reiniciar.
     final h = holyrics;
     if (h is HolyricsDireto) h.atualizar(host: c.holyricsHost, porta: c.holyricsPorta, token: c.holyricsToken);
-    // PIX das ofertas: refaz (ou apaga) o QR; o agente copia para o PC da igreja.
-    await gravarQrPix(cartazes.pasta, chave: c.sitePixChave, nome: c.sitePixNome, cidade: c.sitePixCidade);
+    // Endereço público ou arte dos QR mudou: refaz os três. Senão só o PIX, que pode ter mudado
+    // (ou sumido). O agente copia para o PC da igreja.
+    if (c.urlOracao != urlAntes || corpo.keys.any((k) => k.startsWith('arteQr'))) {
+      await gravarQrsProjetados(cartazes.pasta, c, artesQr);
+    } else {
+      await gravarQrPix(cartazes.pasta,
+          chave: c.sitePixChave, nome: c.sitePixNome, cidade: c.sitePixCidade, arte: await artesQr.carregar(c, 'pix'));
+    }
     store.avisar('cartazes');
     // Os apps relêem /api/eu (regra do texto dos motivos no telão).
     store.avisar('configuracoes');
-    // Endereço público mudou: refaz o QR (e o agente o copia para o PC da igreja).
-    if (c.urlOracao != urlAntes) {
-      await gravarQr(cartazes.pasta, c.urlOracao);
-      await gravarQrMensagens(cartazes.pasta, c.urlMensagens);
-      store.avisar('cartazes');
-    }
     return _adminConfiguracoes(req);
   }
 

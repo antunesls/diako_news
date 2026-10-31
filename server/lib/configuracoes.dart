@@ -8,6 +8,16 @@ import 'auth.dart';
 import 'config.dart';
 import 'lgpd.dart';
 import 'pagina_inicial.dart';
+import 'qr_oracao.dart';
+
+/// QR codes projetados que aceitam arte própria (nomes usados na URL e nas chaves).
+const qrsComArte = ['oracao', 'mensagens', 'pix'];
+
+/// "padrao" = QR branco; "automatico" = arte montada no /admin; "arte" = imagem enviada pronta.
+const modosArteQr = {'padrao', 'automatico', 'arte'};
+
+/// "oracao" + "Modo" → "arteQrOracaoModo".
+String _chaveArteQr(String qr, String campo) => 'arteQr${qr[0].toUpperCase()}${qr.substring(1)}$campo';
 
 /// Configurações que o administrador altera pelo painel (/admin), gravadas em data/configuracoes.json.
 /// Os valores do config.json valem como padrão até a primeira alteração pelo painel.
@@ -85,6 +95,16 @@ class Configuracoes {
       'boasVindasFundoCor': corFundoPadrao,
       'boasVindasFundoImagem': '',
       'boasVindasFundoEscurecer': 55,
+      // Arte dos QR projetados (oracao, mensagens, pix): modo, fundo (data/artes-qr), posição e
+      // tamanho do QR e os parâmetros do editor automático do /admin.
+      for (final qr in qrsComArte) ...{
+        _chaveArteQr(qr, 'Modo'): 'padrao',
+        _chaveArteQr(qr, 'Fundo'): '',
+        _chaveArteQr(qr, 'Posicao'): 'direita-meio',
+        _chaveArteQr(qr, 'Tamanho'): 'M',
+        _chaveArteQr(qr, 'Layout'): '',
+        _chaveArteQr(qr, 'Foto'): '',
+      },
     };
     if (await arquivo.exists()) {
       var texto = await arquivo.readAsString();
@@ -132,6 +152,34 @@ class Configuracoes {
       imagem: _s('${prefixo}FundoImagem'),
       escurecer: _i('${prefixo}FundoEscurecer', 55).clamp(0, 90),
     );
+  }
+
+  /// Arte de um QR projetado ([qr] em [qrsComArte]). Modo "padrao" = o QR branco de sempre.
+  ({String modo, String fundo, String posicao, String tamanho}) arteQr(String qr) {
+    final modo = _s(_chaveArteQr(qr, 'Modo'));
+    final posicao = _s(_chaveArteQr(qr, 'Posicao'));
+    final tamanho = _s(_chaveArteQr(qr, 'Tamanho'));
+    return (
+      modo: modosArteQr.contains(modo) ? modo : 'padrao',
+      fundo: _s(_chaveArteQr(qr, 'Fundo')),
+      posicao: posicoesQr.contains(posicao) ? posicao : 'direita-meio',
+      tamanho: tamanhosQr.contains(tamanho) ? tamanho : 'M',
+    );
+  }
+
+  /// Troca modo e arquivo de fundo de um QR. Só o envio e a remoção pelo /admin chamam.
+  Future<void> definirArteQr(String qr, {required String modo, required String fundo}) async {
+    _valores[_chaveArteQr(qr, 'Modo')] = modo;
+    _valores[_chaveArteQr(qr, 'Fundo')] = fundo;
+    await _salvar();
+  }
+
+  /// Foto de fundo do editor automático de um QR ('' = sem foto).
+  String fotoArteQr(String qr) => _s(_chaveArteQr(qr, 'Foto'));
+
+  Future<void> definirFotoArteQr(String qr, String nome) async {
+    _valores[_chaveArteQr(qr, 'Foto')] = nome;
+    await _salvar();
   }
 
   /// Troca a imagem de fundo de uma TV ('' = sem imagem). Só o envio pelo /admin chama.
@@ -334,6 +382,25 @@ class Configuracoes {
           novos[k] = v;
         case 'muralFundoEscurecer' || 'boasVindasFundoEscurecer':
           novos[k] = inteiro(k, 0, 90);
+        case _ when RegExp(r'^arteQr(Oracao|Mensagens|Pix)Posicao$').hasMatch(k):
+          final v = texto(k, 20);
+          if (!posicoesQr.contains(v)) throw FormatException('Posição inválida em "$k".');
+          novos[k] = v;
+        case _ when RegExp(r'^arteQr(Oracao|Mensagens|Pix)Tamanho$').hasMatch(k):
+          final v = texto(k, 1);
+          if (!tamanhosQr.contains(v)) throw FormatException('Tamanho inválido em "$k" (P, M ou G).');
+          novos[k] = v;
+        case _ when RegExp(r'^arteQr(Oracao|Mensagens|Pix)Layout$').hasMatch(k):
+          // Só o editor do /admin lê: guarda como veio, desde que seja um objeto JSON pequeno.
+          final v = texto(k, 4000);
+          if (v.isNotEmpty) {
+            try {
+              if (jsonDecode(v) is! Map) throw const FormatException('');
+            } on FormatException {
+              throw FormatException('"$k" inválido.');
+            }
+          }
+          novos[k] = v;
         case 'visitanteQrAtivo' || 'muralBoasVindas' || 'textoMotivos':
           if (mudancas[k] is! bool) throw FormatException('"$k" deve ser verdadeiro ou falso.');
           novos[k] = mudancas[k];
@@ -359,6 +426,8 @@ class Configuracoes {
       'siteInstagram', 'siteYoutube', 'siteWhatsapp', 'termoLgpdTexto', 'termoLgpdVersao', 'visitanteQrAtivo', 'muralBoasVindas',
       'textoMotivos', 'muralFundoCor', 'muralFundoImagem', 'muralFundoEscurecer',
       'boasVindasFundoCor', 'boasVindasFundoImagem', 'boasVindasFundoEscurecer',
+      for (final qr in qrsComArte)
+        for (final campo in ['Modo', 'Fundo', 'Posicao', 'Tamanho', 'Layout', 'Foto']) _chaveArteQr(qr, campo),
     };
     for (final e in dados.entries) {
       if (permitidos.contains(e.key)) _valores[e.key] = e.value;

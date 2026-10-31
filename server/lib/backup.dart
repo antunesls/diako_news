@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'cartazes.dart';
 import 'fotos_membros.dart';
 import 'lgpd.dart';
+import 'artes_qr.dart';
 import 'fundos_tv.dart';
 import 'galeria.dart';
 import 'qr_oracao.dart';
@@ -19,7 +20,7 @@ import 'store.dart';
 /// Formato dos arquivos de backup (manifest.json).
 const versaoBackup = 2;
 
-/// Backups em .zip: dados, histórico, cartazes, fotos da galeria do site, fundos das TVs e configurações públicas
+/// Backups em .zip: dados, histórico, cartazes, fotos da galeria do site, fundos das TVs, artes dos QR e configurações públicas
 /// (sem senha nem chaves).
 /// Diário no horário configurado, sob demanda pelo painel e antes de cada restauração.
 class Backup {
@@ -141,6 +142,13 @@ class Backup {
       await for (final e in dirFundos.list()) {
         final nome = p.basename(e.path);
         if (e is File && FundosTv.nomeValido(nome)) arquivo.add(ArchiveFile.bytes('fundos-tv/$nome', await e.readAsBytes()));
+      }
+    }
+    final dirArtes = Directory(ArtesQr(pastaDados).pasta);
+    if (await dirArtes.exists()) {
+      await for (final e in dirArtes.list()) {
+        final nome = p.basename(e.path);
+        if (e is File && ArtesQr.nomeValido(nome)) arquivo.add(ArchiveFile.bytes('artes-qr/$nome', await e.readAsBytes()));
       }
     }
     final dirFotosMembros = Directory(FotosMembros(pastaDados).pasta);
@@ -434,6 +442,14 @@ class Restauracao {
       final nome = f.name.substring('fundos-tv/'.length);
       if (FundosTv.nomeValido(nome)) fundos[nome] = f.content;
     }
+    final artes = <String, List<int>>{};
+    var temPastaArtes = false;
+    for (final f in arquivo.files) {
+      if (!f.isFile || !f.name.startsWith('artes-qr/')) continue;
+      temPastaArtes = true;
+      final nome = f.name.substring('artes-qr/'.length);
+      if (ArtesQr.nomeValido(nome)) artes[nome] = f.content;
+    }
     final fotosDosMembros = <String, List<int>>{};
     var temPastaFotosMembros = false;
     for (final f in arquivo.files) {
@@ -510,6 +526,17 @@ class Restauracao {
         if (e is File && FundosTv.nomeValido(p.basename(e.path))) await e.delete();
       }
       for (final f in fundos.entries) {
+        await File(p.join(dir.path, f.key)).writeAsBytes(f.value, flush: true);
+      }
+    }
+    // Artes dos QR projetados (idem; o QR é refeito depois, junto com as configurações).
+    if (temPastaArtes) {
+      final dir = Directory(ArtesQr(pastaDados).pasta);
+      await dir.create(recursive: true);
+      await for (final e in dir.list()) {
+        if (e is File && ArtesQr.nomeValido(p.basename(e.path))) await e.delete();
+      }
+      for (final f in artes.entries) {
         await File(p.join(dir.path, f.key)).writeAsBytes(f.value, flush: true);
       }
     }

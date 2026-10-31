@@ -104,7 +104,7 @@ Permissao permissaoDaRota(String metodo, String caminho) {
   bool comeca(String prefixo) => caminho == prefixo || caminho.startsWith('$prefixo/');
 
   if (caminho == 'ws' || caminho == 'api/logout' || comeca('api/eu')) return Permissao.sessao;
-  if (caminho == 'api/estado' || caminho == 'api/historico') return Permissao.painel;
+  if (caminho == 'api/estado' || caminho == 'api/historico' || comeca('api/qr-projetado')) return Permissao.painel;
   if (comeca('api/motivos')) return leitura ? Permissao.motivosVer : Permissao.motivosEditar;
   if (comeca('api/mensagens')) return Permissao.mensagens;
   if (comeca('api/recados')) return Permissao.recados;

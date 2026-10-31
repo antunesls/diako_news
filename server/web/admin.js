@@ -102,6 +102,7 @@ function preencher() {
   $('muralBoasVindas').checked = cfg.muralBoasVindas === true;
   $('textoMotivos').checked = cfg.textoMotivos !== false;
   preencherFundos();
+  preencherArtesQr();
   $('link-visitante-admin').textContent = base + '/visitante';
 
   // Holyrics
