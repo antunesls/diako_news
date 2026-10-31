@@ -58,7 +58,7 @@ class ControlBar extends StatelessWidget {
               ativo: status.telaVazia,
               onPressed: conectado
                   ? () => cmd(() async {
-                        await client.telaVazia(!status.telaVazia);
+                        await client.telaVazia(!status.telaVazia, tema: scope.settings.tema);
                         status.telaVazia = !status.telaVazia;
                       })
                   : null,

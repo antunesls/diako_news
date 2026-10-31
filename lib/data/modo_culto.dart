@@ -291,12 +291,11 @@ class ModoCultoController extends ChangeNotifier {
     if (saindoDaPalavra) {
       _versiculo = null;
       _destaque = null;
-      // A TV do palco volta a ficar livre (frases e contagem); falha aqui não segura o culto.
-      if (_trecho != null) {
-        try {
-          await scope.client.mensagemPalco('', mostrar: false);
-        } on ErroAmigavel catch (_) {}
-      }
+      // A TV do palco volta a ficar livre: tira o trecho da leitura e também avisos como
+      // "Faltam 5 minutos", que não valem mais depois da pregação. Falha aqui não segura o culto.
+      try {
+        await scope.client.mensagemPalco('', mostrar: false);
+      } on ErroAmigavel catch (_) {}
     }
     _iniciado = true;
     _posicao = p;
@@ -349,23 +348,49 @@ class ModoCultoController extends ChangeNotifier {
   Future<void> _executar(Passo passo) async {
     final client = scope.client;
     final status = scope.status;
-    final tema = scope.settings.tema;
     // Tela vazia/preta escondem tudo: desliga antes de projetar outra coisa.
+    var tirouVazia = false, tirouPreta = false;
     Future<void> limpar({bool vazia = true, bool preta = true}) async {
       if (vazia && status.telaVazia) {
         await client.telaVazia(false);
         status.telaVazia = false;
+        tirouVazia = true;
       }
       if (preta && status.telaPreta) {
         await client.telaPreta(false);
         status.telaPreta = false;
+        tirouPreta = true;
       }
     }
 
+    try {
+      await _projetar(passo, limpar);
+    } catch (_) {
+      // A projeção falhou depois de tirar a tela vazia/preta: sem isso o telão volta a mostrar o
+      // slide de antes (ex.: os motivos de oração) enquanto o tablet continua no passo anterior.
+      try {
+        if (tirouVazia) {
+          await client.telaVazia(true, tema: scope.settings.tema);
+          status.telaVazia = true;
+        }
+        if (tirouPreta) {
+          await client.telaPreta(true);
+          status.telaPreta = true;
+        }
+      } catch (_) {}
+      rethrow;
+    }
+    await status.atualizar();
+  }
+
+  Future<void> _projetar(Passo passo, Future<void> Function({bool vazia, bool preta}) limpar) async {
+    final client = scope.client;
+    final status = scope.status;
+    final tema = scope.settings.tema;
     switch (passo.acao) {
       case AcaoPasso.telaVazia:
         await limpar(vazia: false);
-        await client.telaVazia(true);
+        await client.telaVazia(true, tema: tema);
         status.telaVazia = true;
       case AcaoPasso.telaPreta:
         await limpar(preta: false);
@@ -384,7 +409,7 @@ class ModoCultoController extends ChangeNotifier {
         await limpar();
         await scope.visitas.projetarBoasVindas(ids: passo.ids);
       case AcaoPasso.qrOracao || AcaoPasso.qrMensagens || AcaoPasso.qrPix:
-        await limpar();
+        // Pergunta o arquivo antes de mexer no telão: sem QR no servidor, a tela fica como está.
         final estado = await scope.api.estado();
         final chave = switch (passo.acao) {
           AcaoPasso.qrOracao => 'qrHolyrics',
@@ -393,9 +418,9 @@ class ModoCultoController extends ChangeNotifier {
         };
         final arquivo = estado[chave];
         if (arquivo is! String) throw ServidorException('O QR não está disponível no servidor.');
+        await limpar();
         await client.mostrarImagem(arquivo);
     }
-    await status.atualizar();
   }
 
   Future<void> _salvar() => scope.settings.salvarModoCulto(jsonEncode({

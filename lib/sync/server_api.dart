@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:diako_core/diako_core.dart';
 import 'package:http/http.dart' as http;
@@ -211,6 +212,29 @@ class ServerApi {
           status: resp.statusCode);
     }
     return corpo;
+  }
+
+  final _qrs = <String, ({DateTime quando, Future<Uint8List?> png})>{};
+
+  /// O QR como vai ao telão, com a arte do /admin ([qr]: oracao, mensagens ou pix), para a prévia
+  /// do Modo Culto. Guarda por 1 minuto; sem servidor ou sem o QR, null (a prévia mostra o ícone).
+  Future<Uint8List?> qrProjetado(String qr) {
+    final agora = DateTime.now();
+    final guardado = _qrs[qr];
+    if (guardado != null && agora.difference(guardado.quando) < const Duration(minutes: 1)) return guardado.png;
+    final png = () async {
+      final c = _config();
+      if (c.base.isEmpty || c.sessao.isEmpty) return null;
+      try {
+        final r = await _http.get(Uri.parse('${c.base}/api/qr-projetado?qr=$qr'),
+            headers: {'Authorization': 'Bearer ${c.sessao}'}).timeout(timeout);
+        return r.statusCode == 200 && r.bodyBytes.isNotEmpty ? r.bodyBytes : null;
+      } catch (_) {
+        return null;
+      }
+    }();
+    _qrs[qr] = (quando: agora, png: png);
+    return png;
   }
 }
 

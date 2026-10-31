@@ -36,6 +36,14 @@ void main() {
     });
   }
 
+  test('Avançar não repete o nome do momento quando o slide tem o mesmo nome', () {
+    expect(rotuloDoProximo('Dízimos e ofertas', 'Dízimos e ofertas', mudaDeMomento: true), 'Dízimos e ofertas');
+    expect(rotuloDoProximo('Encerramento', 'QR dos pedidos de oração', mudaDeMomento: true),
+        'Encerramento · QR dos pedidos de oração');
+    expect(rotuloDoProximo('Encerramento', 'QR da caixa de mensagens', mudaDeMomento: false), 'QR da caixa de mensagens');
+    expect(rotuloDoProximo('Palavra', '', mudaDeMomento: true), 'Palavra');
+  });
+
   test('culto em andamento só no mesmo dia e depois de começar', () {
     final hoje = DateTime(2026, 11, 2, 19, 30);
     String salvo(String dia, bool iniciado) => jsonEncode({'dia': dia, 'iniciado': iniciado});

@@ -87,7 +87,12 @@ class HolyricsClient {
 
   Future<void> encerrar() => call('CloseCurrentPresentation');
 
-  Future<void> telaVazia(bool ativar) => call('SetF9', {'enable': ativar});
+  /// Tela vazia (F9). O F9 do Holyrics só esconde texto: com uma imagem no ar (QR, cartaz) ela
+  /// continuaria no telão. Nesse caso entra antes um slide em branco, no [tema] dos recados.
+  Future<void> telaVazia(bool ativar, {String? tema}) async {
+    if (ativar && (await apresentacaoAtual())?.tipo == 'image') await projetarTexto(' ', tema: tema);
+    await call('SetF9', {'enable': ativar});
+  }
   Future<void> telaPreta(bool ativar) => call('SetF10', {'enable': ativar});
 
   Future<void> mensagemPalco(String texto, {bool mostrar = true}) =>

@@ -105,7 +105,10 @@ Future<void> main() async {
 }
 
 class DiakoNewsApp extends StatelessWidget {
-  const DiakoNewsApp({super.key});
+  const DiakoNewsApp({super.key, this.home = const HomePage()});
+
+  /// Tela inicial (os testes abrem direto outras telas).
+  final Widget home;
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +125,13 @@ class DiakoNewsApp extends StatelessWidget {
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: const HomePage(),
+      // Android 15+ desenha o app por baixo da barra de navegação (edge-to-edge obrigatório no 16):
+      // desconta a barra aqui, uma vez, para todas as telas, diálogos e folhas de baixo.
+      builder: (context, child) => ColoredBox(
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(top: false, child: child!),
+      ),
+      home: home,
     );
   }
 }

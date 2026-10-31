@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:diako_core/diako_core.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +40,11 @@ IconData iconeDoMomento(TipoMomento t) => switch (t) {
 String _dd(int n) => n.toString().padLeft(2, '0');
 String _hm(DateTime d) => '${_dd(d.hour)}:${_dd(d.minute)}';
 String _mmss(Duration d) => '${_dd(d.inMinutes)}:${_dd(d.inSeconds % 60)}';
+
+/// O que entra no próximo Avançar. Ao mudar de momento vai o título dele, e o passo só quando
+/// diz algo a mais (o slide de "Dízimos e ofertas" também se chama "Dízimos e ofertas").
+String rotuloDoProximo(String momento, String passo, {required bool mudaDeMomento}) =>
+    !mudaDeMomento ? passo : passo.isEmpty || passo == momento ? momento : '$momento · $passo';
 
 class _ModoCultoPageState extends State<ModoCultoPage> {
   ModoCultoController? _controller;
@@ -106,7 +112,7 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
           await client.telaPreta(!status.telaPreta);
           status.telaPreta = !status.telaPreta;
         } else {
-          await client.telaVazia(!status.telaVazia);
+          await client.telaVazia(!status.telaVazia, tema: _scope.settings.tema);
           status.telaVazia = !status.telaVazia;
         }
         await status.atualizar();
@@ -970,11 +976,8 @@ class _ModoCultoPageState extends State<ModoCultoPage> {
     final atual = _c.posicao!;
     final prox = _c.proxima;
     final horaDoCulto = _c.momentoDe(atual).tipo == TipoMomento.contagem && _c.horaDoCulto;
-    final rotuloProx = prox == null
-        ? 'Fim do roteiro'
-        : prox.chave != atual.chave
-            ? '${_c.momentoDe(prox).titulo} · ${_c.passoDe(prox).rotulo}'
-            : _c.passoDe(prox).rotulo;
+    final rotuloProx = prox == null ? 'Fim do roteiro' : rotuloDoProximo(_c.momentoDe(prox).titulo, _c.passoDe(prox).rotulo,
+        mudaDeMomento: prox.chave != atual.chave);
     final rotulo = Theme.of(context).textTheme.labelLarge?.copyWith(color: esquema.outline);
 
     return Material(
@@ -1101,6 +1104,34 @@ class SlideDoPasso extends StatelessWidget {
       AcaoPasso.telaPreta => Text('Tela preta', style: branco.copyWith(color: Colors.white24)),
       AcaoPasso.qrOracao || AcaoPasso.qrMensagens || AcaoPasso.qrPix => icone(Icons.qr_code_2, passo.rotulo),
     };
+
+    // QR: a imagem real do telão (com a arte do /admin), quando o servidor a entrega.
+    final qr = switch (passo.acao) {
+      AcaoPasso.qrOracao => 'oracao',
+      AcaoPasso.qrMensagens => 'mensagens',
+      AcaoPasso.qrPix => 'pix',
+      _ => null,
+    };
+    final api = qr == null ? null : AppScope.maybeOf(context)?.api;
+    if (api != null) {
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: FutureBuilder<Uint8List?>(
+          future: api.qrProjetado(qr!),
+          builder: (context, s) => s.data == null
+              ? _moldura(passo, conteudo)
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.memory(s.data!, fit: BoxFit.cover, gaplessPlayback: true, semanticLabel: passo.rotulo,
+                      errorBuilder: (_, __, ___) => _moldura(passo, conteudo)),
+                ),
+        ),
+      );
+    }
+    return _moldura(passo, conteudo);
+  }
+
+  Widget _moldura(Passo passo, Widget conteudo) {
 
     return AspectRatio(
       aspectRatio: 16 / 9,

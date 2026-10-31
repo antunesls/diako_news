@@ -18,7 +18,7 @@ import 'package:diako_news/holyrics/status_controller.dart';
 import 'package:diako_news/sync/server_api.dart';
 import 'package:diako_news/sync/tempo_real.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:diako_news/main.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,6 +35,12 @@ class ServidorFalso {
   /// Ações recebidas pelo Holyrics, na ordem (ex: "ShowQuickPresentation"), com o corpo de cada uma.
   final holyrics = <String>[];
   final corpos = <Map<String, dynamic>>[];
+
+  /// Ações que o Holyrics recusa, como faz quando a imagem não está na pasta dele.
+  final recusar = <String>{};
+
+  /// O que o GetCurrentPresentation responde (null = nada no ar).
+  Map<String, dynamic>? noAr;
 
   /// Palavra pronta de hoje (null = o pastor não preparou texto).
   Palavra? palavra;
@@ -113,8 +119,14 @@ class ServidorFalso {
     local: 'Sítio Boa Esperança',
   );
 
+  /// PNG que GET /api/qr-projetado devolve (null = 404, como sem o QR no servidor).
+  List<int>? qrPng;
+
   http.Client get cliente => MockClient((req) async {
         final caminho = req.url.path;
+        if (caminho == '/api/qr-projetado') {
+          return qrPng == null ? http.Response('', 404) : http.Response.bytes(qrPng!, 200, headers: {'content-type': 'image/png'});
+        }
         final Object? resposta = switch (caminho) {
           '/api/recados' => [for (final r in recados) r.toJson()],
           '/api/motivos' => [for (final m in motivos) m.toJson()],
@@ -128,7 +140,8 @@ class ServidorFalso {
           _ when caminho.startsWith('/api/holyrics/') => () {
               holyrics.add(caminho.substring('/api/holyrics/'.length));
               corpos.add(req.body.isEmpty ? {} : Map<String, dynamic>.from(jsonDecode(req.body) as Map));
-              return {'status': 'ok', 'data': null};
+              if (recusar.contains(holyrics.last)) return {'status': 'error', 'error': 'file not found'};
+              return {'status': 'ok', 'data': holyrics.last == 'GetCurrentPresentation' ? noAr : null};
             }(),
           _ => null,
         };
@@ -170,19 +183,7 @@ Future<AppScope> montarApp(ServidorFalso servidor, Directory pasta, Widget home)
     agenteLocal: AgenteLocal(() => (base: '', token: '')),
     status: status,
     tempoReal: TempoReal(api, aoMudar: (_) {}, aoReconectar: () {}),
-    child: MaterialApp(
-      debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark,
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: const Color(0xFF5C6BC0),
-        visualDensity: VisualDensity.comfortable,
-      ),
-      locale: const Locale('pt', 'BR'),
-      supportedLocales: const [Locale('pt', 'BR')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: home,
-    ),
+    // O mesmo MaterialApp do app (tema e o desconto da barra de navegação).
+    child: DiakoNewsApp(home: home),
   );
 }

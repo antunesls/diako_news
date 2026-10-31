@@ -97,6 +97,93 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('aviso ao palco durante a Palavra sai da TV do palco junto com a pregação', (tester) async {
+    final servidor = await abrir(tester, const ModoCultoPage());
+    await tocar(tester, find.text('Começar o culto agora'));
+    await tocar(tester, find.text(TipoMomento.palavra.titulo).first);
+    await tocar(tester, find.text('Faltam 5 minutos'));
+    expect(servidor.corpos.last, containsPair('text', 'Faltam 5 minutos'));
+
+    await tocar(tester, find.text(TipoMomento.oracaoFinal.titulo).first);
+    final palco = servidor.corpos.lastWhere((c) => c.containsKey('show'));
+    expect(palco['show'], false, reason: 'sem leitura do texto, o aviso também tem que sair');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('QR recusado pelo Holyrics: o telão volta para a tela vazia', (tester) async {
+    final servidor = await abrir(tester, const ModoCultoPage());
+    await tocar(tester, find.text('Começar o culto agora'));
+    await tocar(tester, find.text(TipoMomento.oracaoFinal.titulo).first);
+    expect(servidor.holyrics.last, 'GetCurrentPresentation');
+    expect(servidor.corpos.lastWhere((c) => c.containsKey('enable'))['enable'], true, reason: 'oração final = tela vazia');
+
+    servidor.recusar.add('ShowImage');
+    final antes = servidor.holyrics.length;
+    await tocar(tester, find.text(TipoMomento.encerramento.titulo).first);
+    final enviados = servidor.holyrics.sublist(antes);
+    expect(enviados, containsAllInOrder(['SetF9', 'ShowImage', 'SetF9']));
+    expect(servidor.corpos.lastWhere((c) => c.containsKey('enable'))['enable'], true,
+        reason: 'religou a tela vazia: o slide antigo não pode voltar ao telão');
+    expect(find.textContaining('file not found'), findsOneWidget);
+    expect(find.text('Tela vazia'), findsWidgets, reason: 'o tablet continua na oração final');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('tela vazia depois de um QR: um slide em branco tira a imagem do telão', (tester) async {
+    final servidor = await abrir(tester, const ModoCultoPage());
+    await tocar(tester, find.text('Começar o culto agora'));
+    await tocar(tester, find.text(TipoMomento.encerramento.titulo).first);
+    expect(servidor.holyrics, contains('ShowImage'));
+
+    // O F9 do Holyrics não esconde imagens: voltar para a oração final deixaria o QR no telão.
+    servidor.noAr = {'type': 'image', 'name': 'Diako/qr-oracao.png'};
+    final antes = servidor.holyrics.length;
+    await tocar(tester, find.text(TipoMomento.oracaoFinal.titulo).first);
+    final enviados = servidor.holyrics.sublist(antes);
+    expect(enviados, containsAllInOrder(['GetCurrentPresentation', 'ShowQuickPresentation', 'SetF9']));
+    expect(servidor.corpos[antes + enviados.indexOf('ShowQuickPresentation')]['text'], ' ');
+    expect(servidor.corpos.lastWhere((c) => c.containsKey('enable'))['enable'], true);
+
+    // Com texto no ar o F9 basta: nada de slide extra.
+    servidor.noAr = {'type': 'quick_presentation', 'name': ''};
+    await tocar(tester, find.text(TipoMomento.encerramento.titulo).first);
+    final depois = servidor.holyrics.length;
+    await tocar(tester, find.text(TipoMomento.oracaoFinal.titulo).first);
+    expect(servidor.holyrics.sublist(depois), isNot(contains('ShowQuickPresentation')));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('prévia dos QR mostra a imagem do telão; sem ela, o ícone', (tester) async {
+    // PNG de 16x9 qualquer: o que importa é a prévia trocar o ícone pela imagem do servidor.
+    const png = [
+      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196,
+      137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 15, 4, 0, 9, 251, 3, 253, 227, 85, 242, 156, 0, 0, 0, 0, 73,
+      69, 78, 68, 174, 66, 96, 130,
+    ];
+    final imagemDoQr = find.byWidgetPredicate((w) => w is Image && w.image is MemoryImage);
+    Future<void> irAoEncerramento() async {
+      await tocar(tester, find.text('Começar o culto agora'));
+      await tocar(tester, find.text(TipoMomento.encerramento.titulo).first);
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+    }
+
+    await abrir(tester, const ModoCultoPage(), antes: (s) => s.qrPng = png);
+    await irAoEncerramento();
+    expect(imagemDoQr, findsWidgets, reason: 'a imagem real no lugar do ícone');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+
+    // Sem a imagem (servidor antigo, offline só com o agente): o ícone de sempre.
+    await abrir(tester, const ModoCultoPage());
+    await irAoEncerramento();
+    expect(imagemDoQr, findsNothing);
+    expect(find.text('QR dos pedidos de oração'), findsWidgets, reason: 'o ícone com o nome do passo');
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('Palavra com texto: trechos na TV do palco e versículos no telão', (tester) async {
     final palavra = Palavra(
       id: 'p1',

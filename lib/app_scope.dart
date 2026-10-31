@@ -61,6 +61,9 @@ class AppScope extends InheritedWidget {
 
   static AppScope of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppScope>()!;
 
+  /// Sem AppScope acima (ex.: prévias soltas nos testes), null.
+  static AppScope? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppScope>();
+
   /// Busca tudo de novo no servidor (após login ou reconexão), só o que o perfil pode ver.
   Future<void> sincronizarTudo() async {
     await conta.sincronizar();
