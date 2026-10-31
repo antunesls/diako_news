@@ -12,6 +12,7 @@ import 'apoio/app_falso.dart';
 /// de verdade sobre um servidor falso: nada pode estourar nem cortar.
 void main() {
   late Directory pasta;
+  ServidorFalso? atual; // o da tela aberta por último (tocar() espera as chamadas dele)
   setUp(() async => pasta = await Directory.systemTemp.createTemp('diako_telas'));
   tearDown(() => pasta.delete(recursive: true));
 
@@ -24,15 +25,22 @@ void main() {
     final app = await tester.runAsync(() => montarApp(servidor, pasta, home));
     await tester.pumpWidget(app!);
     await tester.pump();
+    atual = servidor;
     return servidor;
   }
 
-  /// Toque que chama o servidor/Holyrics: deixa o IO de verdade (cache em arquivo) terminar.
+  /// Toque que chama o servidor/Holyrics: deixa o IO de verdade (cache em arquivo) terminar. Espera
+  /// as chamadas ao Holyrics pararem (3 rodadas seguidas sem nenhuma nova), não um tempo fixo: no CI
+  /// a sequência (tirar a tela vazia, projetar, religar) demora mais que aqui.
   Future<void> tocar(WidgetTester tester, Finder alvo) async {
     await tester.tap(alvo);
-    for (var i = 0; i < 3; i++) {
+    var quietas = 0, antes = -1;
+    for (var i = 0; i < 60 && quietas < 3; i++) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
+      final agora = atual?.holyrics.length ?? 0;
+      quietas = agora == antes ? quietas + 1 : 0;
+      antes = agora;
     }
   }
 
